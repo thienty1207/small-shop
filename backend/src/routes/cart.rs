@@ -4,7 +4,7 @@ use axum::{
     Router,
 };
 
-use crate::{handlers::cart, middleware::auth::jwt_auth, state::AppState};
+use crate::{handlers::client::cart, middleware::auth::jwt_auth, state::AppState};
 
 pub fn routes(state: AppState) -> Router<AppState> {
     Router::new()

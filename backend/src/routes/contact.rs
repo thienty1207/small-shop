@@ -1,6 +1,6 @@
 use axum::{routing::post, Router};
 
-use crate::{handlers::contact, state::AppState};
+use crate::{handlers::client::contact, state::AppState};
 
 /// Mount all contact-related routes.
 ///

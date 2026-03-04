@@ -164,11 +164,17 @@ backend/src/
       logging.rs      → Request/response logging
 
 frontend/src/
-  pages/              → Route-level pages (Index, Products, Cart, Checkout, Login, Register, Account, OrderDetail...)
-  components/ui/      → shadcn/ui primitives (DO NOT edit manually)
-  components/shop/    → Shop-specific components (ProductCard, PriceDisplay, QuantityStepper...)
-  components/layout/  → Header, Footer
-  contexts/           → React contexts (CartContext)
+  pages/
+    client/           → Storefront pages (Index, Products, ProductDetail, Cart, Checkout,
+                        Login, AuthCallback, Account, OrderDetail, OrderSuccess,
+                        About, Contact, Policy, NotFound)
+    admin/            → Admin panel pages (Dashboard, Products, Orders, Customers)
+  components/
+    ui/               → shadcn/ui primitives (DO NOT edit manually)
+    shop/             → Storefront components (ProductCard, PriceDisplay, QuantityStepper...)
+    layout/           → Header, Footer (storefront)
+    admin/            → Admin-only components (AdminLayout with sidebar + topbar)
+  contexts/           → React contexts (AuthContext, CartContext)
   data/               → Static/mock data (products.ts)
   hooks/              → Custom hooks (use-mobile, use-toast)
   lib/                → Utilities (utils.ts)
@@ -218,6 +224,20 @@ pub async fn list_products() {}  // ← forbidden
 | `repositories/` | SQL queries with SQLx | Business logic, HTTP types |
 | `models/` | Structs, Derive macros, serde | Functions, complex impl logic |
 | `middleware/` | Tower Layer/middleware | Business logic |
+
+### Client / Admin split rule — IMPORTANT
+
+Only `routes/` and `handlers/` are split into `client/` and `admin/` sub-modules.
+**Never split `services/`, `repositories/`, or `models/`.**
+
+| Layer | Split client/admin? | Reason |
+|---|---|---|
+| `routes/` | ✅ Yes | Different URL prefixes, different middleware stacks |
+| `handlers/` | ✅ Yes | Different HTTP request/response contracts |
+| `services/` | ❌ No | Pure business logic — shared by both client and admin |
+| `repositories/` | ❌ No | Pure SQL — shared by both client and admin |
+| `models/` | ❌ No | Data structs — shared by both client and admin |
+| `middleware/` | ❌ No | Tower layers — auth/admin_guard are standalone |
 
 ## Hard Boundaries — Violation = revert immediately
 

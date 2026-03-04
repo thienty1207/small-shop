@@ -1,7 +1,7 @@
 use axum::{middleware, routing::get, Router};
 
 use crate::{
-    handlers::user::{get_me, google_callback, google_login, put_me},
+    handlers::client::user::{get_me, google_callback, google_login, put_me},
     middleware::auth::jwt_auth,
     state::AppState,
 };
