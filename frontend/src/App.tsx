@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AdminAuthProvider, useAdminAuth } from "@/contexts/AdminAuthContext";
 
 // ── Client pages ──────────────────────────────────────────────────────────────
 import Index from "./pages/client/Index";
@@ -23,6 +24,7 @@ import Policy from "./pages/client/Policy";
 import NotFound from "./pages/client/NotFound";
 
 // ── Admin pages ───────────────────────────────────────────────────────────────
+import AdminLogin from "./pages/admin/Login";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminProducts from "./pages/admin/Products";
 import AdminOrders from "./pages/admin/Orders";
@@ -52,26 +54,20 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-/** Redirects non-admin users — requires authentication AND role === "admin". */
+/** Redirects non-admin users — requires a valid admin JWT stored in AdminAuthContext. */
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading, user } = useAuth();
-  const location = useLocation();
+  const { isAdminAuthenticated, isAdminLoading } = useAdminAuth();
 
-  if (isLoading) {
+  if (isAdminLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-950">
-        <p className="text-sm text-gray-400">Đang tải...</p>
+        <p className="text-sm text-gray-500">Đang tải...</p>
       </div>
     );
   }
 
-  if (!isAuthenticated) {
-    sessionStorage.setItem("returnTo", location.pathname);
-    return <Navigate to="/login" replace />;
-  }
-
-  if (user?.role !== "admin") {
-    return <Navigate to="/" replace />;
+  if (!isAdminAuthenticated) {
+    return <Navigate to="/admin/login" replace />;
   }
 
   return <>{children}</>;
@@ -81,38 +77,43 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <CartProvider>
-            <Toaster />
-            <Sonner />
-            <Routes>
-              {/* Public routes */}
-              <Route path="/" element={<Index />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/product/:slug" element={<ProductDetail />} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/policy" element={<Policy />} />
+        <AdminAuthProvider>
+          <BrowserRouter>
+            <CartProvider>
+              <Toaster />
+              <Sonner />
+              <Routes>
+                {/* Public routes */}
+                <Route path="/" element={<Index />} />
+                <Route path="/products" element={<Products />} />
+                <Route path="/product/:slug" element={<ProductDetail />} />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/policy" element={<Policy />} />
 
-              {/* Protected routes — require login */}
-              <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-              <Route path="/order/success" element={<ProtectedRoute><OrderSuccess /></ProtectedRoute>} />
-              <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
-              <Route path="/account/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
+                {/* Protected routes — require login */}
+                <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+                <Route path="/order/success" element={<ProtectedRoute><OrderSuccess /></ProtectedRoute>} />
+                <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+                <Route path="/account/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
 
-              {/* Admin routes — require role === "admin" */}
-              <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-              <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
-              <Route path="/admin/orders" element={<AdminRoute><AdminOrders /></AdminRoute>} />
-              <Route path="/admin/customers" element={<AdminRoute><AdminCustomers /></AdminRoute>} />
+                {/* Admin public */}
+                <Route path="/admin/login" element={<AdminLogin />} />
 
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </CartProvider>
-        </BrowserRouter>
+                {/* Admin protected — require admin JWT */}
+                <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
+                <Route path="/admin/orders" element={<AdminRoute><AdminOrders /></AdminRoute>} />
+                <Route path="/admin/customers" element={<AdminRoute><AdminCustomers /></AdminRoute>} />
+
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </CartProvider>
+          </BrowserRouter>
+        </AdminAuthProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

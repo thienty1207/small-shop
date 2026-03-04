@@ -6,7 +6,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-use backend::{config::Config, routes, services::email_service, state::AppState};
+use backend::{config::Config, routes, services::{admin_auth_service, email_service}, state::AppState};
 
 #[tokio::main]
 async fn main() {
@@ -34,6 +34,19 @@ async fn main() {
         .expect("Failed to connect to database");
 
     info!("Connected to database");
+
+    // Run SQL migrations automatically on every startup
+    sqlx::migrate!("../sql")
+        .run(&db)
+        .await
+        .expect("Failed to run database migrations");
+
+    info!("Database migrations applied");
+
+    // Seed bootstrap admin account (idempotent — skips if already exists)
+    admin_auth_service::seed_admin_user(&db, &config)
+        .await
+        .expect("Failed to seed admin user");
 
     // Build the SMTP mailer once — reused across all requests (avoids per-request TLS handshake)
     let mailer = match email_service::build_mailer(&config) {

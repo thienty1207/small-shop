@@ -1,25 +1,30 @@
-use axum::{middleware, routing::get, Router};
+use axum::{middleware, routing::{get, post}, Router};
 
 use crate::{
-    handlers::admin::{customer, dashboard, order, product},
-    middleware::{admin_guard::admin_guard, auth::jwt_auth},
+    handlers::admin::{auth, customer, dashboard, order, product},
+    middleware::admin_guard::admin_guard,
     state::AppState,
 };
 
 /// All admin-only routes.
 ///
-/// Every route here is protected by two layers:
-///   1. `jwt_auth`    — validates the Bearer JWT token
-///   2. `admin_guard` — confirms the user has role = "admin"
-///
-/// Prefix: /api/admin
+/// Structure:
+///   - Public  → POST /api/admin/auth/login (no auth required)
+///   - Protected → everything else, behind `admin_guard` which verifies JWT
+///                 and confirms role == "admin" in one self-contained step.
 pub fn routes(state: AppState) -> Router<AppState> {
-    Router::new()
+    // ── Public endpoints (no authentication) ─────────────────────────────────
+    let public = Router::new()
+        .route("/api/admin/auth/login", post(auth::login));
+
+    // ── Protected endpoints (admin_guard applied as route layer) ─────────────
+    let protected = Router::new()
+        .route("/api/admin/me",        get(auth::get_me))
         .route("/api/admin/dashboard", get(dashboard::get_stats))
         .route("/api/admin/products",  get(product::list_products))
         .route("/api/admin/orders",    get(order::list_orders))
         .route("/api/admin/customers", get(customer::list_customers))
-        // jwt_auth runs first, then admin_guard
-        .route_layer(middleware::from_fn(admin_guard))
-        .route_layer(middleware::from_fn_with_state(state, jwt_auth))
+        .route_layer(middleware::from_fn_with_state(state, admin_guard));
+
+    Router::new().merge(public).merge(protected)
 }

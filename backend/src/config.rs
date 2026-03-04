@@ -30,6 +30,10 @@ pub struct Config {
 
     // Cloudflare Turnstile (server-side secret key)
     pub cloudflare_secret_key: String,
+
+    // Admin panel credentials (seeded into admin_users table on first startup)
+    pub admin_username: String,
+    pub admin_password: String,
 }
 
 impl Config {
@@ -69,6 +73,9 @@ impl Config {
             reply_logo_url: env_var("REPLY_LOGO_URL").unwrap_or_default(),
 
             cloudflare_secret_key: env_var("CLOUDFLARE_SECRET_KEY")?,
+
+            admin_username: env_var("ADMIN_USERNAME").unwrap_or_else(|_| "hothienty".into()),
+            admin_password: env_var("ADMIN_PASSWORD").unwrap_or_else(|_| "tohkaty01".into()),
         })
     }
 }

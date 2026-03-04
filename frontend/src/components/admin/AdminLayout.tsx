@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import {
   LayoutDashboard,
   Package,
@@ -33,14 +33,14 @@ interface AdminLayoutProps {
 }
 
 export default function AdminLayout({ children, title }: AdminLayoutProps) {
-  const { user, logout } = useAuth();
+  const { adminUser, adminLogout } = useAdminAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = () => {
-    logout();
-    navigate("/login");
+    adminLogout();
+    navigate("/admin/login");
   };
 
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
@@ -99,20 +99,12 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           Về cửa hàng
         </Link>
         <div className="flex items-center gap-3 px-3 py-2.5">
-          {user?.avatar_url ? (
-            <img
-              src={user.avatar_url}
-              alt={user.name}
-              className="w-7 h-7 rounded-full object-cover"
-            />
-          ) : (
-            <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-xs text-gray-300">
-              {user?.name?.[0]?.toUpperCase()}
-            </div>
-          )}
+          <div className="w-7 h-7 rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-xs font-bold text-rose-400">
+            {adminUser?.username?.[0]?.toUpperCase() ?? "A"}
+          </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-white truncate">{user?.name}</p>
-            <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+            <p className="text-xs font-medium text-white truncate">{adminUser?.username ?? "Admin"}</p>
+            <p className="text-xs text-gray-500 truncate">Quản trị viên</p>
           </div>
           <button
             onClick={handleLogout}
