@@ -1,6 +1,5 @@
 -- 005_products.sql
 -- Create products table and seed with real data
-\encoding UTF8
 
 CREATE TABLE IF NOT EXISTS products (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
