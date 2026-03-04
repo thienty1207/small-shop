@@ -1,35 +1,50 @@
-import { Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Trash2 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import EmptyState from "@/components/shop/EmptyState";
 import QuantityStepper from "@/components/shop/QuantityStepper";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { formatPrice } from "@/data/products";
 
 const Cart = () => {
   const { items, updateQuantity, removeItem, totalAmount } = useCart();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const shippingFee = totalAmount > 500000 ? 0 : 30000;
+
+  const handleCheckout = () => {
+    if (!isAuthenticated) {
+      // Save return destination and redirect to login
+      sessionStorage.setItem("returnTo", "/checkout");
+      navigate("/login", { state: { returnTo: "/checkout" } });
+      return;
+    }
+    navigate("/checkout");
+  };
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-surface-pink">
+      <div className="min-h-screen bg-surface-pink flex flex-col">
         <Header />
-        <EmptyState
-          title="Giỏ hàng trống"
-          description="Bạn chưa thêm sản phẩm nào vào giỏ hàng."
-          actionLabel="Tiếp tục mua sắm"
-          actionHref="/products"
-        />
+        <div className="flex-1 flex items-center justify-center pt-16">
+          <EmptyState
+            title="Giỏ hàng trống"
+            description="Bạn chưa thêm sản phẩm nào vào giỏ hàng."
+            actionLabel="Tiếp tục mua sắm"
+            actionHref="/products"
+          />
+        </div>
         <Footer />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-surface-pink">
+    <div className="min-h-screen bg-surface-pink flex flex-col">
       <Header />
-      <div className="container mx-auto px-4 md:px-8 py-8">
+      <div className="flex-1 container mx-auto px-4 md:px-8 pt-20 pb-8">
         <h1 className="font-display text-2xl font-bold text-foreground mb-6">Giỏ Hàng</h1>
         <div className="grid md:grid-cols-3 gap-8">
           <div className="md:col-span-2 space-y-4">
@@ -65,9 +80,10 @@ const Cart = () => {
             </div>
             <Link
               to="/checkout"
+              onClick={(e) => { e.preventDefault(); handleCheckout(); }}
               className="block mt-4 w-full py-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium text-center hover:opacity-90 transition-opacity"
             >
-              Thanh toán
+              {isAuthenticated ? "Thanh toán" : "Đăng nhập để thanh toán"}
             </Link>
             <Link to="/products" className="block mt-2 text-center text-sm text-muted-foreground hover:text-foreground">
               Tiếp tục mua sắm

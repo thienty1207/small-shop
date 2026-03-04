@@ -7,24 +7,37 @@ import ProductCard from "@/components/shop/ProductCard";
 import PriceDisplay from "@/components/shop/PriceDisplay";
 import QuantityStepper from "@/components/shop/QuantityStepper";
 import SectionTitle from "@/components/shop/SectionTitle";
-import { products } from "@/data/products";
+import { useProduct, useProducts } from "@/hooks/useProducts";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 
 const ProductDetail = () => {
   const { slug } = useParams();
-  const product = products.find((p) => p.slug === slug);
+  const { product, isLoading, error } = useProduct(slug ?? "");
+  const { products: allProducts } = useProducts();
   const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState("description");
   const [selectedImage, setSelectedImage] = useState(0);
 
-  if (!product) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-surface-pink">
+      <div className="min-h-screen bg-surface-pink flex flex-col">
         <Header />
-        <div className="container mx-auto px-4 py-16 text-center">
+        <div className="flex-1 container mx-auto px-4 py-16 text-center">
+          <p className="text-muted-foreground">Đang tải sản phẩm...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div className="min-h-screen bg-surface-pink flex flex-col">
+        <Header />
+        <div className="flex-1 container mx-auto px-4 py-16 text-center">
           <p className="text-muted-foreground">Không tìm thấy sản phẩm.</p>
         </div>
         <Footer />
@@ -32,8 +45,8 @@ const ProductDetail = () => {
     );
   }
 
-  const images = product.images || [product.image];
-  const related = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  const images = product.images?.length ? product.images : [product.image];
+  const related = allProducts.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
 
   const handleAddToCart = () => {
     addItem(product, quantity);
@@ -47,10 +60,10 @@ const ProductDetail = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-surface-pink">
+    <div className="min-h-screen bg-surface-pink flex flex-col">
       <Header />
 
-      <div className="container mx-auto px-4 md:px-8 py-4">
+      <div className="container mx-auto px-4 md:px-8 pt-20 pb-4">
         <nav className="flex items-center gap-2 text-sm text-muted-foreground">
           <Link to="/" className="hover:text-foreground">Trang chủ</Link>
           <ChevronRight size={14} />
@@ -60,7 +73,7 @@ const ProductDetail = () => {
         </nav>
       </div>
 
-      <div className="container mx-auto px-4 md:px-8 pb-16">
+      <div className="flex-1 container mx-auto px-4 md:px-8 pb-16">
         <div className="grid md:grid-cols-2 gap-8 md:gap-12">
           {/* Gallery */}
           <div>

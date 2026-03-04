@@ -5,23 +5,24 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/shop/ProductCard";
 import ShopPagination from "@/components/shop/ShopPagination";
-import { products } from "@/data/products";
+import { useProducts, useCategories } from "@/hooks/useProducts";
 
-const categoryFilters = ["Tất cả", "Nến", "Thiệp", "Túi", "Gốm", "Xà phòng"];
 const ITEMS_PER_PAGE = 8;
 
 const Products = () => {
-  const [selectedCategory, setSelectedCategory] = useState("Tất cả");
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500000]);
   const [currentPage, setCurrentPage] = useState(1);
 
+  const { products, isLoading } = useProducts({ category: selectedCategory || undefined });
+  const { categories } = useCategories();
+
   const filtered = useMemo(() => {
     return products.filter((p) => {
-      const catMatch = selectedCategory === "Tất cả" || p.category === selectedCategory;
       const priceMatch = p.price >= priceRange[0] && p.price <= priceRange[1];
-      return catMatch && priceMatch;
+      return priceMatch;
     });
-  }, [selectedCategory, priceRange]);
+  }, [products, priceRange]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paginated = filtered.slice(
@@ -30,11 +31,11 @@ const Products = () => {
   );
 
   return (
-    <div className="min-h-screen bg-surface-pink">
+    <div className="min-h-screen bg-surface-pink flex flex-col">
       <Header />
 
       {/* Breadcrumb */}
-      <div className="container mx-auto px-4 md:px-8 py-4">
+      <div className="container mx-auto px-4 md:px-8 pt-20 pb-4">
         <nav className="flex items-center gap-2 text-sm text-muted-foreground">
           <Link to="/" className="hover:text-foreground transition-colors">
             Trang chủ
@@ -48,27 +49,36 @@ const Products = () => {
         </nav>
       </div>
 
-      <div className="container mx-auto px-4 md:px-8 pb-16">
+      <div className="flex-1 container mx-auto px-4 md:px-8 pb-16">
         <div className="flex flex-col md:flex-row gap-8">
           {/* Sidebar Filter */}
           <aside className="w-full md:w-56 shrink-0">
             <div className="sticky top-20">
               <h3 className="font-display text-base font-bold text-foreground mb-3">
-                Lọc theo
+                Lọc theo danh mục
               </h3>
               <div className="space-y-2">
-                {categoryFilters.map((cat) => (
-                  <label key={cat} className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedCategory === ""}
+                    onChange={() => { setSelectedCategory(""); setCurrentPage(1); }}
+                    className="w-4 h-4 rounded border-border text-primary accent-primary"
+                  />
+                  <span className="text-sm text-foreground">Tất cả</span>
+                </label>
+                {categories.map((cat) => (
+                  <label key={cat.id} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={selectedCategory === cat}
+                      checked={selectedCategory === cat.slug}
                       onChange={() => {
-                        setSelectedCategory(cat);
+                        setSelectedCategory(cat.slug);
                         setCurrentPage(1);
                       }}
                       className="w-4 h-4 rounded border-border text-primary accent-primary"
                     />
-                    <span className="text-sm text-foreground">{cat}</span>
+                    <span className="text-sm text-foreground">{cat.name}</span>
                   </label>
                 ))}
               </div>
@@ -111,12 +121,26 @@ const Products = () => {
 
           {/* Product Grid */}
           <div className="flex-1">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-              {paginated.map((product) => (
-                <ProductCard key={product.id} product={product} showActions />
-              ))}
-            </div>
-            {filtered.length === 0 && (
+            {isLoading ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="rounded-xl bg-card border border-border overflow-hidden animate-pulse">
+                    <div className="aspect-square bg-muted" />
+                    <div className="p-3 space-y-2">
+                      <div className="h-3 bg-muted rounded w-3/4" />
+                      <div className="h-3 bg-muted rounded w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                {paginated.map((product) => (
+                  <ProductCard key={product.id} product={product} showActions />
+                ))}
+              </div>
+            )}
+            {!isLoading && filtered.length === 0 && (
               <p className="text-center text-muted-foreground py-16">
                 Không tìm thấy sản phẩm nào.
               </p>

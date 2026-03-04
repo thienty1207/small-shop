@@ -3,9 +3,9 @@ import Footer from "@/components/layout/Footer";
 
 const Policy = () => {
   return (
-    <div className="min-h-screen bg-surface-pink">
+    <div className="min-h-screen bg-surface-pink flex flex-col">
       <Header />
-      <div className="container mx-auto px-4 md:px-8 py-16">
+      <div className="flex-1 container mx-auto px-4 md:px-8 py-16">
         <div className="max-w-2xl mx-auto">
           <h1 className="font-display text-3xl font-bold text-foreground text-center mb-8">Chính Sách</h1>
           <div className="space-y-8 text-sm text-muted-foreground leading-relaxed">
