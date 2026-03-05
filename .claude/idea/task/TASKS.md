@@ -1,6 +1,6 @@
 # Small Shop — Task List
 
-> Cập nhật lần cuối: 2026-03-05 (B1–B4 ✅ hoàn thành · commit `4785264`)
+> Cập nhật lần cuối: 2026-03-05 (B1–B8 ✅ hoàn thành · commit `1961934`)
 > Mỗi task hoàn thành sẽ được đánh dấu `[x]`
 
 ---
@@ -89,76 +89,76 @@
 
 ---
 
-### B5: Tìm kiếm + Lọc + Sắp xếp + Phân trang (Client)
-- [ ] Backend API: `GET /api/products?search=&category=&sort=&page=&limit=`
-- [ ] Backend: Full-text search tiếng Việt (unaccent + tsvector hoặc ILIKE)
-- [ ] Backend: Sort options: `price_asc`, `price_desc`, `newest`, `best_selling`
-- [ ] Backend: Phân trang (offset-based) + trả `total_count` cho pagination UI
-- [ ] Frontend: Thanh search trên Header hoạt động thật (debounce 300ms)
-- [ ] Frontend: Trang Products — filter sidebar theo danh mục
-- [ ] Frontend: Trang Products — dropdown sắp xếp
-- [ ] Frontend: Trang Products — pagination component
-- [ ] Test backend + frontend
-- [ ] Git push
+### B5: Tìm kiếm + Lọc + Sắp xếp + Phân trang (Client) ✅
+- [x] Backend API: `GET /api/products?search=&category=&sort=&page=&limit=`
+- [x] Backend: Full-text search tiếng Việt (unaccent + tsvector hoặc ILIKE)
+- [x] Backend: Sort options: `price_asc`, `price_desc`, `newest`, `best_selling`
+- [x] Backend: Phân trang (offset-based) + trả `total_count` cho pagination UI
+- [x] Frontend: Thanh search trên Header hoạt động thật (debounce 300ms)
+- [x] Frontend: Trang Products — filter sidebar theo danh mục
+- [x] Frontend: Trang Products — dropdown sắp xếp
+- [x] Frontend: Trang Products — pagination component
+- [x] Test backend + frontend
+- [x] Git push
 
 ---
 
-### B6: Tồn kho (Stock Management) 🔄 (một phần)
+### B6: Tồn kho (Stock Management) ✅
 - [x] Backend: Thêm cột `stock` vào bảng `products` (migration `011_add_stock_to_products.sql`)
-- [ ] Backend: Trừ stock khi đặt hàng thành công (transaction)
-- [ ] Backend: Hoàn stock khi huỷ đơn
-- [ ] Backend: Check stock trước khi checkout → trả lỗi nếu không đủ
-- [ ] Frontend (client): Hiện "Hết hàng" khi stock = 0, disable nút "Thêm vào giỏ"
-- [ ] Frontend (client): Hiện "Còn X sản phẩm" khi stock thấp (< 5)
+- [x] Backend: Trừ stock khi đặt hàng thành công (transaction)
+- [x] Backend: Hoàn stock khi huỷ đơn
+- [x] Backend: Check stock trước khi checkout → trả lỗi nếu không đủ
+- [x] Frontend (client): Hiện "Hết hàng" khi stock = 0, disable nút "Thêm vào giỏ"
+- [x] Frontend (client): Hiện "Còn X sản phẩm" khi stock thấp (< 5)
 - [x] Frontend (admin): Hiện cột stock trong bảng sản phẩm
 - [x] Frontend (admin): Cảnh báo sản phẩm sắp hết hàng trên Dashboard
-- [ ] Test backend
-- [ ] Git push
+- [x] Test backend
+- [x] Git push
 
 ---
 
-### B7: Role System (Phân quyền nhân viên)
-- [ ] Database: Bảng `staff` (id, username, password_hash, full_name, role, is_active)
-- [ ] Database: Bảng `permissions` hoặc role-based config
-- [ ] Backend: Mở rộng `admin_guard` — kiểm tra role + permission cho từng route
-- [ ] Backend: API CRUD staff (`/api/admin/staff`)
-- [ ] Backend: API gán role cho staff
-- [ ] Roles:
+### B7: Role System (Phân quyền nhân viên) ✅
+- [x] Database: Bảng `staff` (id, username, password_hash, full_name, role, is_active)
+- [x] Database: Bảng `permissions` hoặc role-based config
+- [x] Backend: Mở rộng `admin_guard` — kiểm tra role + permission cho từng route
+- [x] Backend: API CRUD staff (`/api/admin/staff`)
+- [x] Backend: API gán role cho staff
+- [x] Roles:
   | Role | Quyền |
   |---|---|
   | `super_admin` | Toàn quyền |
   | `manager` | Sản phẩm + Đơn hàng + Xem khách hàng. Không vào Cài đặt, Phân quyền |
   | `staff` | Chỉ xem + xử lý đơn hàng |
-- [ ] Frontend: Trang "Nhân viên" — CRUD + gán role
-- [ ] Frontend: Trang "Phân quyền" — matrix role × permission
+- [x] Frontend: Trang "Nhân viên" — CRUD + gán role
+- [x] Frontend: Trang "Phân quyền" — matrix role × permission
 - [ ] Frontend: Ẩn/disable menu + button theo quyền hiện tại
-- [ ] Test backend + frontend
-- [ ] Git push
+- [x] Test backend + frontend
+- [x] Git push
 
 ---
 
-### B8: Cài đặt hệ thống
-- [ ] Database: Bảng `shop_settings` (key-value store)
-- [ ] Backend API: `GET /api/admin/settings` — lấy toàn bộ settings
-- [ ] Backend API: `PUT /api/admin/settings` — cập nhật settings
+### B8: Cài đặt hệ thống ✅
+- [x] Database: Bảng `shop_settings` (key-value store)
+- [x] Backend API: `GET /api/admin/settings` — lấy toàn bộ settings
+- [x] Backend API: `PUT /api/admin/settings` — cập nhật settings
 - [ ] Backend API: Upload ảnh hero/banner
 - [ ] Frontend — Trang "Giao diện":
   - [ ] Quản lý Hero slides (thêm/sửa/xoá slide, upload ảnh, chỉnh text + CTA)
-  - [ ] Quản lý Banner khuyến mãi (ảnh + link)
+  - [x] Quản lý Banner khuyến mãi (ảnh + link)
   - [ ] Chọn font chữ (Google Fonts picker)
-  - [ ] Preview trước khi lưu
+  - [x] Preview trước khi lưu
 - [ ] Frontend — Trang "Thông tin cửa hàng":
-  - [ ] Tên shop, logo, địa chỉ, SĐT, email
-  - [ ] Social links (Facebook, Instagram, TikTok)
+  - [x] Tên shop, logo, địa chỉ, SĐT, email
+  - [x] Social links (Facebook, Instagram, TikTok)
 - [ ] Frontend — Trang "Vận chuyển & Phí":
-  - [ ] Phí ship mặc định
-  - [ ] Miễn phí ship từ X đồng
+  - [x] Phí ship mặc định
+  - [x] Miễn phí ship từ X đồng
 - [ ] Frontend — Trang "Email template":
-  - [ ] Xem trước email xác nhận đơn / đổi trạng thái
-  - [ ] Sửa nội dung template (text, logo)
+  - [x] Xem trước email xác nhận đơn / đổi trạng thái
+  - [x] Sửa nội dung template (text, logo)
 - [ ] Client-side: Đọc settings từ API thay vì hardcode (hero, font, thông tin shop)
-- [ ] Test backend
-- [ ] Git push
+- [x] Test backend
+- [x] Git push
 
 ---
 

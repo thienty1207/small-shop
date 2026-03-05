@@ -233,7 +233,7 @@ pub async fn create_product(
         .unwrap_or_else(|| slugify(&input.name));
     let in_stock = input.in_stock.unwrap_or(true);
     let stock    = input.stock.unwrap_or(0);
-    let images: Vec<String> = vec![];
+    let images   = input.images.clone().unwrap_or_default();
 
     let id = sqlx::query_scalar::<_, Uuid>(
         r#"
@@ -280,12 +280,13 @@ pub async fn update_product(
             price          = $5,
             original_price = $6,
             image_url      = $7,
-            badge          = $8,
-            description    = $9,
-            material       = $10,
-            care           = $11,
-            in_stock       = $12,
-            stock          = $13
+            images         = $8,
+            badge          = $9,
+            description    = $10,
+            material       = $11,
+            care           = $12,
+            in_stock       = $13,
+            stock          = $14
         WHERE id = $1
         "#,
     )
@@ -296,6 +297,7 @@ pub async fn update_product(
     .bind(input.price)
     .bind(input.original_price)
     .bind(&input.image_url)
+    .bind(&input.images)
     .bind(&input.badge)
     .bind(&input.description)
     .bind(&input.material)

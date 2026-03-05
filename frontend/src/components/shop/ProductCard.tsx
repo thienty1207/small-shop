@@ -8,9 +8,11 @@ import { useCart } from "@/contexts/CartContext";
 interface ProductCardProps {
   product: Product;
   showActions?: boolean;
+  /** When true, renders a more compact card suited for 4-column grids. */
+  compact?: boolean;
 }
 
-const ProductCard = ({ product }: ProductCardProps) => {
+const ProductCard = ({ product, compact = false }: ProductCardProps) => {
   const { addItem } = useCart();
   const outOfStock = product.inStock === false;
   const lowStock = !outOfStock && product.stock !== undefined && product.stock > 0 && product.stock < 5;
@@ -81,14 +83,14 @@ const ProductCard = ({ product }: ProductCardProps) => {
       </Link>
 
       {/* Info */}
-      <div className="mt-3 px-0.5">
+      <div className={`mt-2.5 px-0.5 ${compact ? "space-y-0.5" : "mt-3"}`}>
         <Link to={`/product/${product.slug}`}>
-          <h3 className="text-sm font-medium text-foreground line-clamp-2 hover:text-primary transition-colors leading-snug">
+          <h3 className={`font-medium text-foreground line-clamp-2 hover:text-primary transition-colors leading-snug ${compact ? "text-xs" : "text-sm"}`}>
             {product.name}
           </h3>
         </Link>
-        <div className="mt-1.5">
-          <PriceDisplay price={product.price} originalPrice={product.originalPrice} />
+        <div className={compact ? "mt-1" : "mt-1.5"}>
+          <PriceDisplay price={product.price} originalPrice={product.originalPrice} compact={compact} />
         </div>
       </div>
     </div>

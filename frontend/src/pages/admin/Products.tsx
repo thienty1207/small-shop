@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import {
   Package, Plus, Pencil, Trash2, Search, AlertCircle,
-  ImagePlus, ChevronLeft, ChevronRight,
+  ImagePlus, ChevronLeft, ChevronRight, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +25,9 @@ const EMPTY_FORM = {
   price:          "",
   original_price: "",
   image_url:      "",
+  image_url_2:    "",
+  image_url_3:    "",
+  image_url_4:    "",
   badge:          "",
   description:    "",
   material:       "",
@@ -37,6 +40,60 @@ type FormState = typeof EMPTY_FORM;
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + " ₫";
+}
+
+// ─── Reusable image upload slot ─────────────────────────────────────────────
+
+interface ImageUploadSlotProps {
+  preview: string;
+  uploading: boolean;
+  onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onClear: () => void;
+  inputRef: React.RefObject<HTMLInputElement>;
+  label: string;
+  small?: boolean;
+}
+
+function ImageUploadSlot({ preview, uploading, onFileSelect, onClear, inputRef, label, small = false }: ImageUploadSlotProps) {
+  return (
+    <div className="relative">
+      <div
+        onClick={() => !uploading && inputRef.current?.click()}
+        title={label}
+        className={`relative border-2 border-dashed rounded-xl flex items-center justify-center overflow-hidden transition-colors ${small ? "h-24" : "h-40"} ${
+          uploading ? "border-rose-500/50 cursor-wait" : "border-gray-700 cursor-pointer hover:border-rose-500/50"
+        }`}
+      >
+        {preview ? (
+          <img src={preview} alt="preview" className="w-full h-full object-cover" />
+        ) : (
+          <div className="text-center">
+            <ImagePlus className={`text-gray-600 mx-auto ${small ? "w-5 h-5 mb-1" : "w-8 h-8 mb-2"}`} />
+            {!small && <p className="text-xs text-gray-500">Nhấn để chọn ảnh</p>}
+          </div>
+        )}
+        {uploading && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+            <svg className="animate-spin w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
+            </svg>
+          </div>
+        )}
+      </div>
+      {/* Clear button */}
+      {preview && !uploading && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onClear(); }}
+          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-red-500 transition-colors z-10"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      )}
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={onFileSelect} />
+    </div>
+  );
 }
 
 function slugify(s: string) {
@@ -71,9 +128,18 @@ export default function AdminProducts() {
   const [slugEdited, setSlugEdited] = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [formError,  setFormError]  = useState<string | null>(null);
-  const [imgPreview, setImgPreview] = useState<string>("");
-  const [uploading,  setUploading]  = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [imgPreview,  setImgPreview]  = useState<string>("");
+  const [imgPreview2, setImgPreview2] = useState<string>("");
+  const [imgPreview3, setImgPreview3] = useState<string>("");
+  const [imgPreview4, setImgPreview4] = useState<string>("");
+  const [uploading,   setUploading]   = useState(false);
+  const [uploading2,  setUploading2]  = useState(false);
+  const [uploading3,  setUploading3]  = useState(false);
+  const [uploading4,  setUploading4]  = useState(false);
+  const fileRef  = useRef<HTMLInputElement>(null);
+  const fileRef2 = useRef<HTMLInputElement>(null);
+  const fileRef3 = useRef<HTMLInputElement>(null);
+  const fileRef4 = useRef<HTMLInputElement>(null);
 
   // Delete
   const [deleteTarget, setDeleteTarget] = useState<AdminProduct | null>(null);
@@ -106,13 +172,14 @@ export default function AdminProducts() {
     setEditing(null);
     setForm(EMPTY_FORM);
     setSlugEdited(false);
-    setImgPreview("");
+    setImgPreview(""); setImgPreview2(""); setImgPreview3(""); setImgPreview4("");
     setFormError(null);
     setShowModal(true);
   };
 
   const openEdit = (p: AdminProduct) => {
     setEditing(p);
+    const imgs = p.images ?? [];
     setForm({
       category_id:    p.category_id,
       name:           p.name,
@@ -120,6 +187,9 @@ export default function AdminProducts() {
       price:          String(p.price),
       original_price: p.original_price != null ? String(p.original_price) : "",
       image_url:      p.image_url,
+      image_url_2:    imgs[0] ?? "",
+      image_url_3:    imgs[1] ?? "",
+      image_url_4:    imgs[2] ?? "",
       badge:          p.badge ?? "",
       description:    p.description ?? "",
       material:       "",
@@ -128,7 +198,11 @@ export default function AdminProducts() {
       stock:          String(p.stock),
     });
     setSlugEdited(false);
-    setImgPreview(p.image_url.startsWith("/") ? `${API_URL}${p.image_url}` : p.image_url);
+    const resolve = (u: string) => u ? (u.startsWith("/") ? `${API_URL}${u}` : u) : "";
+    setImgPreview(resolve(p.image_url));
+    setImgPreview2(resolve(imgs[0] ?? ""));
+    setImgPreview3(resolve(imgs[1] ?? ""));
+    setImgPreview4(resolve(imgs[2] ?? ""));
     setFormError(null);
     setShowModal(true);
   };
@@ -145,16 +219,42 @@ export default function AdminProducts() {
     try {
       const url = await adminUploadImage(file);
       setForm((f) => ({ ...f, image_url: url }));
-      // Cloudinary returns a full https:// URL; legacy /uploads/* needs the API prefix
       setImgPreview(url.startsWith("/") ? `${API_URL}${url}` : url);
     } catch (err) {
       setFormError((err as Error).message);
     } finally {
       setUploading(false);
-      // Reset input so the same file can be re-selected if needed
       if (fileRef.current) fileRef.current.value = "";
     }
   };
+
+  const makeGalleryFileHandler = (
+    slot: 2 | 3 | 4,
+    setPreview: (v: string) => void,
+    setUpload: (v: boolean) => void,
+    ref: React.RefObject<HTMLInputElement>,
+  ) => async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPreview(URL.createObjectURL(file));
+    setUpload(true);
+    setFormError(null);
+    try {
+      const url = await adminUploadImage(file);
+      const key = `image_url_${slot}` as "image_url_2" | "image_url_3" | "image_url_4";
+      setForm((f) => ({ ...f, [key]: url }));
+      setPreview(url.startsWith("/") ? `${API_URL}${url}` : url);
+    } catch (err) {
+      setFormError((err as Error).message);
+    } finally {
+      setUpload(false);
+      if (ref.current) ref.current.value = "";
+    }
+  };
+
+  const handleFileSelect2 = makeGalleryFileHandler(2, setImgPreview2, setUploading2, fileRef2);
+  const handleFileSelect3 = makeGalleryFileHandler(3, setImgPreview3, setUploading3, fileRef3);
+  const handleFileSelect4 = makeGalleryFileHandler(4, setImgPreview4, setUploading4, fileRef4);
 
   const handleSave = async () => {
     if (!form.name.trim())       { setFormError("Tên sản phẩm là bắt buộc"); return; }
@@ -172,6 +272,7 @@ export default function AdminProducts() {
         price:          Number(form.price),
         original_price: form.original_price ? Number(form.original_price) : null,
         image_url:      form.image_url,
+        images:         [form.image_url_2, form.image_url_3, form.image_url_4].filter((u) => u.trim() !== ""),
         badge:          form.badge || null,
         description:    form.description || null,
         material:       form.material || null,
@@ -460,40 +561,16 @@ export default function AdminProducts() {
 
               {/* Right col */}
               <div className="space-y-4">
-                {/* Image upload */}
+                {/* Thumbnail image (required) */}
                 <div>
-                  <label className="text-xs text-gray-400 block mb-1.5">Ảnh sản phẩm *</label>
-                  <div
-                    onClick={() => !uploading && fileRef.current?.click()}
-                    className={`relative border-2 border-dashed rounded-xl h-40 flex items-center justify-center transition-colors overflow-hidden ${
-                      uploading ? "border-rose-500/50 cursor-wait" : "border-gray-700 cursor-pointer hover:border-rose-500/50"
-                    }`}
-                  >
-                    {imgPreview ? (
-                      <img src={imgPreview} alt="preview" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="text-center">
-                        <ImagePlus className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                        <p className="text-xs text-gray-500">Nhấn để chọn ảnh</p>
-                      </div>
-                    )}
-                    {/* Upload progress overlay */}
-                    {uploading && (
-                      <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2">
-                        <svg className="animate-spin w-6 h-6 text-rose-400" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
-                        </svg>
-                        <p className="text-xs text-white font-medium">Đang tải lên Cloudinary...</p>
-                      </div>
-                    )}
-                  </div>
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleFileSelect}
+                  <label className="text-xs text-gray-400 block mb-1.5">Ảnh thumbnail *</label>
+                  <ImageUploadSlot
+                    preview={imgPreview}
+                    uploading={uploading}
+                    onFileSelect={handleFileSelect}
+                    onClear={() => { setImgPreview(""); setForm((f) => ({ ...f, image_url: "" })); }}
+                    inputRef={fileRef}
+                    label="Ảnh chính (thumbnail)"
                   />
                   <p className="text-xs text-gray-600 mt-1">Hoặc nhập URL trực tiếp:</p>
                   <input
@@ -506,6 +583,40 @@ export default function AdminProducts() {
                     }}
                     placeholder="https://... hoặc /uploads/..."
                   />
+                </div>
+
+                {/* Gallery images (optional, 3 slots) */}
+                <div>
+                  <label className="text-xs text-gray-400 block mb-2">Ảnh gallery (tuỳ chọn, tối đa 3)</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <ImageUploadSlot
+                      preview={imgPreview2}
+                      uploading={uploading2}
+                      onFileSelect={handleFileSelect2}
+                      onClear={() => { setImgPreview2(""); setForm((f) => ({ ...f, image_url_2: "" })); }}
+                      inputRef={fileRef2}
+                      label="Ảnh 2"
+                      small
+                    />
+                    <ImageUploadSlot
+                      preview={imgPreview3}
+                      uploading={uploading3}
+                      onFileSelect={handleFileSelect3}
+                      onClear={() => { setImgPreview3(""); setForm((f) => ({ ...f, image_url_3: "" })); }}
+                      inputRef={fileRef3}
+                      label="Ảnh 3"
+                      small
+                    />
+                    <ImageUploadSlot
+                      preview={imgPreview4}
+                      uploading={uploading4}
+                      onFileSelect={handleFileSelect4}
+                      onClear={() => { setImgPreview4(""); setForm((f) => ({ ...f, image_url_4: "" })); }}
+                      inputRef={fileRef4}
+                      label="Ảnh 4"
+                      small
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="text-xs text-gray-400 block mb-1.5">Mô tả</label>

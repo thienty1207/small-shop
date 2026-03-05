@@ -1,10 +1,11 @@
 ﻿import { Link } from "react-router-dom";
-import { ChevronDown, ArrowRight, Star, Sparkles } from "lucide-react";
+import { ChevronDown, ArrowRight, Star, Sparkles, Tag, Zap } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/shop/ProductCard";
 import { useProducts, useCategories } from "@/hooks/useProducts";
+import { useShopSettings } from "@/hooks/useShopSettings";
 import heroBanner from "@/assets/hero-banner.jpg";
 import candlesCat from "@/assets/categories/candles.jpg";
 import cardsCat from "@/assets/categories/cards.jpg";
@@ -13,7 +14,8 @@ import jewelryCat from "@/assets/categories/jewelry.jpg";
 
 const categoryImages = [candlesCat, cardsCat, totesCat, jewelryCat];
 
-const heroSlides = [
+// Fallback static slides (used when settings slides are not configured)
+const staticSlides = [
   {
     img: heroBanner,
     tag: "Bộ sưu tập mới",
@@ -68,17 +70,41 @@ function useReveal() {
 const Index = () => {
   const [slideIdx, setSlideIdx] = useState(0);
   const [progKey, setProgKey] = useState(0);
-  const { products } = useProducts();
-  const { categories } = useCategories();
+  const { settings } = useShopSettings();
 
-  const featuredProducts = products.slice(0, 4);
-  const moreProducts = products.slice(4, 8);
+  // Fetch products for each section separately
+  const { products: allProducts, isLoading } = useProducts({ sort: "newest", limit: 20 });
+  const { products: featuredProducts }        = useProducts({ sort: "best_selling", limit: 4 });
+  const { categories }                        = useCategories();
+
+  // Deal hời: products with original_price > price
+  const dealProducts = allProducts
+    .filter((p) => p.originalPrice != null && p.originalPrice > p.price)
+    .slice(0, 4);
+
+  // Dòng sản phẩm mới: newest 4
+  const newProducts = allProducts.slice(0, 4);
+
+  // Build hero slides from settings — fall back to static if none configured
+  const heroSlides = (() => {
+    const fromSettings = [1, 2, 3]
+      .map((n) => ({
+        img:   settings[`hero_slide_${n}_img`]      ?? "",
+        tag:   settings[`hero_slide_${n}_title`]    ?? "",
+        title: settings[`hero_slide_${n}_title`]    ?? "",
+        sub:   settings[`hero_slide_${n}_subtitle`] ?? "",
+        cta:   settings[`hero_slide_${n}_cta`]      || "Xem ngay",
+        href:  settings[`hero_slide_${n}_href`]     || "/products",
+      }))
+      .filter((s) => s.img.length > 0);
+    return fromSettings.length > 0 ? fromSettings : staticSlides;
+  })();
 
   // Auto-advance slides
   const nextSlide = useCallback(() => {
     setSlideIdx((p) => (p + 1) % heroSlides.length);
     setProgKey((p) => p + 1);
-  }, []);
+  }, [heroSlides.length]);
 
   useEffect(() => {
     const t = setTimeout(nextSlide, SLIDE_DURATION);
@@ -89,12 +115,13 @@ const Index = () => {
 
   // Scroll-reveal refs
   const featuredRef = useReveal() as React.RefObject<HTMLElement>;
-  const catRef = useReveal() as React.RefObject<HTMLElement>;
-  const reviewRef = useReveal() as React.RefObject<HTMLElement>;
-  const moreRef = useReveal() as React.RefObject<HTMLElement>;
-  const bannerRef = useReveal() as React.RefObject<HTMLElement>;
+  const dealRef     = useReveal() as React.RefObject<HTMLElement>;
+  const newRef      = useReveal() as React.RefObject<HTMLElement>;
+  const catRef      = useReveal() as React.RefObject<HTMLElement>;
+  const reviewRef   = useReveal() as React.RefObject<HTMLElement>;
+  const bannerRef   = useReveal() as React.RefObject<HTMLElement>;
 
-  const slide = heroSlides[slideIdx];
+  const slide = heroSlides[Math.min(slideIdx, heroSlides.length - 1)];
 
   return (
     <div className="min-h-screen bg-surface-pink flex flex-col">
@@ -216,31 +243,101 @@ const Index = () => {
       {/*  Featured Products  */}
       <section
         ref={featuredRef as React.RefObject<HTMLDivElement>}
-        className="reveal container mx-auto px-4 md:px-8 py-16"
+        className="reveal container mx-auto px-4 md:px-8 py-14"
       >
-        <div className="flex items-end justify-between mb-10">
+        <div className="flex items-end justify-between mb-8">
           <div>
             <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-1">Handpicked for you</p>
-            <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground">Sản Phẩm Nổi Bật</h2>
+            <h2 className="font-display text-2xl md:text-3xl font-bold text-foreground">Sản Phẩm Nổi Bật</h2>
           </div>
           <Link
-            to="/products"
+            to="/products?sort=best_selling"
             className="hidden md:inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:gap-3 transition-all"
           >
             Xem tất cả <ArrowRight size={14} />
           </Link>
         </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-5 md:gap-7 stagger">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger">
           {featuredProducts.map((product) => (
             <div key={product.id} className="animate-fade-up">
-              <ProductCard product={product} />
+              <ProductCard product={product} compact />
             </div>
           ))}
         </div>
-
-        <div className="mt-6 text-center md:hidden">
+        <div className="mt-5 text-center md:hidden">
           <Link to="/products" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+            Xem tất cả <ArrowRight size={14} />
+          </Link>
+        </div>
+      </section>
+
+      {/*  Deal Hời  */}
+      {dealProducts.length > 0 && (
+        <section className="bg-rose-50/60 dark:bg-rose-950/10">
+          <section
+            ref={dealRef as React.RefObject<HTMLDivElement>}
+            className="reveal container mx-auto px-4 md:px-8 py-14"
+          >
+            <div className="flex items-end justify-between mb-8">
+              <div>
+                <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                  <Tag size={11} /> Giảm giá hôm nay
+                </p>
+                <h2 className="font-display text-2xl md:text-3xl font-bold text-foreground">Deal Hời</h2>
+                <p className="text-sm text-muted-foreground mt-1">Sản phẩm đang được giảm giá — số lượng có hạn!</p>
+              </div>
+              <Link
+                to="/products"
+                className="hidden md:inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:gap-3 transition-all"
+              >
+                Xem tất cả <ArrowRight size={14} />
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger">
+              {dealProducts.map((product) => (
+                <div key={product.id} className="animate-fade-up">
+                  <ProductCard product={product} compact />
+                </div>
+              ))}
+            </div>
+          </section>
+        </section>
+      )}
+
+      {/*  Dòng Sản Phẩm Mới  */}
+      <section
+        ref={newRef as React.RefObject<HTMLDivElement>}
+        className="reveal container mx-auto px-4 md:px-8 py-14"
+      >
+        <div className="flex items-end justify-between mb-8">
+          <div>
+            <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-1 flex items-center gap-1.5">
+              <Zap size={11} /> Mới cập nhật
+            </p>
+            <h2 className="font-display text-2xl md:text-3xl font-bold text-foreground">Dòng Sản Phẩm Mới</h2>
+            <p className="text-sm text-muted-foreground mt-1">Những sản phẩm vừa được thêm vào cửa hàng</p>
+          </div>
+          <Link
+            to="/products?sort=newest"
+            className="hidden md:inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:gap-3 transition-all"
+          >
+            Xem tất cả <ArrowRight size={14} />
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger">
+          {isLoading
+            ? Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="aspect-[3/4] bg-muted animate-pulse rounded-2xl" />
+              ))
+            : newProducts.map((product) => (
+                <div key={product.id} className="animate-fade-up">
+                  <ProductCard product={product} compact />
+                </div>
+              ))
+          }
+        </div>
+        <div className="mt-5 text-center md:hidden">
+          <Link to="/products?sort=newest" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary">
             Xem tất cả <ArrowRight size={14} />
           </Link>
         </div>
@@ -313,24 +410,6 @@ const Index = () => {
               </div>
               <div className="absolute inset-0 border-2 border-white/0 group-hover:border-white/30 rounded-2xl transition-all duration-300" />
             </Link>
-          ))}
-        </div>
-      </section>
-
-      {/*  More Products  */}
-      <section
-        ref={moreRef as React.RefObject<HTMLDivElement>}
-        className="reveal container mx-auto px-4 md:px-8 pb-16"
-      >
-        <div className="text-center mb-10">
-          <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-1">Mới về</p>
-          <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground">Có Thể Bạn Thích</h2>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-5 md:gap-7 stagger">
-          {moreProducts.map((product) => (
-            <div key={product.id} className="animate-fade-up">
-              <ProductCard product={product} />
-            </div>
           ))}
         </div>
       </section>

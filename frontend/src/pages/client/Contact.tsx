@@ -3,10 +3,11 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Mail, Phone, MapPin, Send, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { useShopSettings } from "@/hooks/useShopSettings";
 
 // Cloudflare Turnstile site key (public — safe to embed in frontend)
 const CF_SITE_KEY = "0x4AAAAAACl-DXPV4UZR7cmo";
-const API_URL = "http://localhost:3000/api/contact";
+const CONTACT_API_URL = (import.meta.env.VITE_API_URL ?? "http://localhost:3000") + "/api/contact";
 
 // Extend window type for Turnstile widget API
 declare global {
@@ -37,6 +38,11 @@ interface FormState {
 const INITIAL_FORM: FormState = { name: "", email: "", phone: "", message: "" };
 
 const Contact = () => {
+  const { settings } = useShopSettings();
+  const storeEmail   = settings.store_email   || "hello@handmadehaven.vn";
+  const storePhone   = settings.store_phone   || "0901 234 567";
+  const storeAddress = settings.store_address || "123 Nguyễn Huệ, Quận 1, TP.HCM";
+
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [cfToken, setCfToken] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -112,7 +118,7 @@ const Contact = () => {
 
     setSubmitting(true);
     try {
-      const res = await fetch(API_URL, {
+      const res = await fetch(CONTACT_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -160,14 +166,14 @@ const Contact = () => {
                 <Mail size={18} className="text-primary mt-0.5 shrink-0" />
                 <div>
                   <p className="text-sm font-medium text-foreground">Email</p>
-                  <p className="text-sm text-muted-foreground">hello@handmadehaven.vn</p>
+                  <p className="text-sm text-muted-foreground">{storeEmail}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Phone size={18} className="text-primary mt-0.5 shrink-0" />
                 <div>
                   <p className="text-sm font-medium text-foreground">Điện thoại</p>
-                  <p className="text-sm text-muted-foreground">0901 234 567</p>
+                  <p className="text-sm text-muted-foreground">{storePhone}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -175,7 +181,7 @@ const Contact = () => {
                 <div>
                   <p className="text-sm font-medium text-foreground">Địa chỉ</p>
                   <p className="text-sm text-muted-foreground">
-                    123 Nguyễn Huệ, Quận 1, TP.HCM
+                    {storeAddress}
                   </p>
                 </div>
               </div>

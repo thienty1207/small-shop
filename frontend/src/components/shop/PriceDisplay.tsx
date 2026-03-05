@@ -4,17 +4,18 @@ interface PriceDisplayProps {
   price: number;
   originalPrice?: number;
   size?: "sm" | "md" | "lg";
+  compact?: boolean;
 }
 
-const PriceDisplay = ({ price, originalPrice, size = "sm" }: PriceDisplayProps) => {
+const PriceDisplay = ({ price, originalPrice, size = "sm", compact = false }: PriceDisplayProps) => {
   const sizeClasses = {
-    sm: "text-sm",
+    sm: compact ? "text-xs" : "text-sm",
     md: "text-base",
     lg: "text-xl",
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5 flex-wrap">
       {originalPrice && (
         <span className={`text-price-old line-through ${sizeClasses[size]}`}>
           {formatPrice(originalPrice)}

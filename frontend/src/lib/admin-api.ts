@@ -85,6 +85,7 @@ export interface AdminProduct {
   price:          number;
   original_price: number | null;
   image_url:      string;
+  images:         string[];
   badge:          string | null;
   description:    string | null;
   in_stock:       boolean;

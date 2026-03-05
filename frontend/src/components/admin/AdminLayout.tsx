@@ -87,6 +87,31 @@ function groupIsActive(item: NavItem, pathname: string): boolean {
   return item.children?.some((c) => pathname.startsWith(c.href)) ?? false;
 }
 
+// ─── Role-based nav filter ────────────────────────────────────────────────────
+// super_admin — sees everything
+// manager     — no "Cài đặt hệ thống", no "Phân quyền"
+// staff       — no "Cài đặt hệ thống", no "Nhân viên" submenu, no "Phân quyền"
+function filterNav(nav: NavItem[], role: string | undefined): NavItem[] {
+  return nav
+    .map((item) => {
+      // Hide the whole settings group from non-super_admin
+      if (item.label === "Cài đặt hệ thống" && role !== "super_admin") return null;
+
+      // For "Người dùng" group — filter children based on role
+      if (item.label === "Người dùng" && item.children) {
+        const children = item.children.filter((c) => {
+          if (c.label === "Phân quyền" && role !== "super_admin") return false;
+          if (c.label === "Nhân viên"  && role === "staff") return false;
+          return true;
+        });
+        return { ...item, children };
+      }
+
+      return item;
+    })
+    .filter(Boolean) as NavItem[];
+}
+
 // ─── Sidebar component ────────────────────────────────────────────────────────
 
 interface AdminLayoutProps {
@@ -139,7 +164,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-3 overflow-y-auto space-y-0.5">
-        {NAV.map((item) => {
+        {filterNav(NAV, adminUser?.role).map((item) => {
           const active = groupIsActive(item, location.pathname);
 
           // Leaf item (no children)
@@ -239,7 +264,9 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
             <p className="text-xs font-medium text-white truncate">
               {adminUser?.username ?? "Admin"}
             </p>
-            <p className="text-xs text-gray-500">Quản trị viên</p>
+            <p className="text-xs text-gray-500 capitalize">
+              {adminUser?.role === "super_admin" ? "Quản trị viên" : adminUser?.role === "manager" ? "Quản lý" : "Nhân viên"}
+            </p>
           </div>
           <button
             onClick={handleLogout}

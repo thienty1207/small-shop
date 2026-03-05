@@ -137,6 +137,8 @@ pub struct CreateProductInput {
     pub price:          i64,
     pub original_price: Option<i64>,
     pub image_url:      String,
+    /// Up to 3 extra gallery images (indexes 0-2).
+    pub images:         Option<Vec<String>>,
     pub badge:          Option<String>,
     pub description:    Option<String>,
     pub material:       Option<String>,
@@ -154,6 +156,9 @@ pub struct UpdateProductInput {
     pub price:          i64,
     pub original_price: Option<i64>,
     pub image_url:      String,
+    /// Gallery images (up to 3). Empty vec clears the gallery.
+    #[serde(default)]
+    pub images:         Vec<String>,
     pub badge:          Option<String>,
     pub description:    Option<String>,
     pub material:       Option<String>,

@@ -40,10 +40,12 @@ pub async fn get_public_settings(
     // Only expose the keys safe for public consumption
     let public_keys = [
         "store_name",
+        "store_email",
         "store_phone",
-        "store_facebook",
-        "store_instagram",
-        "store_tiktok",
+        "store_address",
+        "social_facebook",
+        "social_instagram",
+        "social_tiktok",
         "hero_title",
         "hero_subtitle",
         "hero_image_url",
@@ -51,6 +53,22 @@ pub async fn get_public_settings(
         "banner_link",
         "shipping_fee_default",
         "free_shipping_from",
+        // Hero slides (up to 3)
+        "hero_slide_1_img",
+        "hero_slide_1_title",
+        "hero_slide_1_subtitle",
+        "hero_slide_1_cta",
+        "hero_slide_1_href",
+        "hero_slide_2_img",
+        "hero_slide_2_title",
+        "hero_slide_2_subtitle",
+        "hero_slide_2_cta",
+        "hero_slide_2_href",
+        "hero_slide_3_img",
+        "hero_slide_3_title",
+        "hero_slide_3_subtitle",
+        "hero_slide_3_cta",
+        "hero_slide_3_href",
     ];
 
     let public: serde_json::Map<String, serde_json::Value> = public_keys
