@@ -593,33 +593,57 @@ export default function AdminProducts() {
                 <div>
                   <label className="text-xs text-gray-400 block mb-2">Ảnh gallery (tuỳ chọn, tối đa 3)</label>
                   <div className="grid grid-cols-3 gap-2">
-                    <ImageUploadSlot
-                      preview={imgPreview2}
-                      uploading={uploading2}
-                      onFileSelect={handleFileSelect2}
-                      onClear={() => { setImgPreview2(""); setForm((f) => ({ ...f, image_url_2: "" })); }}
-                      inputRef={fileRef2}
-                      label="Ảnh 2"
-                      small
-                    />
-                    <ImageUploadSlot
-                      preview={imgPreview3}
-                      uploading={uploading3}
-                      onFileSelect={handleFileSelect3}
-                      onClear={() => { setImgPreview3(""); setForm((f) => ({ ...f, image_url_3: "" })); }}
-                      inputRef={fileRef3}
-                      label="Ảnh 3"
-                      small
-                    />
-                    <ImageUploadSlot
-                      preview={imgPreview4}
-                      uploading={uploading4}
-                      onFileSelect={handleFileSelect4}
-                      onClear={() => { setImgPreview4(""); setForm((f) => ({ ...f, image_url_4: "" })); }}
-                      inputRef={fileRef4}
-                      label="Ảnh 4"
-                      small
-                    />
+                    <div className="flex flex-col gap-1">
+                      <ImageUploadSlot
+                        preview={imgPreview2}
+                        uploading={uploading2}
+                        onFileSelect={handleFileSelect2}
+                        onClear={() => { setImgPreview2(""); setForm((f) => ({ ...f, image_url_2: "" })); }}
+                        inputRef={fileRef2}
+                        label="Ảnh 2"
+                        small
+                      />
+                      <input
+                        className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-400 focus:outline-none focus:border-rose-500"
+                        value={form.image_url_2}
+                        onChange={(e) => { setForm((f) => ({ ...f, image_url_2: e.target.value })); setImgPreview2(e.target.value); }}
+                        placeholder="URL ảnh 2"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <ImageUploadSlot
+                        preview={imgPreview3}
+                        uploading={uploading3}
+                        onFileSelect={handleFileSelect3}
+                        onClear={() => { setImgPreview3(""); setForm((f) => ({ ...f, image_url_3: "" })); }}
+                        inputRef={fileRef3}
+                        label="Ảnh 3"
+                        small
+                      />
+                      <input
+                        className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-400 focus:outline-none focus:border-rose-500"
+                        value={form.image_url_3}
+                        onChange={(e) => { setForm((f) => ({ ...f, image_url_3: e.target.value })); setImgPreview3(e.target.value); }}
+                        placeholder="URL ảnh 3"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <ImageUploadSlot
+                        preview={imgPreview4}
+                        uploading={uploading4}
+                        onFileSelect={handleFileSelect4}
+                        onClear={() => { setImgPreview4(""); setForm((f) => ({ ...f, image_url_4: "" })); }}
+                        inputRef={fileRef4}
+                        label="Ảnh 4"
+                        small
+                      />
+                      <input
+                        className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-400 focus:outline-none focus:border-rose-500"
+                        value={form.image_url_4}
+                        onChange={(e) => { setForm((f) => ({ ...f, image_url_4: e.target.value })); setImgPreview4(e.target.value); }}
+                        placeholder="URL ảnh 4"
+                      />
+                    </div>
                   </div>
                 </div>
                 <div>

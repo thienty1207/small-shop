@@ -45,7 +45,15 @@ const ProductDetail = () => {
     );
   }
 
-  const images = product.images?.length ? product.images : [product.image];
+  const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+  const resolveImg = (url: string) =>
+    url && url.startsWith("/") ? `${API_URL}${url}` : url;
+
+  // Thumbnail always at index 0, gallery images follow
+  const images = [
+    resolveImg(product.image),
+    ...(product.images?.filter((img) => img && img.length > 0).map(resolveImg) ?? []),
+  ];
   const related = allProducts.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
   const outOfStock = product.inStock === false;
   const lowStock = !outOfStock && product.stock !== undefined && product.stock > 0 && product.stock < 5;
