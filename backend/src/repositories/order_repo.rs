@@ -3,7 +3,9 @@ use uuid::Uuid;
 
 use crate::{
     error::AppError,
-    models::order::{Order, OrderItem, OrderItemInput},
+    models::order::{
+        AdminOrderListItem, AdminOrderQuery, Order, OrderItem, OrderItemInput,
+    },
 };
 
 /// Insert a new order row and its line items in a single transaction.
@@ -139,4 +141,82 @@ pub async fn find_by_user(pool: &PgPool, user_id: Uuid) -> Result<Vec<crate::mod
     .await?;
 
     Ok(orders)
+}
+
+// ─── Admin order functions ───────────────────────────────────────────────────
+
+/// Paginated admin order list with optional status and search filters.
+pub async fn find_all_admin(
+    pool: &PgPool,
+    query: &AdminOrderQuery,
+) -> Result<(Vec<AdminOrderListItem>, i64), AppError> {
+    let offset = (query.page - 1) * query.limit;
+
+    let items = sqlx::query_as::<_, AdminOrderListItem>(
+        r#"
+        SELECT o.id, o.order_code, o.customer_name, o.customer_email,
+               o.customer_phone, o.status, o.payment_method, o.total,
+               COUNT(oi.id) AS items_count,
+               o.created_at
+        FROM orders o
+        LEFT JOIN order_items oi ON oi.order_id = o.id
+        WHERE ($1::TEXT IS NULL OR o.status = $1)
+          AND ($2::TEXT IS NULL
+               OR o.order_code    ILIKE '%' || $2 || '%'
+               OR o.customer_name ILIKE '%' || $2 || '%'
+               OR o.customer_email ILIKE '%' || $2 || '%')
+        GROUP BY o.id
+        ORDER BY o.created_at DESC
+        LIMIT $3 OFFSET $4
+        "#,
+    )
+    .bind(query.status.as_deref())
+    .bind(query.search.as_deref())
+    .bind(query.limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+
+    let total: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*) FROM orders o
+        WHERE ($1::TEXT IS NULL OR o.status = $1)
+          AND ($2::TEXT IS NULL
+               OR o.order_code    ILIKE '%' || $2 || '%'
+               OR o.customer_name ILIKE '%' || $2 || '%'
+               OR o.customer_email ILIKE '%' || $2 || '%')
+        "#,
+    )
+    .bind(query.status.as_deref())
+    .bind(query.search.as_deref())
+    .fetch_one(pool)
+    .await?;
+
+    Ok((items, total))
+}
+
+/// Update order status.  Returns the updated Order row.
+pub async fn update_order_status(
+    pool: &PgPool,
+    order_id: Uuid,
+    status: &str,
+) -> Result<Order, AppError> {
+    let order = sqlx::query_as!(
+        Order,
+        r#"
+        UPDATE orders
+        SET status = $2, updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, order_code, user_id, customer_name, customer_email,
+                  customer_phone, address, note, payment_method, status,
+                  subtotal, shipping_fee, total, created_at, updated_at
+        "#,
+        order_id,
+        status,
+    )
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("Order {order_id} not found")))?;
+
+    Ok(order)
 }

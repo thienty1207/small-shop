@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::Router;
 use sqlx::postgres::PgPoolOptions;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::{cors::{Any, CorsLayer}, services::ServeDir};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -63,6 +63,11 @@ async fn main() {
     // Build application state
     let state = AppState { db, config: config.clone(), mailer };
 
+    // Ensure uploads directory exists for product image uploads
+    tokio::fs::create_dir_all("uploads")
+        .await
+        .expect("Failed to create uploads directory");
+
     // CORS — allow frontend origin to call the API
     // In production, replace Any with the exact frontend domain.
     let cors = CorsLayer::new()
@@ -74,9 +79,10 @@ async fn main() {
         .allow_methods(Any)
         .allow_headers(Any);
 
-    // Build router
+    // Build router — static /uploads served directly without CORS wrapping
     let app = Router::new()
         .merge(routes::create_router(state.clone()))
+        .nest_service("/uploads", ServeDir::new("uploads"))
         .layer(cors)
         .with_state(state);
 

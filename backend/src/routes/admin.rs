@@ -1,7 +1,11 @@
-use axum::{middleware, routing::{get, post}, Router};
+use axum::{
+    middleware,
+    routing::{get, post, put},
+    Router,
+};
 
 use crate::{
-    handlers::admin::{auth, customer, dashboard, order, product},
+    handlers::admin::{auth, category, customer, dashboard, order, product},
     middleware::admin_guard::admin_guard,
     state::AppState,
 };
@@ -10,22 +14,39 @@ use crate::{
 ///
 /// Structure:
 ///   - POST /api/admin/auth/login           — public, NO middleware
-///   - GET  /api/admin/{me,dashboard,...}   — protected, admin_guard scoped via nest+layer
+///   - All others                           — protected via nest+layer (admin_guard)
 pub fn routes(state: AppState) -> Router<AppState> {
-    // ── Protected endpoints — admin_guard applied via nest+layer ─────────────
-    // Using nest+layer instead of route_layer on a merged sub-router avoids
-    // Axum 0.7 route-layer bleed-through when routers are merged.
     let protected = Router::new()
-        .route("/me",        get(auth::get_me))
+        // ── Auth ──────────────────────────────────────────────────────────
+        .route("/me", get(auth::get_me))
+
+        // ── Dashboard ─────────────────────────────────────────────────────
         .route("/dashboard", get(dashboard::get_stats))
-        .route("/products",  get(product::list_products))
-        .route("/orders",    get(order::list_orders))
+
+        // ── Products ─────────────────────────────────────────────────────
+        .route("/products",     get(product::list_products).post(product::create_product))
+        .route("/products/:id", get(product::get_product)
+                                    .put(product::update_product)
+                                    .delete(product::delete_product))
+
+        // ── Image upload ──────────────────────────────────────────────────
+        .route("/upload/image", post(product::upload_image))
+
+        // ── Categories ────────────────────────────────────────────────────
+        .route("/categories",     get(category::list_categories).post(category::create_category))
+        .route("/categories/:id", put(category::update_category).delete(category::delete_category))
+
+        // ── Orders ────────────────────────────────────────────────────────
+        .route("/orders",           get(order::list_orders))
+        .route("/orders/:id",       get(order::get_order))
+        .route("/orders/:id/status", put(order::update_order_status))
+
+        // ── Customers ─────────────────────────────────────────────────────
         .route("/customers", get(customer::list_customers))
+
         .layer(middleware::from_fn_with_state(state, admin_guard));
 
     Router::new()
-        // Public — login has no auth guard
         .route("/api/admin/auth/login", post(auth::login))
-        // Protected — nested so the layer is scoped only to these routes
         .nest("/api/admin", protected)
 }

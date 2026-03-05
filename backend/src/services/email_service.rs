@@ -502,6 +502,186 @@ fn format_vnd(amount: i64) -> String {
     format!("{result} ₫")
 }
 
+// ─── Order status-update email ────────────────────────────────────────────────
+
+/// Send an email to the customer when the admin updates an order's status.
+pub async fn send_order_status_update(
+    config: &Config,
+    mailer: &AsyncSmtpTransport<Tokio1Executor>,
+    order: &Order,
+    new_status: &str,
+    note: Option<&str>,
+) -> Result<(), AppError> {
+    let from: Mailbox = format!("Handmade Haven <{}>", config.smtp_username)
+        .parse()
+        .map_err(|e| AppError::Internal(format!("Invalid from address: {e}")))?;
+
+    let to: Mailbox = order
+        .customer_email
+        .parse()
+        .map_err(|_| AppError::BadRequest("Invalid customer email".into()))?;
+
+    let (subject_label, emoji) = match new_status {
+        "confirmed"  => ("Đã được xác nhận", "✅"),
+        "shipping"   => ("Đang được giao đến bạn", "🚚"),
+        "delivered"  => ("Đã giao hàng thành công", "🎉"),
+        "cancelled"  => ("Đã bị huỷ", "❌"),
+        _            => ("Đã được cập nhật", "📦"),
+    };
+
+    let subject = format!("[{}] Đơn hàng {} {}", emoji, order.order_code, subject_label);
+    let html    = order_status_update_html(order, new_status, subject_label, note);
+
+    let email = Message::builder()
+        .from(from)
+        .to(to)
+        .subject(&subject)
+        .multipart(MultiPart::alternative().singlepart(
+            SinglePart::builder()
+                .header(ContentType::TEXT_HTML)
+                .body(html),
+        ))
+        .map_err(|e| AppError::Internal(format!("Build email error: {e}")))?;
+
+    mailer
+        .send(email)
+        .await
+        .map_err(|e| AppError::Internal(format!("SMTP send error: {e}")))?;
+
+    Ok(())
+}
+
+fn order_status_update_html(
+    order: &Order,
+    status: &str,
+    label: &str,
+    note: Option<&str>,
+) -> String {
+    let (accent_color, bg_color, status_emoji) = match status {
+        "confirmed" => ("#10b981", "#f0fdf4", "✅"),
+        "shipping"  => ("#3b82f6", "#eff6ff", "🚚"),
+        "delivered" => ("#e8688a", "#fdf6f8", "🎉"),
+        "cancelled" => ("#ef4444", "#fef2f2", "❌"),
+        _           => ("#6b7280", "#f9fafb", "📦"),
+    };
+
+    let note_block = if let Some(n) = note {
+        if !n.is_empty() {
+            format!(
+                r#"<tr>
+                  <td style="padding:16px 24px;border-top:1px solid #f0f0f0;">
+                    <p style="margin:0 0 6px;font-size:12px;text-transform:uppercase;
+                               letter-spacing:.8px;color:#999;">Ghi chú từ cửa hàng</p>
+                    <p style="margin:0;font-size:14px;color:#555;font-style:italic;">{n}</p>
+                  </td>
+                </tr>"#
+            )
+        } else { String::new() }
+    } else { String::new() };
+
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Cập nhật đơn hàng</title>
+</head>
+<body style="margin:0;padding:0;background:#f9f0f3;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f0f3;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0"
+               style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);">
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#e8688a,#c4547a);padding:40px;text-align:center;">
+              <div style="font-size:48px;margin-bottom:12px;">{status_emoji}</div>
+              <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">Cập nhật đơn hàng</h1>
+              <p style="margin:10px 0 0;color:rgba(255,255,255,.9);font-size:15px;">
+                Handmade Haven
+              </p>
+            </td>
+          </tr>
+          <!-- Status badge -->
+          <tr>
+            <td style="background:{bg_color};padding:20px 40px;text-align:center;border-bottom:1px solid #f0f0f0;">
+              <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#999;">
+                Mã đơn hàng
+              </p>
+              <p style="margin:0 0 12px;font-size:24px;font-weight:700;color:#c4547a;letter-spacing:2px;">
+                {order_code}
+              </p>
+              <span style="background:{accent_color};color:#fff;padding:6px 20px;border-radius:20px;
+                           font-size:14px;font-weight:600;">{label}</span>
+            </td>
+          </tr>
+          <!-- Customer + summary -->
+          <tr>
+            <td style="padding:28px 40px 0;">
+              <p style="margin:0 0 16px;font-size:16px;color:#333;">
+                Xin chào <strong style="color:#e8688a;">{customer_name}</strong>,
+              </p>
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.7;color:#555;">
+                Trạng thái đơn hàng <strong>{order_code}</strong> của bạn vừa được cập nhật.
+              </p>
+            </td>
+          </tr>
+          <!-- Details table -->
+          <tr>
+            <td style="padding:0 40px 28px;">
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="border:1px solid #f0f0f0;border-radius:8px;overflow:hidden;">
+                <tr>
+                  <td style="padding:16px 24px;border-bottom:1px solid #f0f0f0;">
+                    <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:#999;">Người nhận</p>
+                    <p style="margin:0;font-size:15px;color:#333;font-weight:600;">{customer_name}</p>
+                    <p style="margin:4px 0 0;font-size:14px;color:#555;">{address}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:16px 24px;border-bottom:1px solid #f0f0f0;">
+                    <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:#999;">Tổng tiền</p>
+                    <p style="margin:0;font-size:18px;font-weight:700;color:#e8688a;">{total}</p>
+                  </td>
+                </tr>
+                {note_block}
+              </table>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background:#fdf6f8;padding:24px 40px;text-align:center;border-top:1px solid #f0dde5;">
+              <p style="margin:0 0 6px;font-size:14px;color:#555;">
+                Câu hỏi? Liên hệ
+                <a href="mailto:hello@handmadehaven.vn" style="color:#e8688a;text-decoration:none;">
+                  hello@handmadehaven.vn
+                </a>
+              </p>
+              <p style="margin:6px 0 0;font-size:12px;color:#aaa;">
+                &copy; Handmade Haven — Crafted with love in Vietnam
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"#,
+        status_emoji   = status_emoji,
+        bg_color       = bg_color,
+        accent_color   = accent_color,
+        label          = label,
+        order_code     = order.order_code,
+        customer_name  = order.customer_name,
+        address        = order.address,
+        total          = format_vnd(order.total),
+        note_block     = note_block,
+    )
+}
+
+
 fn auto_reply_html(name: &str) -> String {
     format!(
         r#"<!DOCTYPE html>

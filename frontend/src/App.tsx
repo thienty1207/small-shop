@@ -29,6 +29,13 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import AdminProducts from "./pages/admin/Products";
 import AdminOrders from "./pages/admin/Orders";
 import AdminCustomers from "./pages/admin/Customers";
+import AdminCategories from "./pages/admin/Categories";
+import AdminStaff from "./pages/admin/Staff";
+import AdminPermissions from "./pages/admin/Permissions";
+import AdminSettingsAppearance from "./pages/admin/SettingsAppearance";
+import AdminSettingsStore from "./pages/admin/SettingsStore";
+import AdminSettingsShipping from "./pages/admin/SettingsShipping";
+import AdminSettingsEmail from "./pages/admin/SettingsEmail";
 
 const queryClient = new QueryClient();
 
@@ -106,8 +113,16 @@ const App = () => (
                 {/* Admin protected — require admin JWT */}
                 <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                 <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
+                <Route path="/admin/products/categories" element={<AdminRoute><AdminCategories /></AdminRoute>} />
                 <Route path="/admin/orders" element={<AdminRoute><AdminOrders /></AdminRoute>} />
                 <Route path="/admin/customers" element={<AdminRoute><AdminCustomers /></AdminRoute>} />
+                <Route path="/admin/users/customers" element={<AdminRoute><AdminCustomers /></AdminRoute>} />
+                <Route path="/admin/users/staff" element={<AdminRoute><AdminStaff /></AdminRoute>} />
+                <Route path="/admin/users/permissions" element={<AdminRoute><AdminPermissions /></AdminRoute>} />
+                <Route path="/admin/settings/appearance" element={<AdminRoute><AdminSettingsAppearance /></AdminRoute>} />
+                <Route path="/admin/settings/store" element={<AdminRoute><AdminSettingsStore /></AdminRoute>} />
+                <Route path="/admin/settings/shipping" element={<AdminRoute><AdminSettingsShipping /></AdminRoute>} />
+                <Route path="/admin/settings/email" element={<AdminRoute><AdminSettingsEmail /></AdminRoute>} />
 
                 <Route path="*" element={<NotFound />} />
               </Routes>

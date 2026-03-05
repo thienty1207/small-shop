@@ -88,3 +88,41 @@ pub struct OrderListItem {
     pub items_count: i64,
     pub created_at: DateTime<Utc>,
 }
+
+// ─── Admin-only types ────────────────────────────────────────────────────────
+
+/// Richer order summary for the admin order list.
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct AdminOrderListItem {
+    pub id:             Uuid,
+    pub order_code:     String,
+    pub customer_name:  String,
+    pub customer_email: String,
+    pub customer_phone: String,
+    pub status:         String,
+    pub payment_method: String,
+    pub total:          i64,
+    pub items_count:    i64,
+    pub created_at:     DateTime<Utc>,
+}
+
+/// Query params for the admin order list.
+#[derive(Debug, Deserialize, Default)]
+pub struct AdminOrderQuery {
+    pub status: Option<String>,
+    pub search: Option<String>,
+    #[serde(default = "default_order_page")]
+    pub page:  i64,
+    #[serde(default = "default_order_limit")]
+    pub limit: i64,
+}
+
+fn default_order_page()  -> i64 { 1  }
+fn default_order_limit() -> i64 { 20 }
+
+/// Request body for updating an order's status.
+#[derive(Debug, Deserialize)]
+pub struct UpdateOrderStatusInput {
+    pub status: String,
+    pub note:   Option<String>,
+}
