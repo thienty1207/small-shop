@@ -68,6 +68,7 @@ export default function AdminProducts() {
   const [showModal,  setShowModal]  = useState(false);
   const [editing,    setEditing]    = useState<AdminProduct | null>(null);
   const [form,       setForm]       = useState<FormState>(EMPTY_FORM);
+  const [slugEdited, setSlugEdited] = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [formError,  setFormError]  = useState<string | null>(null);
   const [imgPreview, setImgPreview] = useState<string>("");
@@ -104,6 +105,7 @@ export default function AdminProducts() {
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
+    setSlugEdited(false);
     setImgPreview("");
     setFormError(null);
     setShowModal(true);
@@ -125,13 +127,14 @@ export default function AdminProducts() {
       in_stock:       p.in_stock,
       stock:          String(p.stock),
     });
+    setSlugEdited(false);
     setImgPreview(p.image_url.startsWith("/") ? `${API_URL}${p.image_url}` : p.image_url);
     setFormError(null);
     setShowModal(true);
   };
 
   const handleNameChange = (name: string) =>
-    setForm((f) => ({ ...f, name, slug: f.slug || slugify(name) }));
+    setForm((f) => ({ ...f, name, slug: slugEdited ? f.slug : slugify(name) }));
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -374,7 +377,10 @@ export default function AdminProducts() {
                   <input
                     className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-rose-500"
                     value={form.slug}
-                    onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
+                    onChange={(e) => {
+                      setSlugEdited(true);
+                      setForm((f) => ({ ...f, slug: e.target.value }));
+                    }}
                     placeholder="tui-tote-handmade"
                   />
                 </div>
@@ -438,10 +444,13 @@ export default function AdminProducts() {
                   <button
                     type="button"
                     onClick={() => setForm((f) => ({ ...f, in_stock: !f.in_stock }))}
-                    className={`relative w-10 h-5 rounded-full transition-colors ${form.in_stock ? "bg-rose-500" : "bg-gray-700"}`}
+                    className={`relative inline-flex w-10 h-6 rounded-full transition-colors duration-200 focus:outline-none ${form.in_stock ? "bg-rose-500" : "bg-gray-600"}`}
                   >
-                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.in_stock ? "translate-x-5" : "translate-x-0.5"}`} />
+                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${form.in_stock ? "translate-x-5" : "translate-x-1"}`} />
                   </button>
+                  <span className={`text-xs font-medium ${form.in_stock ? "text-emerald-400" : "text-gray-500"}`}>
+                    {form.in_stock ? "Còn hàng" : "Hết hàng"}
+                  </span>
                 </div>
               </div>
 

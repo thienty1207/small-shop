@@ -62,19 +62,26 @@ pub async fn update_order_status(
 
     let order = order_repo::update_order_status(&state.db, id, &input.status).await?;
 
-    // Send status-update email (best-effort — don't fail the request on email error)
-    if let Some(mailer) = &state.mailer {
-        if let Err(e) = email_service::send_order_status_update(
-            &state.config,
-            mailer,
-            &order,
-            &input.status,
-            input.note.as_deref(),
-        )
-        .await
-        {
-            tracing::warn!("Failed to send status-update email for order {id}: {e}");
-        }
+    // Send status-update email in a background task — do NOT block the HTTP response.
+    // Clone only what the async task needs (all are cheap Arc/String clones).
+    if let Some(mailer) = state.mailer.clone() {
+        let config  = state.config.clone();
+        let order_c = order.clone();
+        let status  = input.status.clone();
+        let note    = input.note.clone();
+        tokio::spawn(async move {
+            if let Err(e) = email_service::send_order_status_update(
+                &config,
+                &mailer,
+                &order_c,
+                &status,
+                note.as_deref(),
+            )
+            .await
+            {
+                tracing::warn!("Failed to send status-update email for order {id}: {e}");
+            }
+        });
     }
 
     Ok(Json(serde_json::json!(order)))
