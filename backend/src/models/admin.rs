@@ -11,6 +11,9 @@ pub struct AdminUser {
     pub id:            Uuid,
     pub username:      String,
     pub password_hash: String,
+    pub full_name:     String,
+    pub role:          String,  // "super_admin" | "manager" | "staff"
+    pub is_active:     bool,
     pub created_at:    DateTime<Utc>,
 }
 
@@ -20,13 +23,15 @@ pub struct AdminUser {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AdminPublic {
-    pub id:       Uuid,
-    pub username: String,
+    pub id:        Uuid,
+    pub username:  String,
+    pub full_name: String,
+    pub role:      String,
 }
 
 impl From<AdminUser> for AdminPublic {
     fn from(u: AdminUser) -> Self {
-        Self { id: u.id, username: u.username }
+        Self { id: u.id, username: u.username, full_name: u.full_name, role: u.role }
     }
 }
 
@@ -44,6 +49,40 @@ pub struct AdminLoginInput {
 pub struct AdminLoginResponse {
     pub token: String,
     pub user:  AdminPublic,
+}
+
+// ---------------------------------------------------------------------------
+// Staff management (B7)
+// ---------------------------------------------------------------------------
+
+/// Lightweight staff row for listing (no password hash)
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+pub struct StaffListItem {
+    pub id:         Uuid,
+    pub username:   String,
+    pub full_name:  String,
+    pub role:       String,
+    pub is_active:  bool,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Create a new staff member
+#[derive(Debug, Deserialize)]
+pub struct CreateStaffInput {
+    pub username:  String,
+    pub full_name: String,
+    pub password:  String,
+    pub role:      String, // "manager" | "staff"
+}
+
+/// Update an existing staff member
+#[derive(Debug, Deserialize)]
+pub struct UpdateStaffInput {
+    pub full_name: String,
+    pub role:      String,
+    pub is_active: bool,
+    /// If present and non-empty, reset password
+    pub password:  Option<String>,
 }
 
 // ---------------------------------------------------------------------------

@@ -5,16 +5,12 @@ use axum::{
 };
 
 use crate::{
-    handlers::admin::{auth, category, customer, dashboard, order, product},
+    handlers::admin::{auth, category, customer, dashboard, order, product, settings, staff},
     middleware::admin_guard::admin_guard,
     state::AppState,
 };
 
 /// All admin-only routes.
-///
-/// Structure:
-///   - POST /api/admin/auth/login           — public, NO middleware
-///   - All others                           — protected via nest+layer (admin_guard)
 pub fn routes(state: AppState) -> Router<AppState> {
     let protected = Router::new()
         // ── Auth ──────────────────────────────────────────────────────────
@@ -37,12 +33,19 @@ pub fn routes(state: AppState) -> Router<AppState> {
         .route("/categories/:id", put(category::update_category).delete(category::delete_category))
 
         // ── Orders ────────────────────────────────────────────────────────
-        .route("/orders",           get(order::list_orders))
-        .route("/orders/:id",       get(order::get_order))
+        .route("/orders",            get(order::list_orders))
+        .route("/orders/:id",        get(order::get_order))
         .route("/orders/:id/status", put(order::update_order_status))
 
         // ── Customers ─────────────────────────────────────────────────────
         .route("/customers", get(customer::list_customers))
+
+        // ── Staff (B7) ────────────────────────────────────────────────────
+        .route("/staff",     get(staff::list_staff).post(staff::create_staff))
+        .route("/staff/:id", put(staff::update_staff).delete(staff::delete_staff))
+
+        // ── Settings (B8) ─────────────────────────────────────────────────
+        .route("/settings", get(settings::get_settings).put(settings::update_settings))
 
         .layer(middleware::from_fn_with_state(state, admin_guard));
 

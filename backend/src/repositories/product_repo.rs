@@ -5,34 +5,74 @@ use crate::{
     error::AppError,
     models::product::{
         AdminProduct, AdminProductQuery, Category, CategoryInput, CreateProductInput,
-        PaginatedResponse, Product, ProductQuery, UpdateProductInput,
+        PaginatedResponse, Product, ProductPublic, ProductQuery, UpdateProductInput,
     },
 };
 
-/// Fetch all products, optionally filtered by category slug or search term.
-pub async fn find_all(pool: &PgPool, query: &ProductQuery) -> Result<Vec<Product>, AppError> {
-    let products = sqlx::query_as!(
-        Product,
+/// Fetch products with optional category/search filter, sort, and pagination.
+/// Returns a paginated response.
+pub async fn find_all(
+    pool: &PgPool,
+    query: &ProductQuery,
+) -> Result<PaginatedResponse<ProductPublic>, AppError> {
+    let offset = (query.page - 1) * query.limit;
+
+    // Build ORDER BY clause (safe: values are controlled, not raw user input)
+    let order_by = match query.sort.as_deref() {
+        Some("price_asc")     => "p.price ASC, p.created_at DESC",
+        Some("price_desc")    => "p.price DESC, p.created_at DESC",
+        Some("best_selling")  => "COALESCE(sales.total_sold, 0) DESC, p.created_at DESC",
+        _                     => "p.created_at DESC", // newest (default)
+    };
+
+    let sql = format!(
         r#"
+        WITH sales AS (
+            SELECT product_id, SUM(quantity)::BIGINT AS total_sold
+            FROM order_items GROUP BY product_id
+        )
         SELECT
             p.id, p.category_id, p.name, p.slug, p.price, p.original_price,
             p.image_url, p.images, p.badge, p.description, p.material, p.care,
-            p.rating::float8 AS "rating!: f64",
-            p.review_count, p.in_stock, p.created_at
+            p.rating::float8 AS rating,
+            p.review_count, p.in_stock, p.stock, p.created_at
         FROM products p
+        JOIN categories c ON c.id = p.category_id
+        LEFT JOIN sales ON sales.product_id = p.id
+        WHERE
+            ($1::TEXT IS NULL OR c.slug = $1)
+            AND ($2::TEXT IS NULL OR p.name ILIKE '%' || $2 || '%')
+        ORDER BY {order_by}
+        LIMIT $3 OFFSET $4
+        "#
+    );
+
+    let items = sqlx::query_as::<_, Product>(&sql)
+        .bind(query.category.as_deref())
+        .bind(query.search.as_deref())
+        .bind(query.limit)
+        .bind(offset)
+        .fetch_all(pool)
+        .await?;
+
+    let total: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*) FROM products p
         JOIN categories c ON c.id = p.category_id
         WHERE
             ($1::TEXT IS NULL OR c.slug = $1)
             AND ($2::TEXT IS NULL OR p.name ILIKE '%' || $2 || '%')
-        ORDER BY p.created_at DESC
         "#,
-        query.category.as_deref(),
-        query.search.as_deref(),
     )
-    .fetch_all(pool)
+    .bind(query.category.as_deref())
+    .bind(query.search.as_deref())
+    .fetch_one(pool)
     .await?;
 
-    Ok(products)
+    let public: Vec<ProductPublic> = items.into_iter().map(ProductPublic::from).collect();
+    let total_pages = (total + query.limit - 1) / query.limit;
+
+    Ok(PaginatedResponse { items: public, total, page: query.page, limit: query.limit, total_pages })
 }
 
 /// Fetch a single product by its slug.
@@ -43,7 +83,7 @@ pub async fn find_by_slug(pool: &PgPool, slug: &str) -> Result<Option<Product>, 
         SELECT id, category_id, name, slug, price, original_price,
                image_url, images, badge, description, material, care,
                rating::float8 AS "rating!: f64",
-               review_count, in_stock, created_at
+               review_count, in_stock, stock, created_at
         FROM products
         WHERE slug = $1
         "#,
@@ -75,7 +115,7 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<Product>, AppE
         SELECT id, category_id, name, slug, price, original_price,
                image_url, images, badge, description, material, care,
                rating::float8 AS "rating!: f64",
-               review_count, in_stock, created_at
+               review_count, in_stock, stock, created_at
         FROM products
         WHERE id = $1
         "#,

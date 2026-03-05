@@ -6,7 +6,7 @@ use axum::{
 
 use crate::{
     error::AppError,
-    models::product::{ProductPublic, ProductQuery},
+    models::product::{PaginatedResponse, ProductPublic, ProductQuery},
     repositories::product_repo,
     state::AppState,
 };
@@ -15,10 +15,9 @@ use crate::{
 pub async fn list_products(
     State(state): State<AppState>,
     Query(query): Query<ProductQuery>,
-) -> Result<Json<Vec<ProductPublic>>, AppError> {
-    let products = product_repo::find_all(&state.db, &query).await?;
-    let public: Vec<ProductPublic> = products.into_iter().map(ProductPublic::from).collect();
-    Ok(Json(public))
+) -> Result<Json<PaginatedResponse<ProductPublic>>, AppError> {
+    let paginated = product_repo::find_all(&state.db, &query).await?;
+    Ok(Json(paginated))
 }
 
 /// GET /api/products/:slug

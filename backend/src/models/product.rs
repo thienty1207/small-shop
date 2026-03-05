@@ -31,6 +31,7 @@ pub struct Product {
     pub rating: f64,
     pub review_count: i32,
     pub in_stock: bool,
+    pub stock: i32,
     pub created_at: DateTime<Utc>,
 }
 
@@ -52,6 +53,7 @@ pub struct ProductPublic {
     pub rating: f64,
     pub review_count: i32,
     pub in_stock: bool,
+    pub stock: i32,
 }
 
 impl From<Product> for ProductPublic {
@@ -72,6 +74,7 @@ impl From<Product> for ProductPublic {
             rating: p.rating,
             review_count: p.review_count,
             in_stock: p.in_stock,
+            stock: p.stock,
         }
     }
 }
@@ -80,8 +83,17 @@ impl From<Product> for ProductPublic {
 #[derive(Debug, Deserialize)]
 pub struct ProductQuery {
     pub category: Option<String>,
-    pub search: Option<String>,
+    pub search:   Option<String>,
+    /// Allowed: newest (default), price_asc, price_desc, best_selling
+    pub sort:     Option<String>,
+    #[serde(default = "default_client_page")]
+    pub page:  i64,
+    #[serde(default = "default_client_limit")]
+    pub limit: i64,
 }
+
+fn default_client_page()  -> i64 { 1  }
+fn default_client_limit() -> i64 { 12 }
 
 // ─── Admin-only types ────────────────────────────────────────────────────────
 

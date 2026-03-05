@@ -60,6 +60,16 @@ pub async fn update_order_status(
         )));
     }
 
+    // Fetch current order to check existing status before update
+    let (current_order, _) = order_repo::find_by_id(&state.db, id)
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("Order {id} not found")))?;
+
+    // Restore stock when cancelling (only if not already cancelled)
+    if input.status == "cancelled" && current_order.status != "cancelled" {
+        order_repo::restore_stock_for_order(&state.db, id).await?;
+    }
+
     let order = order_repo::update_order_status(&state.db, id, &input.status).await?;
 
     // Send status-update email in a background task — do NOT block the HTTP response.

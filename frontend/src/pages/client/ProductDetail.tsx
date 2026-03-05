@@ -47,8 +47,11 @@ const ProductDetail = () => {
 
   const images = product.images?.length ? product.images : [product.image];
   const related = allProducts.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  const outOfStock = product.inStock === false;
+  const lowStock = !outOfStock && product.stock !== undefined && product.stock > 0 && product.stock < 5;
 
   const handleAddToCart = () => {
+    if (outOfStock) return;
     addItem(product, quantity);
     toast.success("Đã thêm vào giỏ hàng!");
   };
@@ -115,6 +118,19 @@ const ProductDetail = () => {
               <PriceDisplay price={product.price} originalPrice={product.originalPrice} size="lg" />
             </div>
 
+            {/* Stock status */}
+            {outOfStock ? (
+              <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 border border-red-100">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                <span className="text-xs font-medium text-red-600">Hết hàng — tạm thời ngừng bán</span>
+              </div>
+            ) : lowStock ? (
+              <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 border border-orange-100">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                <span className="text-xs font-medium text-orange-600">Còn {product.stock} sản phẩm — đặt ngay kẻo hết!</span>
+              </div>
+            ) : null}
+
             {/* Variants */}
             {product.variants?.map((v) => (
               <div key={v.label} className="mt-5">
@@ -153,21 +169,31 @@ const ProductDetail = () => {
 
             {/* Quantity + CTA */}
             <div className="mt-6 flex items-center gap-4">
-              <QuantityStepper value={quantity} onChange={setQuantity} />
-              <button
-                onClick={handleAddToCart}
-                className="flex-1 py-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
-              >
-                Thêm vào giỏ
-              </button>
+              {outOfStock ? (
+                <div className="flex-1 py-3 rounded-lg bg-muted text-muted-foreground text-sm font-medium text-center select-none">
+                  Hết hàng
+                </div>
+              ) : (
+                <>
+                  <QuantityStepper value={quantity} onChange={setQuantity} />
+                  <button
+                    onClick={handleAddToCart}
+                    className="flex-1 py-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+                  >
+                    Thêm vào giỏ
+                  </button>
+                </>
+              )}
             </div>
-            <Link
-              to="/cart"
-              onClick={handleAddToCart}
-              className="block mt-2 w-full py-3 rounded-lg border border-primary text-primary text-sm font-medium text-center hover:bg-secondary transition-colors"
-            >
-              Mua ngay
-            </Link>
+            {!outOfStock && (
+              <Link
+                to="/cart"
+                onClick={handleAddToCart}
+                className="block mt-2 w-full py-3 rounded-lg border border-primary text-primary text-sm font-medium text-center hover:bg-secondary transition-colors"
+              >
+                Mua ngay
+              </Link>
+            )}
 
             {/* Tabs */}
             <div className="mt-8 border-t border-border pt-6">

@@ -18,6 +18,7 @@ export interface Product {
   rating?: number;
   reviewCount?: number;
   inStock?: boolean;
+  stock?: number;        // maps to stock from API
   variants?: { label: string; options: string[] }[];
 }
 

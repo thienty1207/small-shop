@@ -6,6 +6,7 @@ pub mod cart;
 pub mod contact;
 pub mod order;
 pub mod product;
+pub mod settings;
 pub mod user;
 
 pub use user::{AuthResponse, Claims, GoogleUserInfo, NewUser, User, UserPublic};

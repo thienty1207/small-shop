@@ -54,11 +54,42 @@ pub async fn create_order(
     .fetch_one(&mut *tx)
     .await?;
 
-    // Insert all line items, collecting the returned rows
+    // Insert all line items + deduct stock atomically
     let mut order_items: Vec<OrderItem> = Vec::with_capacity(items.len());
     for item in items {
-        let variant = item.variant.clone().unwrap_or_default();
+        let variant      = item.variant.clone().unwrap_or_default();
         let item_subtotal = item.unit_price * item.quantity as i64;
+
+        // Check & deduct stock (SELECT FOR UPDATE prevents race conditions)
+        let stock_row = sqlx::query!(
+            "SELECT stock, name FROM products WHERE id = $1 FOR UPDATE",
+            item.product_id,
+        )
+        .fetch_optional(&mut *tx)
+        .await?;
+
+        match stock_row {
+            None => {
+                return Err(AppError::BadRequest(format!(
+                    "Sản phẩm không tồn tại (id: {})", item.product_id
+                )));
+            }
+            Some(r) if r.stock < item.quantity => {
+                return Err(AppError::BadRequest(format!(
+                    "Sản phẩm '{}' không đủ hàng. Còn lại: {} sản phẩm",
+                    r.name, r.stock
+                )));
+            }
+            Some(_) => {
+                sqlx::query!(
+                    "UPDATE products SET stock = stock - $2 WHERE id = $1",
+                    item.product_id,
+                    item.quantity as i32,
+                )
+                .execute(&mut *tx)
+                .await?;
+            }
+        }
 
         let order_item = sqlx::query_as!(
             OrderItem,
@@ -219,4 +250,21 @@ pub async fn update_order_status(
     .ok_or_else(|| AppError::NotFound(format!("Order {order_id} not found")))?;
 
     Ok(order)
+}
+/// Restore product stock for all items in an order (called when order is cancelled).
+/// Uses UPDATE...FROM syntax to do it in a single query.
+pub async fn restore_stock_for_order(pool: &PgPool, order_id: Uuid) -> Result<(), AppError> {
+    sqlx::query(
+        r#"
+        UPDATE products
+        SET stock = products.stock + oi.quantity
+        FROM order_items oi
+        WHERE oi.order_id = $1 AND oi.product_id = products.id
+        "#,
+    )
+    .bind(order_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
 }

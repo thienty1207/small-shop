@@ -100,6 +100,31 @@ export interface Category {
   created_at: string;
 }
 
+export interface StaffListItem {
+  id:         string;
+  username:   string;
+  full_name:  string;
+  role:       string;
+  is_active:  boolean;
+  created_at: string;
+}
+
+export interface CreateStaffInput {
+  username:   string;
+  password:   string;
+  full_name?: string;
+  role:       "manager" | "staff";
+}
+
+export interface UpdateStaffInput {
+  full_name?:  string;
+  role?:       "manager" | "staff";
+  password?:   string;
+  is_active?:  boolean;
+}
+
+export type ShopSettings = Record<string, string>;
+
 export interface AdminOrder {
   id:             string;
   order_code:     string;

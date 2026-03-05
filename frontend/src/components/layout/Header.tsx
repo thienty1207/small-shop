@@ -1,6 +1,6 @@
-﻿import { Link, useLocation, useNavigate } from "react-router-dom";
+﻿import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Search, ShoppingCart, User, LogOut, Package, Settings, Menu, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -20,12 +20,32 @@ interface HeaderProps {
 const Header = ({ transparent = false }: HeaderProps) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { items } = useCart();
   const { user, isAuthenticated, logout } = useAuth();
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+
+  // Search state — synced from URL on mount/navigation
+  const [searchInput, setSearchInput] = useState(() => searchParams.get("search") ?? "");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep input in sync when URL changes (e.g. navigating away and back)
+  useEffect(() => {
+    setSearchInput(searchParams.get("search") ?? "");
+  }, [searchParams]);
+
+  const handleSearchChange = (val: string) => {
+    setSearchInput(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const params = new URLSearchParams();
+      if (val.trim()) params.set("search", val.trim());
+      navigate(`/products${val.trim() ? `?${params.toString()}` : ""}`);
+    }, 300);
+  };
 
   useEffect(() => {
     if (!transparent) return;
@@ -96,6 +116,8 @@ const Header = ({ transparent = false }: HeaderProps) => {
           <input
             type="text"
             placeholder="Tìm kiếm..."
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className={`w-full h-9 pl-9 pr-4 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
               isSolid
                 ? "border border-border bg-muted/60 text-foreground placeholder:text-muted-foreground focus:ring-primary/30"
@@ -216,6 +238,9 @@ const Header = ({ transparent = false }: HeaderProps) => {
               type="text"
               placeholder="Tìm kiếm sản phẩm..."
               autoFocus
+              value={searchInput}
+              onChange={(e) => { handleSearchChange(e.target.value); }}
+              onKeyDown={(e) => { if (e.key === "Enter") setMobileSearchOpen(false); }}
               className="w-full h-10 pl-10 pr-4 rounded-xl border border-border bg-muted/60 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />

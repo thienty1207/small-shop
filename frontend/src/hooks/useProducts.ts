@@ -23,6 +23,7 @@ interface ApiProduct {
   rating: number;
   review_count: number;
   in_stock: boolean;
+  stock: number;
 }
 
 interface ApiCategory {
@@ -30,6 +31,14 @@ interface ApiCategory {
   name: string;
   slug: string;
   image_url?: string;
+}
+
+interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -53,6 +62,7 @@ function mapProduct(p: ApiProduct): Product {
     rating: p.rating,
     reviewCount: p.review_count,
     inStock: p.in_stock,
+    stock: p.stock,
   };
 }
 
@@ -69,42 +79,62 @@ function mapCategory(c: ApiCategory): Category {
 // Hooks
 // ---------------------------------------------------------------------------
 
-interface UseProductsResult {
+export interface UseProductsResult {
   products: Product[];
+  total: number;
+  totalPages: number;
   isLoading: boolean;
   error: string | null;
 }
 
-/** Fetch all products, optionally filtered by category slug or search query. */
-export function useProducts(
-  opts: { category?: string; search?: string } = {}
-): UseProductsResult {
-  const [products, setProducts] = useState<Product[]>([]);
+export interface UseProductsOpts {
+  category?: string;
+  search?: string;
+  sort?: string;
+  page?: number;
+  limit?: number;
+}
+
+/** Fetch paginated products with optional filter/sort. */
+export function useProducts(opts: UseProductsOpts = {}): UseProductsResult {
+  const [products, setProducts]   = useState<Product[]>([]);
+  const [total, setTotal]         = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]         = useState<string | null>(null);
+
+  const category = opts.category ?? "";
+  const search   = opts.search   ?? "";
+  const sort     = opts.sort     ?? "";
+  const page     = opts.page     ?? 1;
+  const limit    = opts.limit    ?? 12;
 
   useEffect(() => {
     const params = new URLSearchParams();
-    if (opts.category) params.set("category", opts.category);
-    if (opts.search) params.set("search", opts.search);
-
-    const url = `${API_URL}/api/products${params.toString() ? "?" + params.toString() : ""}`;
+    if (category) params.set("category", category);
+    if (search)   params.set("search", search);
+    if (sort)     params.set("sort", sort);
+    params.set("page",  String(page));
+    params.set("limit", String(limit));
 
     setIsLoading(true);
-    fetch(url)
+    fetch(`${API_URL}/api/products?${params.toString()}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch products");
-        return res.json();
+        return res.json() as Promise<PaginatedResponse<ApiProduct>>;
       })
-      .then((data: ApiProduct[]) => {
-        setProducts(data.map(mapProduct));
+      .then((data) => {
+        setProducts(data.items.map(mapProduct));
+        setTotal(data.total);
+        setTotalPages(data.total_pages);
         setError(null);
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setIsLoading(false));
-  }, [opts.category, opts.search]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, search, sort, page, limit]);
 
-  return { products, isLoading, error };
+  return { products, total, totalPages, isLoading, error };
 }
 
 interface UseProductResult {

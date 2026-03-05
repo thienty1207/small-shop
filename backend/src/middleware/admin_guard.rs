@@ -55,7 +55,12 @@ pub async fn admin_guard(
         .await?
         .ok_or_else(|| AppError::Unauthorized("Admin account not found".into()))?;
 
-    // 5. Inject public admin representation into extensions
+    // 5a. Check account is still active
+    if !admin.is_active {
+        return Err(AppError::Unauthorized("Tài khoản đã bị vô hiệu hoá".into()));
+    }
+
+    // 5b. Inject public admin representation into extensions
     request.extensions_mut().insert(AdminPublic::from(admin));
 
     Ok(next.run(request).await)

@@ -14,8 +14,10 @@ const TOKEN_KEY = "admin_auth_token";
 // ---------------------------------------------------------------------------
 
 export interface AdminUser {
-  id:       string;
-  username: string;
+  id:        string;
+  username:  string;
+  full_name: string;
+  role:      string;
 }
 
 interface AdminAuthContextValue {
