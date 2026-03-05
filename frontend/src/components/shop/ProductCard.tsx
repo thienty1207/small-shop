@@ -23,7 +23,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
     <div className="group relative">
       <Link to={`/product/${product.slug}`} className="block">
         {/* Image container */}
-        <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-muted">
+        <div className="relative aspect-square overflow-hidden rounded-2xl bg-muted">
           <img
             src={product.image}
             alt={product.name}

@@ -195,7 +195,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
               >
                 <div className="ml-3 pl-3 border-l border-gray-800 mt-0.5 space-y-0.5 pb-1">
                   {item.children.map((child) => {
-                    const childActive = location.pathname.startsWith(child.href);
+                    const childActive = location.pathname === child.href;
                     return (
                       <Link
                         key={child.href}

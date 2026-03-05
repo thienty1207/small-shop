@@ -141,6 +141,7 @@ export default function AdminProducts() {
     if (!file) return;
     setImgPreview(URL.createObjectURL(file));
     setUploading(true);
+    setFormError(null);
     try {
       const url = await adminUploadImage(file);
       setForm((f) => ({ ...f, image_url: url }));
@@ -150,6 +151,8 @@ export default function AdminProducts() {
       setFormError((err as Error).message);
     } finally {
       setUploading(false);
+      // Reset input so the same file can be re-selected if needed
+      if (fileRef.current) fileRef.current.value = "";
     }
   };
 

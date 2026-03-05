@@ -231,7 +231,7 @@ const Index = () => {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 stagger">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-5 md:gap-7 stagger">
           {featuredProducts.map((product) => (
             <div key={product.id} className="animate-fade-up">
               <ProductCard product={product} />
@@ -326,7 +326,7 @@ const Index = () => {
           <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-1">Mới về</p>
           <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground">Có Thể Bạn Thích</h2>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 stagger">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-5 md:gap-7 stagger">
           {moreProducts.map((product) => (
             <div key={product.id} className="animate-fade-up">
               <ProductCard product={product} />

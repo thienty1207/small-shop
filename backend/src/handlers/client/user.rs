@@ -111,16 +111,28 @@ pub async fn upload_avatar(
         .await
         .map_err(|e| AppError::BadRequest(format!("Multipart error: {e}")))?
     {
-        let content_type = field.content_type().unwrap_or("").to_string();
-        if !content_type.starts_with("image/") {
-            return Err(AppError::BadRequest("Only image files are allowed".into()));
-        }
+        let raw_ct = field.content_type().unwrap_or("").to_string();
+        let filename_hint = field.file_name().unwrap_or("").to_lowercase();
+        let content_type: String = if raw_ct.starts_with("image/") {
+            raw_ct
+        } else if filename_hint.ends_with(".png") {
+            "image/png".into()
+        } else if filename_hint.ends_with(".webp") {
+            "image/webp".into()
+        } else if filename_hint.ends_with(".gif") {
+            "image/gif".into()
+        } else {
+            "image/jpeg".into()
+        };
 
         let data = field
             .bytes()
             .await
             .map_err(|e| AppError::Internal(format!("Read error: {e}")))?;
 
+        if data.is_empty() {
+            return Err(AppError::BadRequest("Empty file".into()));
+        }
         if data.len() > 5 * 1024 * 1024 {
             return Err(AppError::BadRequest("File too large (max 5 MB)".into()));
         }
