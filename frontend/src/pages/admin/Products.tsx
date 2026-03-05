@@ -536,12 +536,16 @@ export default function AdminProducts() {
                   </div>
                   <div>
                     <label className="text-xs text-gray-400 block mb-1.5">Badge</label>
-                    <input
+                    <select
                       className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
                       value={form.badge}
                       onChange={(e) => setForm((f) => ({ ...f, badge: e.target.value }))}
-                      placeholder="Mới, Hot, Sale..."
-                    />
+                    >
+                      <option value="">Mặc định (không hiển thị section)</option>
+                      <option value="Mới">Mới — Dòng Sản Phẩm Mới</option>
+                      <option value="Nổi Bật">Nổi Bật — Sản Phẩm Nổi Bật</option>
+                      <option value="Giảm Giá">Giảm Giá — Deal Hời</option>
+                    </select>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

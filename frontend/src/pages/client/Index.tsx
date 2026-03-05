@@ -72,18 +72,11 @@ const Index = () => {
   const [progKey, setProgKey] = useState(0);
   const { settings } = useShopSettings();
 
-  // Fetch products for each section separately
-  const { products: allProducts, isLoading } = useProducts({ sort: "newest", limit: 20 });
-  const { products: featuredProducts }        = useProducts({ sort: "best_selling", limit: 4 });
-  const { categories }                        = useCategories();
-
-  // Deal hời: products with original_price > price
-  const dealProducts = allProducts
-    .filter((p) => p.originalPrice != null && p.originalPrice > p.price)
-    .slice(0, 4);
-
-  // Dòng sản phẩm mới: newest 4
-  const newProducts = allProducts.slice(0, 4);
+  // Fetch products for each badge-driven section
+  const { products: featuredProducts } = useProducts({ badge: "Nổi Bật", limit: 4 });
+  const { products: dealProducts }     = useProducts({ badge: "Giảm Giá", limit: 4 });
+  const { products: newProducts, isLoading } = useProducts({ badge: "Mới", limit: 4 });
+  const { categories }                 = useCategories();
 
   // Build hero slides from settings — fall back to static if none configured
   const heroSlides = (() => {

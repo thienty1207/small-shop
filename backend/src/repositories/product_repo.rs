@@ -42,14 +42,16 @@ pub async fn find_all(
         WHERE
             ($1::TEXT IS NULL OR c.slug = $1)
             AND ($2::TEXT IS NULL OR p.name ILIKE '%' || $2 || '%')
+            AND ($3::TEXT IS NULL OR p.badge = $3)
         ORDER BY {order_by}
-        LIMIT $3 OFFSET $4
+        LIMIT $4 OFFSET $5
         "#
     );
 
     let items = sqlx::query_as::<_, Product>(&sql)
         .bind(query.category.as_deref())
         .bind(query.search.as_deref())
+        .bind(query.badge.as_deref())
         .bind(query.limit)
         .bind(offset)
         .fetch_all(pool)
@@ -62,10 +64,12 @@ pub async fn find_all(
         WHERE
             ($1::TEXT IS NULL OR c.slug = $1)
             AND ($2::TEXT IS NULL OR p.name ILIKE '%' || $2 || '%')
+            AND ($3::TEXT IS NULL OR p.badge = $3)
         "#,
     )
     .bind(query.category.as_deref())
     .bind(query.search.as_deref())
+    .bind(query.badge.as_deref())
     .fetch_one(pool)
     .await?;
 
@@ -161,7 +165,7 @@ pub async fn find_admin_by_id(pool: &PgPool, id: Uuid) -> Result<Option<AdminPro
     let product = sqlx::query_as::<_, AdminProduct>(
         r#"
         SELECT p.id, p.category_id, c.name AS category_name, p.name, p.slug,
-               p.price, p.original_price, p.image_url, p.badge, p.description,
+               p.price, p.original_price, p.image_url, p.images, p.badge, p.description,
                p.in_stock, p.stock, p.created_at
         FROM products p
         JOIN categories c ON c.id = p.category_id
@@ -184,7 +188,7 @@ pub async fn find_all_admin(
     let items = sqlx::query_as::<_, AdminProduct>(
         r#"
         SELECT p.id, p.category_id, c.name AS category_name, p.name, p.slug,
-               p.price, p.original_price, p.image_url, p.badge, p.description,
+               p.price, p.original_price, p.image_url, p.images, p.badge, p.description,
                p.in_stock, p.stock, p.created_at
         FROM products p
         JOIN categories c ON c.id = p.category_id

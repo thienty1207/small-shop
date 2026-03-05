@@ -86,6 +86,8 @@ pub struct ProductQuery {
     pub search:   Option<String>,
     /// Allowed: newest (default), price_asc, price_desc, best_selling
     pub sort:     Option<String>,
+    /// Filter by badge value (e.g. "Mới", "Nổi Bật", "Giảm Giá")
+    pub badge:    Option<String>,
     #[serde(default = "default_client_page")]
     pub page:  i64,
     #[serde(default = "default_client_limit")]
@@ -110,6 +112,7 @@ pub struct AdminProduct {
     pub price:          i64,
     pub original_price: Option<i64>,
     pub image_url:      String,
+    pub images:         Vec<String>,
     pub badge:          Option<String>,
     pub description:    Option<String>,
     pub in_stock:       bool,

@@ -91,6 +91,7 @@ export interface UseProductsOpts {
   category?: string;
   search?: string;
   sort?: string;
+  badge?: string;
   page?: number;
   limit?: number;
 }
@@ -106,6 +107,7 @@ export function useProducts(opts: UseProductsOpts = {}): UseProductsResult {
   const category = opts.category ?? "";
   const search   = opts.search   ?? "";
   const sort     = opts.sort     ?? "";
+  const badge    = opts.badge    ?? "";
   const page     = opts.page     ?? 1;
   const limit    = opts.limit    ?? 12;
 
@@ -114,6 +116,7 @@ export function useProducts(opts: UseProductsOpts = {}): UseProductsResult {
     if (category) params.set("category", category);
     if (search)   params.set("search", search);
     if (sort)     params.set("sort", sort);
+    if (badge)    params.set("badge", badge);
     params.set("page",  String(page));
     params.set("limit", String(limit));
 
@@ -132,7 +135,7 @@ export function useProducts(opts: UseProductsOpts = {}): UseProductsResult {
       .catch((e: Error) => setError(e.message))
       .finally(() => setIsLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category, search, sort, page, limit]);
+  }, [category, search, sort, badge, page, limit]);
 
   return { products, total, totalPages, isLoading, error };
 }
