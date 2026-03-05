@@ -175,7 +175,7 @@ export default function AdminCategories() {
                 categories.map((cat) => (
                   <tr key={cat.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
                     <td className="px-4 py-3">
-                      {cat.image_url ? (
+                      {cat.image_url && (cat.image_url.startsWith("http") || cat.image_url.startsWith("/")) ? (
                         <img
                           src={cat.image_url.startsWith("/") ? `${API_URL}${cat.image_url}` : cat.image_url}
                           alt={cat.name}

@@ -287,7 +287,7 @@ const Index = () => {
             ? categories.map((cat, i) => ({
                 name: cat.name,
                 href: `/products?category=${cat.slug}`,
-                img: cat.image_url || categoryImages[i % categoryImages.length],
+                img: (cat.image && cat.image.startsWith("http")) ? cat.image : categoryImages[i % categoryImages.length],
               }))
             : ["Nến Thơm", "Thiệp", "Túi Vải", "Trang Sức"].map((name, i) => ({
                 name,
