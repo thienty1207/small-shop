@@ -178,7 +178,7 @@ export interface TopProduct {
 }
 
 export interface DashboardData {
-  stats:         DashboardStats;
+  stats:         DashboardStats | null;
   recent_orders: AdminOrder[];
   revenue_chart: RevenuePoint[];
   top_products:  TopProduct[];

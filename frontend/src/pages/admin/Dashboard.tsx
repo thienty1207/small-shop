@@ -60,8 +60,14 @@ export default function AdminDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const d = await adminGet<DashboardData>("/api/admin/dashboard");
-      setData(d);
+      const d = await adminGet<Partial<DashboardData>>("/api/admin/dashboard");
+      // Normalize to guarantee all array fields always exist
+      setData({
+        stats:         d.stats         ?? null as unknown as DashboardStats,
+        recent_orders: d.recent_orders ?? [],
+        revenue_chart: d.revenue_chart ?? [],
+        top_products:  d.top_products  ?? [],
+      });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Không thể tải dữ liệu");
     } finally {
@@ -119,8 +125,9 @@ export default function AdminDashboard() {
     : [];
 
   // ── Revenue chart bars (normalize to max 144px height) ─────────────────────
-  const maxRevenue = data
-    ? Math.max(...data.revenue_chart.map((r) => r.revenue), 1)
+  const revenueChart = data?.revenue_chart ?? [];
+  const maxRevenue = revenueChart.length > 0
+    ? Math.max(...revenueChart.map((r) => r.revenue), 1)
     : 1;
 
   return (
@@ -343,7 +350,7 @@ export default function AdminDashboard() {
             </div>
           ) : (
             <div className="flex items-end gap-3 h-36">
-              {(data?.revenue_chart ?? []).map((b) => {
+              {revenueChart.map((b) => {
                 const h = maxRevenue > 0 ? Math.max(8, Math.round((b.revenue / maxRevenue) * 144)) : 8;
                 const label = b.revenue >= 1_000_000
                   ? (b.revenue / 1_000_000).toFixed(1) + "M"
@@ -360,7 +367,7 @@ export default function AdminDashboard() {
                   </div>
                 );
               })}
-              {!loading && data?.revenue_chart.length === 0 && (
+              {!loading && revenueChart.length === 0 && (
                 <p className="text-sm text-gray-600 w-full text-center">Chưa có dữ liệu doanh thu</p>
               )}
             </div>
