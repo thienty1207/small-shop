@@ -188,7 +188,7 @@ export default function AdminOrders() {
                 </tr>
               </thead>
               <tbody>
-                {!data || data.items.length === 0 ? (
+                {!data || !data.items || data.items.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-16 text-gray-500">
                       <ShoppingCart className="w-8 h-8 mx-auto mb-2 text-gray-700" />

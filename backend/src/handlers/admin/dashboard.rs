@@ -18,7 +18,7 @@ pub async fn get_stats(
 
     // ── Revenue ────────────────────────────────────────────────────────────
     let revenue_today: i64 = sqlx::query_scalar(
-        r#"SELECT COALESCE(SUM(total), 0)
+        r#"SELECT COALESCE(SUM(total), 0)::BIGINT
            FROM orders
            WHERE status = 'delivered' AND created_at >= CURRENT_DATE"#,
     )
@@ -26,7 +26,7 @@ pub async fn get_stats(
     .await?;
 
     let revenue_this_month: i64 = sqlx::query_scalar(
-        r#"SELECT COALESCE(SUM(total), 0)
+        r#"SELECT COALESCE(SUM(total), 0)::BIGINT
            FROM orders
            WHERE status = 'delivered'
              AND created_at >= DATE_TRUNC('month', NOW())"#,
