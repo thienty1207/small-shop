@@ -464,17 +464,27 @@ export default function AdminProducts() {
                 <div>
                   <label className="text-xs text-gray-400 block mb-1.5">Ảnh sản phẩm *</label>
                   <div
-                    onClick={() => fileRef.current?.click()}
-                    className="border-2 border-dashed border-gray-700 rounded-xl h-40 flex items-center justify-center cursor-pointer hover:border-rose-500/50 transition-colors overflow-hidden"
+                    onClick={() => !uploading && fileRef.current?.click()}
+                    className={`relative border-2 border-dashed rounded-xl h-40 flex items-center justify-center transition-colors overflow-hidden ${
+                      uploading ? "border-rose-500/50 cursor-wait" : "border-gray-700 cursor-pointer hover:border-rose-500/50"
+                    }`}
                   >
                     {imgPreview ? (
                       <img src={imgPreview} alt="preview" className="w-full h-full object-cover" />
                     ) : (
                       <div className="text-center">
                         <ImagePlus className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                        <p className="text-xs text-gray-500">
-                          {uploading ? "Đang tải lên..." : "Nhấn để chọn ảnh"}
-                        </p>
+                        <p className="text-xs text-gray-500">Nhấn để chọn ảnh</p>
+                      </div>
+                    )}
+                    {/* Upload progress overlay */}
+                    {uploading && (
+                      <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2">
+                        <svg className="animate-spin w-6 h-6 text-rose-400" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
+                        </svg>
+                        <p className="text-xs text-white font-medium">Đang tải lên Cloudinary...</p>
                       </div>
                     )}
                   </div>
