@@ -150,17 +150,18 @@ export interface PaginatedResponse<T> {
 }
 
 export interface DashboardStats {
-  revenue_today:          number;
-  revenue_this_month:     number;
-  orders_total:           number;
-  orders_pending:         number;
-  orders_confirmed:       number;
-  orders_shipping:        number;
-  orders_delivered:       number;
-  orders_cancelled:       number;
-  customers_total:        number;
-  products_total:         number;
-  products_out_of_stock:  number;
+  revenue_today:              number;
+  revenue_this_month:         number;
+  orders_total:               number;
+  orders_pending:             number;
+  orders_confirmed:           number;
+  orders_shipping:            number;
+  orders_delivered:           number;
+  orders_cancelled:           number;
+  customers_total:            number;
+  new_customers_this_month:   number;
+  products_total:             number;
+  products_out_of_stock:      number;
 }
 
 export interface RevenuePoint {

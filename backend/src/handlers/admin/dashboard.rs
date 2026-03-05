@@ -44,6 +44,11 @@ pub async fn get_stats(
 
     // ── Customers & Products ───────────────────────────────────────────────
     let customers_total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users").fetch_one(db).await?;
+    let new_customers_this_month: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(*) FROM users WHERE created_at >= DATE_TRUNC('month', NOW())"#,
+    )
+    .fetch_one(db)
+    .await?;
     let products_total:  i64 = sqlx::query_scalar("SELECT COUNT(*) FROM products").fetch_one(db).await?;
     let products_out_of_stock: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM products WHERE in_stock = FALSE").fetch_one(db).await?;
 
@@ -57,6 +62,7 @@ pub async fn get_stats(
         orders_delivered,
         orders_cancelled,
         customers_total,
+        new_customers_this_month,
         products_total,
         products_out_of_stock,
     };

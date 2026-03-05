@@ -60,8 +60,9 @@ pub struct DashboardStats {
     pub orders_shipping:         i64,
     pub orders_delivered:        i64,
     pub orders_cancelled:        i64,
-    pub customers_total:         i64,
-    pub products_total:          i64,
+    pub customers_total:            i64,
+    pub new_customers_this_month:    i64,
+    pub products_total:              i64,
     pub products_out_of_stock:   i64,
 }
 

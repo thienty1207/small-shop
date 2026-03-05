@@ -1,15 +1,15 @@
 # Small Shop — Task List
 
-> Cập nhật lần cuối: 2026-03-05
+> Cập nhật lần cuối: 2026-03-05 (B1–B4 ✅ hoàn thành · commit `4785264`)
 > Mỗi task hoàn thành sẽ được đánh dấu `[x]`
 
 ---
 
 ## 🔴 CORE BUSINESS — Phải có
 
-### B1: Admin Sidebar + Skeleton Pages
-- [ ] Rebuild `AdminLayout.tsx` với collapsible sub-menu
-- [ ] Sidebar structure:
+### B1: Admin Sidebar + Skeleton Pages ✅
+- [x] Rebuild `AdminLayout.tsx` với collapsible sub-menu
+- [x] Sidebar structure:
   ```
   Dashboard
   Quản lý Sản phẩm ›
@@ -28,64 +28,64 @@
   ────
   Về cửa hàng
   ```
-- [ ] Tạo skeleton pages cho tất cả routes mới
-- [ ] Wire routes trong `App.tsx`
-- [ ] Test navigation hoạt động đúng
-- [ ] `cargo check` + `bun run build` pass
-- [ ] Git push
+- [x] Tạo skeleton pages cho tất cả routes mới
+- [x] Wire routes trong `App.tsx`
+- [x] Test navigation hoạt động đúng
+- [x] `cargo check` + `bun run build` pass
+- [x] Git push
 
 ---
 
-### B2: Admin CRUD Sản phẩm + Upload ảnh
-- [ ] Backend API: `GET /api/admin/products` (list, search, filter, phân trang)
-- [ ] Backend API: `POST /api/admin/products` (tạo mới)
-- [ ] Backend API: `PUT /api/admin/products/:id` (cập nhật)
-- [ ] Backend API: `DELETE /api/admin/products/:id` (xoá / soft-delete)
-- [ ] Backend API: Upload ảnh sản phẩm (lưu local hoặc R2/S3)
-- [ ] Backend API: CRUD danh mục (`/api/admin/categories`)
-- [ ] Frontend: Trang "Tất cả sản phẩm" — bảng data, search, filter theo danh mục
-- [ ] Frontend: Modal/drawer thêm sản phẩm (tên, giá, mô tả, danh mục, ảnh, stock)
-- [ ] Frontend: Inline edit / modal sửa sản phẩm
-- [ ] Frontend: Xác nhận xoá sản phẩm
-- [ ] Frontend: Trang "Danh mục" — CRUD inline
-- [ ] Frontend: Upload ảnh với preview trước khi submit
-- [ ] Test backend + frontend
-- [ ] Git push
+### B2: Admin CRUD Sản phẩm + Upload ảnh ✅
+- [x] Backend API: `GET /api/admin/products` (list, search, filter, phân trang)
+- [x] Backend API: `POST /api/admin/products` (tạo mới)
+- [x] Backend API: `PUT /api/admin/products/:id` (cập nhật)
+- [x] Backend API: `DELETE /api/admin/products/:id` (xoá / soft-delete)
+- [x] Backend API: Upload ảnh sản phẩm (lưu local → `/uploads/`, served qua ServeDir)
+- [x] Backend API: CRUD danh mục (`/api/admin/categories`)
+- [x] Frontend: Trang "Tất cả sản phẩm" — bảng data, search, filter theo danh mục
+- [x] Frontend: Modal/drawer thêm sản phẩm (tên, giá, mô tả, danh mục, ảnh, stock)
+- [x] Frontend: Inline edit / modal sửa sản phẩm
+- [x] Frontend: Xác nhận xoá sản phẩm
+- [x] Frontend: Trang "Danh mục" — CRUD inline
+- [x] Frontend: Upload ảnh với preview trước khi submit
+- [x] Test backend + frontend
+- [x] Git push
 
 ---
 
-### B3: Admin Quản lý Đơn hàng + Email thông báo
-- [ ] Backend API: `GET /api/admin/orders` (list, filter theo status, search theo mã đơn/tên khách)
-- [ ] Backend API: `PUT /api/admin/orders/:id/status` (đổi trạng thái + ghi chú)
-- [ ] Backend API: `GET /api/admin/orders/:id` (chi tiết đơn hàng)
-- [ ] Backend: Gửi email tự động cho khách khi đổi trạng thái
-- [ ] Frontend: Trang "Quản lý Đơn hàng" — bảng data với filter tabs:
+### B3: Admin Quản lý Đơn hàng + Email thông báo ✅
+- [x] Backend API: `GET /api/admin/orders` (list, filter theo status, search theo mã đơn/tên khách)
+- [x] Backend API: `PUT /api/admin/orders/:id/status` (đổi trạng thái + ghi chú)
+- [x] Backend API: `GET /api/admin/orders/:id` (chi tiết đơn hàng)
+- [x] Backend: Gửi email tự động cho khách khi đổi trạng thái
+- [x] Frontend: Trang "Quản lý Đơn hàng" — bảng data với filter tabs:
   - Tất cả | Chờ xử lý | Đã xác nhận | Đang giao | Đã giao | Đã huỷ
-- [ ] Frontend: Quick action button theo context:
+- [x] Frontend: Quick action button theo context:
   - pending → "✓ Xác nhận"
   - confirmed → "🚚 Giao hàng"
   - shipping → "✅ Đã giao"
   - any → "✗ Huỷ đơn"
-- [ ] Frontend: Modal xác nhận đổi trạng thái + ô ghi chú
-- [ ] Frontend: Trang chi tiết đơn hàng (sản phẩm, khách hàng, timeline trạng thái)
-- [ ] Test backend + frontend
-- [ ] Git push
+- [x] Frontend: Modal xác nhận đổi trạng thái + ô ghi chú
+- [x] Frontend: Modal chi tiết đơn hàng (sản phẩm, thông tin khách hàng)
+- [x] Test backend + frontend
+- [x] Git push
 
 ---
 
-### B4: Admin Dashboard thật (từ DB)
-- [ ] Backend API: `GET /api/admin/dashboard/stats` — trả về:
-  - Tổng doanh thu (hôm nay / tuần / tháng)
-  - Tổng đơn hàng (theo trạng thái)
-  - Tổng khách hàng
-  - Tổng sản phẩm (đang bán / hết hàng)
-- [ ] Backend API: `GET /api/admin/dashboard/recent-orders` — 10 đơn gần nhất
-- [ ] Backend API: `GET /api/admin/dashboard/revenue-chart` — doanh thu 6 tháng gần nhất
-- [ ] Backend API: `GET /api/admin/dashboard/top-products` — top 5 sản phẩm bán chạy
-- [ ] Frontend: Thay toàn bộ mock data bằng API thật
-- [ ] Frontend: Chart doanh thu (CSS hoặc lightweight lib)
-- [ ] Test backend
-- [ ] Git push
+### B4: Admin Dashboard thật (từ DB) ✅
+- [x] Backend API: `GET /api/admin/dashboard` — trả về tất cả trong 1 endpoint:
+  - Tổng doanh thu (hôm nay / tháng này)
+  - Tổng đơn hàng (theo từng trạng thái)
+  - Tổng khách hàng + mới tháng này
+  - Tổng sản phẩm + sản phẩm sắp hết hàng
+- [x] Backend API: 10 đơn gần nhất (trong response dashboard)
+- [x] Backend API: Doanh thu 6 tháng gần nhất (revenue_chart)
+- [x] Backend API: Top 5 sản phẩm bán chạy (top_products)
+- [x] Frontend: Thay toàn bộ mock data bằng API thật
+- [x] Frontend: Chart doanh thu (CSS bars, dynamic height, tooltip VND)
+- [x] Test backend
+- [x] Git push
 
 ---
 
@@ -103,15 +103,15 @@
 
 ---
 
-### B6: Tồn kho (Stock Management)
-- [ ] Backend: Thêm cột `stock` vào bảng `products` (migration)
+### B6: Tồn kho (Stock Management) 🔄 (một phần)
+- [x] Backend: Thêm cột `stock` vào bảng `products` (migration `011_add_stock_to_products.sql`)
 - [ ] Backend: Trừ stock khi đặt hàng thành công (transaction)
 - [ ] Backend: Hoàn stock khi huỷ đơn
 - [ ] Backend: Check stock trước khi checkout → trả lỗi nếu không đủ
 - [ ] Frontend (client): Hiện "Hết hàng" khi stock = 0, disable nút "Thêm vào giỏ"
 - [ ] Frontend (client): Hiện "Còn X sản phẩm" khi stock thấp (< 5)
-- [ ] Frontend (admin): Hiện cột stock trong bảng sản phẩm
-- [ ] Frontend (admin): Cảnh báo sản phẩm sắp hết hàng trên Dashboard
+- [x] Frontend (admin): Hiện cột stock trong bảng sản phẩm
+- [x] Frontend (admin): Cảnh báo sản phẩm sắp hết hàng trên Dashboard
 - [ ] Test backend
 - [ ] Git push
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import Cart from "@/pages/Cart";
+import Cart from "@/pages/client/Cart";
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 

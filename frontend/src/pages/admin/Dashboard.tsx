@@ -13,8 +13,8 @@ import type { DashboardData } from "@/lib/admin-api";
 // Helpers
 // ---------------------------------------------------------------------------
 
-function fmtVND(n: number): string {
-  return n.toLocaleString("vi-VN") + " ₫";
+function fmtVND(n: number | undefined | null): string {
+  return (n ?? 0).toLocaleString("vi-VN") + " ₫";
 }
 
 function fmtDate(iso: string): string {
@@ -228,7 +228,7 @@ export default function AdminDashboard() {
                             </td>
                             <td className="px-6 py-3.5 text-sm text-white">{o.customer_name}</td>
                             <td className="px-6 py-3.5 text-sm text-white font-medium">
-                              {fmtVND(o.total_price)}
+                              {fmtVND(o.total)}
                             </td>
                             <td className="px-6 py-3.5">
                               <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${cfg.bg} ${cfg.color}`}>
