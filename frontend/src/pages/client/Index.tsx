@@ -73,10 +73,20 @@ const Index = () => {
   const { settings } = useShopSettings();
 
   // Fetch products for each badge-driven section
-  const { products: featuredProducts } = useProducts({ badge: "Nổi Bật", limit: 4 });
-  const { products: dealProducts }     = useProducts({ badge: "Giảm Giá", limit: 4 });
-  const { products: newProducts, isLoading } = useProducts({ badge: "Mới", limit: 4 });
-  const { categories }                 = useCategories();
+  const { products: featuredBadge }         = useProducts({ badge: "Nổi Bật", limit: 4 });
+  const { products: dealBadge }             = useProducts({ badge: "Giảm Giá", limit: 4 });
+  const { products: newBadge, isLoading }   = useProducts({ badge: "Mới", limit: 4 });
+  // Fallback pool: all products sorted newest — used when badge sections are empty
+  const { products: allProducts }           = useProducts({ sort: "newest", limit: 20 });
+  const { products: bestSelling }           = useProducts({ sort: "best_selling", limit: 4 });
+  const { categories }                      = useCategories();
+
+  // Sections: prefer badge-tagged products, fall back to general queries
+  const featuredProducts = featuredBadge.length > 0 ? featuredBadge : bestSelling;
+  const dealProducts     = dealBadge.length > 0
+    ? dealBadge
+    : allProducts.filter((p) => p.originalPrice != null && p.originalPrice > p.price).slice(0, 4);
+  const newProducts      = newBadge.length > 0 ? newBadge : allProducts.slice(0, 4);
 
   // Build hero slides from settings — fall back to static if none configured
   const heroSlides = (() => {
