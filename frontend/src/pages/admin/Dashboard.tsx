@@ -7,7 +7,7 @@ import {
   Truck, XCircle, Eye, RefreshCw,
 } from "lucide-react";
 import { adminGet } from "@/lib/admin-api";
-import type { DashboardData } from "@/lib/admin-api";
+import type { DashboardData, DashboardStats } from "@/lib/admin-api";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -72,13 +72,14 @@ export default function AdminDashboard() {
   useEffect(() => { load(); }, []);
 
   // ── Derived stat cards from real data ──────────────────────────────────────
-  const statCards = data
+  const stats = data?.stats;
+  const statCards = stats
     ? [
         {
           label:  "Doanh thu tháng này",
-          value:  fmtVND(data.stats.revenue_this_month),
-          change: fmtVND(data.stats.revenue_today) + " hôm nay",
-          up:     data.stats.revenue_today > 0,
+          value:  fmtVND(stats.revenue_this_month),
+          change: fmtVND(stats.revenue_today) + " hôm nay",
+          up:     (stats.revenue_today ?? 0) > 0,
           icon:   TrendingUp,
           accent: "text-emerald-400",
           bg:     "bg-emerald-400/10",
@@ -86,9 +87,9 @@ export default function AdminDashboard() {
         },
         {
           label:  "Tổng đơn hàng",
-          value:  String(data.stats.orders_total),
-          change: data.stats.orders_pending + " chờ xử lý",
-          up:     data.stats.orders_pending === 0,
+          value:  String(stats.orders_total),
+          change: stats.orders_pending + " chờ xử lý",
+          up:     stats.orders_pending === 0,
           icon:   ShoppingCart,
           accent: "text-blue-400",
           bg:     "bg-blue-400/10",
@@ -96,9 +97,9 @@ export default function AdminDashboard() {
         },
         {
           label:  "Khách hàng",
-          value:  String(data.stats.total_customers),
-          change: data.stats.new_customers_this_month + " mới tháng này",
-          up:     data.stats.new_customers_this_month > 0,
+          value:  String(stats.customers_total),
+          change: stats.new_customers_this_month + " mới tháng này",
+          up:     (stats.new_customers_this_month ?? 0) > 0,
           icon:   Users,
           accent: "text-purple-400",
           bg:     "bg-purple-400/10",
@@ -106,9 +107,9 @@ export default function AdminDashboard() {
         },
         {
           label:  "Sản phẩm",
-          value:  String(data.stats.total_products),
-          change: data.stats.low_stock_products + " sắp hết hàng",
-          up:     data.stats.low_stock_products === 0,
+          value:  String(stats.products_total),
+          change: stats.products_out_of_stock + " sắp hết hàng",
+          up:     stats.products_out_of_stock === 0,
           icon:   Package,
           accent: "text-rose-400",
           bg:     "bg-rose-400/10",
@@ -272,8 +273,8 @@ export default function AdminDashboard() {
                       { key: "cancelled" as OrderStatus,  color: "bg-red-400"     },
                     ] as { key: OrderStatus; color: string }[]
                   ).map(({ key, color }) => {
-                    const count = data?.stats[`orders_${key}` as keyof typeof data.stats] as number ?? 0;
-                    const total = data?.stats.orders_total ?? 1;
+                    const count = stats?.[`orders_${key}` as keyof DashboardStats] as number ?? 0;
+                    const total = stats?.orders_total ?? 1;
                     const pct   = total > 0 ? Math.round((count / total) * 100) : 0;
                     return (
                       <div key={key}>
