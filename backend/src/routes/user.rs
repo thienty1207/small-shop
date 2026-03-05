@@ -1,7 +1,7 @@
-use axum::{middleware, routing::get, Router};
+use axum::{middleware, routing::{get, post}, Router};
 
 use crate::{
-    handlers::client::user::{get_me, google_callback, google_login, put_me},
+    handlers::client::user::{get_me, google_callback, google_login, put_me, upload_avatar},
     middleware::auth::jwt_auth,
     state::AppState,
 };
@@ -18,6 +18,7 @@ pub fn routes(state: AppState) -> Router<AppState> {
     // and injects UserPublic into request extensions for handlers to use.
     let protected = Router::new()
         .route("/api/me", get(get_me).put(put_me))
+        .route("/api/me/avatar", post(upload_avatar))
         .route_layer(middleware::from_fn_with_state(state, jwt_auth));
 
     Router::new().merge(public).merge(protected)

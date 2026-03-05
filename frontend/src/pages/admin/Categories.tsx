@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Tag, Plus, Pencil, Trash2, AlertCircle } from "lucide-react";
+import { Tag, Plus, Pencil, Trash2, AlertCircle, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   adminGet,
   adminPost,
   adminPut,
   adminDel,
+  adminUploadImage,
   type Category,
 } from "@/lib/admin-api";
 
@@ -23,6 +24,11 @@ export default function AdminCategories() {
   const [form,       setForm]       = useState({ name: "", slug: "", image_url: "" });
   const [saving,     setSaving]     = useState(false);
   const [formError,  setFormError]  = useState<string | null>(null);
+
+  // Image upload
+  const [imgPreview, setImgPreview] = useState("");
+  const [uploading,  setUploading]  = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
@@ -46,6 +52,7 @@ export default function AdminCategories() {
   const openCreate = () => {
     setEditing(null);
     setForm({ name: "", slug: "", image_url: "" });
+    setImgPreview("");
     setFormError(null);
     setShowModal(true);
   };
@@ -53,6 +60,7 @@ export default function AdminCategories() {
   const openEdit = (cat: Category) => {
     setEditing(cat);
     setForm({ name: cat.name, slug: cat.slug, image_url: cat.image_url ?? "" });
+    setImgPreview(cat.image_url ?? "");
     setFormError(null);
     setShowModal(true);
   };
@@ -105,6 +113,24 @@ export default function AdminCategories() {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
     setForm((f) => ({ ...f, name, slug }));
+  };
+
+  // Image file upload handler
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImgPreview(URL.createObjectURL(file));
+    setUploading(true);
+    try {
+      const url = await adminUploadImage(file);
+      setForm((f) => ({ ...f, image_url: url }));
+      setImgPreview(url.startsWith("/") ? `${API_URL}${url}` : url);
+    } catch (err) {
+      setFormError((err as Error).message);
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   };
 
   return (
@@ -216,13 +242,38 @@ export default function AdminCategories() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1.5">URL ảnh đại diện</label>
+                <label className="block text-xs text-gray-400 mb-1.5">Ảnh đại diện danh mục</label>
+                <div
+                  onClick={() => fileRef.current?.click()}
+                  className="border-2 border-dashed border-gray-700 rounded-xl h-36 flex items-center justify-center cursor-pointer hover:border-rose-500/50 transition-colors overflow-hidden"
+                >
+                  {imgPreview ? (
+                    <img src={imgPreview} alt="preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-center">
+                      <ImagePlus className="w-7 h-7 text-gray-600 mx-auto mb-2" />
+                      <p className="text-xs text-gray-500">
+                        {uploading ? "Đang tải lên Cloudinary..." : "Nhấn để chọn ảnh từ thiết bị"}
+                      </p>
+                    </div>
+                  )}
+                </div>
                 <input
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
-                  value={form.image_url}
-                  onChange={(e) => setForm((f) => ({ ...f, image_url: e.target.value }))}
-                  placeholder="https://..."
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileSelect}
                 />
+                {imgPreview && (
+                  <button
+                    type="button"
+                    onClick={() => { setImgPreview(""); setForm((f) => ({ ...f, image_url: "" })); }}
+                    className="mt-1.5 text-xs text-gray-500 hover:text-red-400 transition-colors"
+                  >
+                    Xoá ảnh
+                  </button>
+                )}
               </div>
               {formError && (
                 <p className="text-xs text-red-400 flex items-center gap-1">

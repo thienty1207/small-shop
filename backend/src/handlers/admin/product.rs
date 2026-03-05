@@ -11,6 +11,7 @@ use crate::{
         product::{AdminProductQuery, CreateProductInput, UpdateProductInput},
     },
     repositories::product_repo,
+    services::cloudinary as cloudinary_service,
     state::AppState,
 };
 
@@ -76,19 +77,17 @@ pub async fn delete_product(
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
-/// POST /api/admin/upload/image  — multipart image upload
+/// POST /api/admin/upload/image  — multipart image upload to Cloudinary
 ///
-/// Accepts a single `image` field, saves to `uploads/` and returns the URL.
+/// Accepts a single `image` field; uploads to Cloudinary and returns the `secure_url`.
 pub async fn upload_image(
+    State(state): State<AppState>,
     Extension(_admin): Extension<AdminPublic>,
     mut multipart: Multipart,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let uploads_dir = std::path::Path::new("uploads");
-    if !uploads_dir.exists() {
-        tokio::fs::create_dir_all(uploads_dir)
-            .await
-            .map_err(|e| AppError::Internal(format!("Cannot create uploads dir: {e}")))?;
-    }
+    let cloudinary = state.cloudinary.as_ref().ok_or_else(|| {
+        AppError::Internal("Cloudinary chưa được cấu hình — kiểm tra CLOUDINARY_URL trong .env".into())
+    })?;
 
     while let Some(field) = multipart
         .next_field()
@@ -100,30 +99,24 @@ pub async fn upload_image(
             return Err(AppError::BadRequest("Only image files are allowed".into()));
         }
 
-        let ext = match content_type.as_str() {
-            "image/png"  => "png",
-            "image/webp" => "webp",
-            "image/gif"  => "gif",
-            _            => "jpg",
-        };
-
-        let filename = format!("{}.{}", Uuid::new_v4(), ext);
-        let filepath = format!("uploads/{filename}");
-
         let data = field
             .bytes()
             .await
             .map_err(|e| AppError::Internal(format!("Read error: {e}")))?;
 
-        if data.len() > 5 * 1024 * 1024 {
-            return Err(AppError::BadRequest("File too large (max 5 MB)".into()));
+        if data.len() > 10 * 1024 * 1024 {
+            return Err(AppError::BadRequest("File too large (max 10 MB)".into()));
         }
 
-        tokio::fs::write(&filepath, &data)
-            .await
-            .map_err(|e| AppError::Internal(format!("Write error: {e}")))?;
+        let url = cloudinary_service::upload_image(
+            cloudinary,
+            data.to_vec(),
+            &content_type,
+            "shop/images",
+        )
+        .await?;
 
-        return Ok(Json(serde_json::json!({ "url": format!("/uploads/{filename}") })));
+        return Ok(Json(serde_json::json!({ "url": url })));
     }
 
     Err(AppError::BadRequest("No image field in request".into()))

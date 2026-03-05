@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Query, State},
+    extract::{Multipart, Query, State},
     response::{IntoResponse, Redirect},
     Extension, Json,
 };
@@ -9,7 +9,7 @@ use crate::{
     error::AppError,
     models::user::{UpdateProfileInput, UserPublic},
     repositories::user_repo,
-    services::auth_service,
+    services::{auth_service, cloudinary as cloudinary_service},
     state::AppState,
 };
 
@@ -91,4 +91,51 @@ pub async fn put_me(
 ) -> Result<Json<UserPublic>, AppError> {
     let updated = user_repo::update_profile(&state.db, current_user.id, &input).await?;
     Ok(Json(updated.into()))
+}
+
+// ---------------------------------------------------------------------------
+// Protected: POST /api/me/avatar — upload & update avatar via Cloudinary
+// ---------------------------------------------------------------------------
+
+pub async fn upload_avatar(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<UserPublic>,
+    mut multipart: Multipart,
+) -> Result<Json<UserPublic>, AppError> {
+    let cloudinary = state.cloudinary.as_ref().ok_or_else(|| {
+        AppError::Internal("Cloudinary chưa được cấu hình".into())
+    })?;
+
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::BadRequest(format!("Multipart error: {e}")))?
+    {
+        let content_type = field.content_type().unwrap_or("").to_string();
+        if !content_type.starts_with("image/") {
+            return Err(AppError::BadRequest("Only image files are allowed".into()));
+        }
+
+        let data = field
+            .bytes()
+            .await
+            .map_err(|e| AppError::Internal(format!("Read error: {e}")))?;
+
+        if data.len() > 5 * 1024 * 1024 {
+            return Err(AppError::BadRequest("File too large (max 5 MB)".into()));
+        }
+
+        let url = cloudinary_service::upload_image(
+            cloudinary,
+            data.to_vec(),
+            &content_type,
+            "shop/avatars",
+        )
+        .await?;
+
+        let updated = user_repo::update_avatar_url(&state.db, current_user.id, &url).await?;
+        return Ok(Json(updated.into()));
+    }
+
+    Err(AppError::BadRequest("No image field in request".into()))
 }

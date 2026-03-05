@@ -137,3 +137,28 @@ pub async fn update_profile(
 
     Ok(user)
 }
+
+/// Update the user's avatar URL.
+pub async fn update_avatar_url(
+    pool: &PgPool,
+    user_id: Uuid,
+    avatar_url: &str,
+) -> Result<User, AppError> {
+    let user = sqlx::query_as::<_, User>(
+        r#"
+        UPDATE users
+        SET avatar_url = $1, updated_at = now()
+        WHERE id = $2
+        RETURNING id, google_id, email, name, avatar_url, role,
+                  phone, address,
+                  refresh_token, token_expires_at, last_login_at,
+                  created_at, updated_at
+        "#,
+    )
+    .bind(avatar_url)
+    .bind(user_id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(user)
+}

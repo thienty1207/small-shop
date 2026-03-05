@@ -144,7 +144,8 @@ export default function AdminProducts() {
     try {
       const url = await adminUploadImage(file);
       setForm((f) => ({ ...f, image_url: url }));
-      setImgPreview(`${API_URL}${url}`);
+      // Cloudinary returns a full https:// URL; legacy /uploads/* needs the API prefix
+      setImgPreview(url.startsWith("/") ? `${API_URL}${url}` : url);
     } catch (err) {
       setFormError((err as Error).message);
     } finally {

@@ -3,5 +3,6 @@
 
 pub mod admin_auth_service;
 pub mod auth_service;
+pub mod cloudinary;
 pub mod email_service;
 pub mod order_service;

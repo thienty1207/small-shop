@@ -6,7 +6,7 @@ use tower_http::{cors::{Any, CorsLayer}, services::ServeDir};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-use backend::{config::Config, routes, services::{admin_auth_service, email_service}, state::AppState};
+use backend::{config::Config, routes, services::{admin_auth_service, cloudinary::CloudinaryConfig, email_service}, state::AppState};
 
 #[tokio::main]
 async fn main() {
@@ -60,10 +60,24 @@ async fn main() {
         }
     };
 
-    // Build application state
-    let state = AppState { db, config: config.clone(), mailer };
+    // Build Cloudinary config from CLOUDINARY_URL (optional)
+    let cloudinary = std::env::var("CLOUDINARY_URL").ok().and_then(|url| {
+        match CloudinaryConfig::from_url(&url) {
+            Ok(c) => {
+                info!("Cloudinary ready (cloud: {})", c.cloud_name);
+                Some(c)
+            }
+            Err(e) => {
+                tracing::warn!("Cloudinary config error — image uploads disabled: {e}");
+                None
+            }
+        }
+    });
 
-    // Ensure uploads directory exists for product image uploads
+    // Build application state
+    let state = AppState { db, config: config.clone(), mailer, cloudinary };
+
+    // Ensure uploads directory exists (serves existing /uploads/* URLs for backward compat)
     tokio::fs::create_dir_all("uploads")
         .await
         .expect("Failed to create uploads directory");

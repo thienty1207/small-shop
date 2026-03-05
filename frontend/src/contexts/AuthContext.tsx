@@ -30,6 +30,7 @@ interface AuthContextValue {
   login: (token: string) => Promise<void>;
   logout: () => void;
   updateProfile: (data: { phone?: string | null; address?: string | null }) => Promise<void>;
+  uploadAvatar: (file: File) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -101,6 +102,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  /** Upload a new avatar image via POST /api/me/avatar (multipart). */
+  const uploadAvatar = useCallback(async (file: File) => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) throw new Error("Chưa đăng nhập");
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const res = await fetch(`${API_URL}/api/me/avatar`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+
+    if (!res.ok) throw new Error("Upload ảnh thất bại");
+
+    const updated: AuthUser = await res.json();
+    setUser(updated);
+  }, []);
+
   /** On mount: restore session from localStorage. */
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY);
@@ -121,6 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         logout,
         updateProfile,
+        uploadAvatar,
       }}
     >
       {children}
