@@ -139,6 +139,7 @@ pub async fn upload_avatar(
 
         let url = cloudinary_service::upload_image(
             cloudinary,
+            &state.http_client,
             data.to_vec(),
             &content_type,
             "shop/avatars",

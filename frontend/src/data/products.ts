@@ -2,6 +2,8 @@
 // Mock arrays have been removed — data is now fetched from the backend API.
 // See frontend/src/hooks/useProducts.ts for API hooks.
 
+import type { ProductVariant } from "@/hooks/useProducts";
+
 export interface Product {
   id: string;
   slug: string;
@@ -13,14 +15,20 @@ export interface Product {
   category: string;      // category_id from API
   badge?: string;
   description?: string;
-  material?: string;
+  material?: string;   // @deprecated — kept for backward compat during migration
+  topNote?: string;
+  midNote?: string;
+  baseNote?: string;
   care?: string;
   rating?: number;
   reviewCount?: number;
   inStock?: boolean;
-  stock?: number;        // maps to stock from API
-  variants?: { label: string; options: string[] }[];
+  stock?: number;
+  brand?: string;
+  concentration?: string;
+  variants?: ProductVariant[];
 }
+
 
 export interface Category {
   id: string;

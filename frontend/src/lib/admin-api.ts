@@ -71,8 +71,11 @@ export const adminPost = <T>(path: string, body: unknown) =>
   adminFetch<T>(path, { method: "POST", body: JSON.stringify(body) });
 export const adminPut  = <T>(path: string, body: unknown) =>
   adminFetch<T>(path, { method: "PUT",  body: JSON.stringify(body) });
+export const adminPatch = <T>(path: string, body: unknown) =>
+  adminFetch<T>(path, { method: "PATCH", body: JSON.stringify(body) });
 export const adminDel  = <T>(path: string) =>
   adminFetch<T>(path, { method: "DELETE" });
+
 
 // ─── Typed response types (mirrors Rust structs) ──────────────────────────────
 
@@ -88,8 +91,14 @@ export interface AdminProduct {
   images:         string[];
   badge:          string | null;
   description:    string | null;
+  top_note:       string | null;
+  mid_note:       string | null;
+  base_note:      string | null;
+  care:           string | null;
   in_stock:       boolean;
   stock:          number;
+  brand:          string | null;
+  concentration:  string | null;
   created_at:     string;
 }
 

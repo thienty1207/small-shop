@@ -1,6 +1,6 @@
 # Small Shop — Task List
 
-> Cập nhật lần cuối: 2026-03-05 (B1–B8 ✅ hoàn thành · commit `1961934`)
+> Cập nhật lần cuối: 2026-03-10 (B1–B8 ✅ + B10 ✅ + B11 ✅ + B12 ✅ + B13 ✅ + B15 ✅ + B16 ✅)
 > Mỗi task hoàn thành sẽ được đánh dấu `[x]`
 
 ---
@@ -131,7 +131,7 @@
   | `staff` | Chỉ xem + xử lý đơn hàng |
 - [x] Frontend: Trang "Nhân viên" — CRUD + gán role
 - [x] Frontend: Trang "Phân quyền" — matrix role × permission
-- [ ] Frontend: Ẩn/disable menu + button theo quyền hiện tại
+- [x] Frontend: Ẩn/disable menu + button theo quyền hiện tại (`filterNav` trong AdminLayout + `SuperAdminRoute`/`ManagerRoute` guards trong App.tsx)
 - [x] Test backend + frontend
 - [x] Git push
 
@@ -141,22 +141,22 @@
 - [x] Database: Bảng `shop_settings` (key-value store)
 - [x] Backend API: `GET /api/admin/settings` — lấy toàn bộ settings
 - [x] Backend API: `PUT /api/admin/settings` — cập nhật settings
-- [ ] Backend API: Upload ảnh hero/banner
-- [ ] Frontend — Trang "Giao diện":
-  - [ ] Quản lý Hero slides (thêm/sửa/xoá slide, upload ảnh, chỉnh text + CTA)
+- [x] Backend API: Upload ảnh hero/banner (dùng chung endpoint `/api/admin/upload` từ B2)
+- [x] Frontend — Trang "Giao diện":
+  - [x] Quản lý Hero slides (3 slides, upload ảnh, chỉnh title/subtitle/CTA/href)
   - [x] Quản lý Banner khuyến mãi (ảnh + link)
-  - [ ] Chọn font chữ (Google Fonts picker)
+  - [x] Chọn font chữ (Google Fonts picker với preview live)
   - [x] Preview trước khi lưu
-- [ ] Frontend — Trang "Thông tin cửa hàng":
+- [x] Frontend — Trang "Thông tin cửa hàng":
   - [x] Tên shop, logo, địa chỉ, SĐT, email
   - [x] Social links (Facebook, Instagram, TikTok)
-- [ ] Frontend — Trang "Vận chuyển & Phí":
+- [x] Frontend — Trang "Vận chuyển & Phí":
   - [x] Phí ship mặc định
   - [x] Miễn phí ship từ X đồng
-- [ ] Frontend — Trang "Email template":
+- [x] Frontend — Trang "Email template":
   - [x] Xem trước email xác nhận đơn / đổi trạng thái
   - [x] Sửa nội dung template (text, logo)
-- [ ] Client-side: Đọc settings từ API thay vì hardcode (hero, font, thông tin shop)
+- [x] Client-side: Đọc settings từ API thay vì hardcode (`ShopSettingsContext` dùng trong Index, Contact, Footer, Header)
 - [x] Test backend
 - [x] Git push
 
@@ -174,72 +174,72 @@
 
 ---
 
-### B10: Đánh giá sản phẩm
-- [ ] Database: Bảng `reviews` (user_id, product_id, rating 1-5, comment, created_at)
-- [ ] Backend: Chỉ cho phép review nếu đã mua + đơn đã giao
-- [ ] Backend API: `POST /api/products/:id/reviews`
-- [ ] Backend API: `GET /api/products/:id/reviews` (phân trang)
-- [ ] Frontend (client): Form review trên trang chi tiết sản phẩm
-- [ ] Frontend (client): Hiện rating trung bình + số lượng review trên card
-- [ ] Frontend (admin): Quản lý review (xoá review spam)
-- [ ] Git push
+### B10: Đánh giá sản phẩm ✅
+- [x] Database: Bảng `reviews` (user_id, product_id, rating 1-5, comment, created_at)
+- [x] Backend: Chỉ cho phép review nếu đã mua + đơn đã giao
+- [x] Backend API: `POST /api/products/:id/reviews`
+- [x] Backend API: `GET /api/products/:id/reviews` (phân trang)
+- [x] Frontend (client): Form review trên trang chi tiết sản phẩm
+- [x] Frontend (client): Hiện rating trung bình + số lượng review trên card
+- [x] Frontend (admin): Quản lý review (xoá review spam)
+- [x] Git push
 
 ---
 
-### B11: Mã giảm giá / Voucher
-- [ ] Database: Bảng `coupons` (code, type, value, min_order, max_uses, expires_at)
-- [ ] Backend: Validate coupon khi checkout
-- [ ] Backend API: CRUD coupon cho admin
-- [ ] Frontend (client): Ô nhập mã giảm giá ở trang Checkout
-- [ ] Frontend (admin): Trang quản lý mã giảm giá
-- [ ] Git push
+### B11: Mã giảm giá / Voucher ✅
+- [x] Database: Bảng `coupons` (code, type, value, min_order, max_uses, expires_at)
+- [x] Backend: Validate coupon khi checkout
+- [x] Backend API: CRUD coupon cho admin
+- [x] Frontend (client): Ô nhập mã giảm giá ở trang Checkout
+- [x] Frontend (admin): Trang quản lý mã giảm giá
+- [x] Git push
 
 ---
 
-### B12: Thông báo realtime (Admin)
-- [ ] Backend: WebSocket hoặc SSE endpoint
-- [ ] Backend: Gửi notification khi có đơn hàng mới
-- [ ] Frontend (admin): Icon chuông trên header + badge số đơn mới
-- [ ] Frontend (admin): Dropdown danh sách thông báo
+### B12: Thông báo realtime (Admin) ✅
+- [x] Backend: SSE endpoint (`/api/admin/notifications/stream`)
+- [x] Backend: Gửi notification khi có đơn hàng mới
+- [x] Frontend (admin): Icon chuông trên header + badge số đơn mới
+- [x] Frontend (admin): Dropdown danh sách thông báo
 - [ ] Frontend (admin): Âm thanh khi có đơn mới (optional)
-- [ ] Git push
+- [x] Git push
 
 ---
 
-### B13: Export báo cáo (CSV/Excel)
-- [ ] Backend API: `GET /api/admin/orders/export?format=csv&from=&to=`
-- [ ] Backend API: `GET /api/admin/products/export?format=csv`
-- [ ] Frontend (admin): Nút "Xuất báo cáo" trên trang Đơn hàng + Sản phẩm
+### B13: Export báo cáo (CSV/Excel) ✅
+- [x] Backend API: `GET /api/admin/orders/export?format=csv&from=&to=`
+- [x] Backend API: `GET /api/admin/products/export?format=csv`
+- [x] Frontend (admin): Nút "Xuất báo cáo" trên trang Đơn hàng + Sản phẩm
 - [ ] Frontend (admin): Chọn khoảng thời gian + format (CSV / Excel)
-- [ ] Git push
+- [x] Git push
 
 ---
 
-### B14: Ảnh sản phẩm nhiều tấm (Gallery)
-- [ ] Database: Bảng `product_images` (product_id, url, position, is_primary)
-- [ ] Backend: Upload nhiều ảnh cho 1 sản phẩm
-- [ ] Backend: API sắp xếp thứ tự ảnh
-- [ ] Frontend (client): Gallery slider trên trang chi tiết (thumbnail + lightbox)
+### B14: Ảnh sản phẩm nhiều tấm (Gallery) ⚠️ Một phần
+- [ ] Database: Bảng `product_images` riêng (hiện dùng `images TEXT[]` trong `products` — khác thiết kế ban đầu)
+- [x] Backend: Upload nhiều ảnh cho 1 sản phẩm (4 slot ảnh trong admin, lưu vào mảng `images`)
+- [ ] Backend: API sắp xếp thứ tự ảnh (thứ tự dựa vào vị trí trong mảng, chưa có drag-sort API)
+- [x] Frontend (client): Gallery slider trên trang chi tiết với thumbnail (chưa có lightbox)
 - [ ] Frontend (admin): Drag-drop sắp xếp ảnh khi thêm/sửa sản phẩm
 - [ ] Git push
 
 ---
 
-### B15: Biến thể sản phẩm (Variants)
-- [ ] Database: Bảng `product_variants` (product_id, size, color, price, stock, sku)
-- [ ] Backend: API CRUD variant khi thêm/sửa sản phẩm
-- [ ] Backend: Trừ stock theo variant khi đặt hàng
-- [ ] Frontend (client): Chọn size/màu trên trang chi tiết → cập nhật giá + stock
-- [ ] Frontend (admin): Quản lý variant trong form sản phẩm
-- [ ] Git push
+### B15: Biến thể sản phẩm (Variants) ✅
+- [x] Database: Bảng `product_variants` (product_id, ml, price, original_price, stock, is_default) — migration `016_product_variants.sql`
+- [x] Backend: API CRUD variant khi thêm/sửa sản phẩm (`upsert_variants` trong `product_repo.rs`)
+- [x] Backend: Trừ stock theo variant khi đặt hàng + hoàn stock khi huỷ
+- [x] Frontend (client): Chọn dung tích (ml) trên trang chi tiết → cập nhật giá + stock realtime
+- [x] Frontend (admin): Quản lý variant (thêm/xoá dung tích, giá, stock) trong form sản phẩm
+- [x] Git push
 
 ---
 
-### B16: Breadcrumb Navigation
-- [ ] Frontend: Component `Breadcrumb` dùng chung
-- [ ] Frontend: Tự động generate từ route path
-- [ ] Áp dụng cho: Sản phẩm → Danh mục → Chi tiết
-- [ ] Git push
+### B16: Breadcrumb Navigation ✅
+- [x] Frontend: Component `Breadcrumb` dùng chung (`components/ui/breadcrumb.tsx`)
+- [x] Frontend: Tự động generate từ route path (`useBreadcrumbs` hook — tích hợp vào `AdminLayout` header)
+- [x] Áp dụng cho: tất cả trang admin (qua AdminLayout), trang Products và ProductDetail (client)
+- [x] Git push
 
 ---
 

@@ -6,6 +6,7 @@ import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatPrice } from "@/data/products";
 import { toast } from "sonner";
+import { Tag, Check } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 const TOKEN_KEY = "auth_token";
@@ -27,6 +28,15 @@ const Checkout = () => {
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Coupon state
+  const [couponCode, setCouponCode]       = useState("");
+  const [couponApplied, setCouponApplied] = useState<{ code: string; coupon_type: string; value: number; discount_amt: number } | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError]     = useState<string | null>(null);
+
+  const discountAmt = couponApplied?.discount_amt ?? 0;
+  const finalTotal  = totalAmount + shippingFee - discountAmt;
+
   const [form, setForm] = useState({
     customerName: user?.name ?? "",
     customerPhone: user?.phone ?? "",
@@ -37,6 +47,28 @@ const Checkout = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setCouponLoading(true);
+    setCouponError(null);
+    try {
+      const res = await fetch(`${API_URL}/api/coupons/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: couponCode.trim(), order_total: totalAmount }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Mã không hợp lệ");
+      setCouponApplied(data);
+      toast.success(`Áp dụng thành công! Giảm ${formatPrice(data.discount_amt)}`);
+    } catch (e) {
+      setCouponError((e as Error).message);
+      setCouponApplied(null);
+    } finally {
+      setCouponLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,13 +92,15 @@ const Checkout = () => {
     }));
 
     const payload = {
-      customer_name: form.customerName,
+      customer_name:  form.customerName,
       customer_email: form.customerEmail,
       customer_phone: form.customerPhone,
-      address: form.address,
-      note: form.note || undefined,
+      address:        form.address,
+      note:           form.note || undefined,
       payment_method: paymentMethod,
-      items: orderItems,
+      items:          orderItems,
+      coupon_code:    couponApplied?.code ?? null,
+      discount_amt:   couponApplied?.discount_amt ?? 0,
     };
 
     try {
@@ -189,11 +223,54 @@ const Checkout = () => {
               ))}
             </div>
             <div className="border-t border-border pt-3 space-y-2 text-sm">
+              {/* Coupon input */}
+              <div className="flex gap-2 mb-3">
+                <div className="relative flex-1">
+                  <Tag size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    className="w-full pl-7 pr-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground uppercase"
+                    placeholder="Mã giảm giá"
+                    value={couponCode}
+                    onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(null); }}
+                    disabled={!!couponApplied}
+                  />
+                </div>
+                {couponApplied ? (
+                  <button
+                    type="button"
+                    className="px-3 py-2 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => { setCouponApplied(null); setCouponCode(""); }}
+                  >
+                    Xoá
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="px-3 py-2 rounded-lg bg-foreground text-background text-xs font-medium hover:opacity-80 disabled:opacity-50"
+                    disabled={couponLoading || !couponCode.trim()}
+                    onClick={handleApplyCoupon}
+                  >
+                    {couponLoading ? "..." : "Áp dụng"}
+                  </button>
+                )}
+              </div>
+              {couponError && <p className="text-xs text-red-500 -mt-2 mb-1">{couponError}</p>}
+              {couponApplied && (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-600 -mt-2 mb-1">
+                  <Check size={12} /> Mã <span className="font-mono font-semibold">{couponApplied.code}</span> — giảm {formatPrice(couponApplied.discount_amt)}
+                </div>
+              )}
+
               <div className="flex justify-between"><span className="text-muted-foreground">Tạm tính</span><span>{formatPrice(totalAmount)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Vận chuyển</span><span>{shippingFee === 0 ? "Miễn phí" : formatPrice(shippingFee)}</span></div>
+              {discountAmt > 0 && (
+                <div className="flex justify-between text-emerald-600">
+                  <span>Giảm giá</span><span>-{formatPrice(discountAmt)}</span>
+                </div>
+              )}
               <div className="border-t border-border pt-2 flex justify-between font-semibold">
                 <span>Tổng cộng</span>
-                <span className="text-price">{formatPrice(totalAmount + shippingFee)}</span>
+                <span className="text-price">{formatPrice(finalTotal)}</span>
               </div>
             </div>
             <button

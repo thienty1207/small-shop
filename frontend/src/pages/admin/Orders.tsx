@@ -3,7 +3,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import {
   ShoppingCart, Search, ChevronLeft, ChevronRight,
   AlertCircle, Eye, CheckCircle, Truck, Package,
-  XCircle, Clock,
+  XCircle, Clock, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -138,6 +138,17 @@ export default function AdminOrders() {
 
   return (
     <AdminLayout title="Quản lý Đơn hàng">
+      {/* Export */}
+      <div className="flex justify-end mb-3">
+        <a
+          href={`${import.meta.env.VITE_API_URL ?? "http://localhost:3000"}/api/admin/orders/export${tab ? `?status=${tab}` : ""}`}
+          download="orders.csv"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+        >
+          <Download size={13} /> Xuất CSV
+        </a>
+      </div>
+
       {/* Status tabs */}
       <div className="flex gap-1 overflow-x-auto pb-2 mb-4">
         {STATUS_TABS.map((t) => (

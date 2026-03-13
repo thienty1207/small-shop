@@ -10,6 +10,21 @@
 
 ---
 
+## MCP Tools — MANDATORY
+
+### Context7 — Always On
+
+> **ALWAYS use the Context7 MCP tool** whenever you need:
+> - Library or framework documentation (React, Axum, SQLx, Tailwind, shadcn/ui, etc.)
+> - API references or type signatures
+> - Code generation patterns for any library
+> - Setup or configuration steps for any tool
+>
+> **Do NOT rely solely on training data for library APIs.** Always fetch up-to-date docs via Context7.
+> This rule is always active — the user does NOT need to explicitly ask for it.
+
+---
+
 ## Skills — USE BEFORE STARTING ANY TASK
 
 Before implementing any feature, ALWAYS read the relevant skill files first.

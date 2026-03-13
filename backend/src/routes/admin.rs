@@ -1,11 +1,11 @@
 use axum::{
     middleware,
-    routing::{get, post, put},
+    routing::{delete, get, patch, post, put},
     Router,
 };
 
 use crate::{
-    handlers::admin::{auth, category, customer, dashboard, order, product, settings, staff},
+    handlers::admin::{auth, category, coupon, customer, dashboard, export, notifications, order, product, review, settings, staff},
     middleware::admin_guard::admin_guard,
     state::AppState,
 };
@@ -28,6 +28,10 @@ pub fn routes(state: AppState) -> Router<AppState> {
         // ── Image upload ──────────────────────────────────────────────────
         .route("/upload/image", post(product::upload_image))
 
+        // ── Inventory ────────────────────────────────────────────────────
+        .route("/inventory", get(product::list_inventory))
+        .route("/inventory/variants/:id/stock", patch(product::update_variant_stock))
+
         // ── Categories ────────────────────────────────────────────────────
         .route("/categories",     get(category::list_categories).post(category::create_category))
         .route("/categories/:id", put(category::update_category).delete(category::delete_category))
@@ -46,6 +50,21 @@ pub fn routes(state: AppState) -> Router<AppState> {
 
         // ── Settings (B8) ─────────────────────────────────────────────────
         .route("/settings", get(settings::get_settings).put(settings::update_settings))
+
+        // ── Reviews (B10) ─────────────────────────────────────────────────
+        .route("/reviews",     get(review::list_reviews))
+        .route("/reviews/:id", delete(review::delete_review))
+
+        // ── Coupons (B11) ─────────────────────────────────────────────────
+        .route("/coupons",     get(coupon::list_coupons).post(coupon::create_coupon))
+        .route("/coupons/:id", put(coupon::update_coupon).delete(coupon::delete_coupon))
+
+        // ── Export CSV (B13) ──────────────────────────────────────────────
+        .route("/orders/export",   get(export::export_orders))
+        .route("/products/export", get(export::export_products))
+
+        // ── Notifications SSE (B12) ───────────────────────────────────────
+        .route("/notifications/stream", get(notifications::notification_stream))
 
         .layer(middleware::from_fn_with_state(state, admin_guard));
 

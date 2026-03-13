@@ -1,8 +1,12 @@
 pub mod auth;
 pub mod category;
+pub mod coupon;
 pub mod customer;
 pub mod dashboard;
+pub mod export;
+pub mod notifications;
 pub mod order;
 pub mod product;
+pub mod review;
 pub mod settings;
 pub mod staff;

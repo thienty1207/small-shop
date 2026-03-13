@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import {
   Package, Plus, Pencil, Trash2, Search, AlertCircle,
-  ImagePlus, ChevronLeft, ChevronRight, X,
+  ImagePlus, ChevronLeft, ChevronRight, X, PlusCircle, Minus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,13 +30,27 @@ const EMPTY_FORM = {
   image_url_4:    "",
   badge:          "",
   description:    "",
-  material:       "",
+  top_note:       "",
+  mid_note:       "",
+  base_note:      "",
   care:           "",
   in_stock:       true,
   stock:          "0",
+  brand:          "",
+  concentration:  "",
 };
 
 type FormState = typeof EMPTY_FORM;
+
+interface VariantRow {
+  ml:             string;
+  price:          string;
+  original_price: string;
+  stock:          string;
+  is_default:     boolean;
+}
+
+const EMPTY_VARIANT: VariantRow = { ml: "", price: "", original_price: "", stock: "0", is_default: false };
 
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + " ₫";
@@ -125,6 +139,7 @@ export default function AdminProducts() {
   const [showModal,  setShowModal]  = useState(false);
   const [editing,    setEditing]    = useState<AdminProduct | null>(null);
   const [form,       setForm]       = useState<FormState>(EMPTY_FORM);
+  const [variants,   setVariants]   = useState<VariantRow[]>([]);
   const [slugEdited, setSlugEdited] = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [formError,  setFormError]  = useState<string | null>(null);
@@ -171,6 +186,7 @@ export default function AdminProducts() {
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
+    setVariants([]);
     setSlugEdited(false);
     setImgPreview(""); setImgPreview2(""); setImgPreview3(""); setImgPreview4("");
     setFormError(null);
@@ -192,10 +208,31 @@ export default function AdminProducts() {
       image_url_4:    imgs[2] ?? "",
       badge:          p.badge ?? "",
       description:    p.description ?? "",
-      material:       "",
-      care:           "",
+      top_note:       p.top_note ?? "",
+      mid_note:       p.mid_note ?? "",
+      base_note:      p.base_note ?? "",
+      care:           p.care ?? "",
       in_stock:       p.in_stock,
       stock:          String(p.stock),
+      brand:          p.brand ?? "",
+      concentration:  p.concentration ?? "",
+    });
+    // Load existing variants from the server
+    setVariants([]);
+    import("@/lib/admin-api").then(({ adminGet }) => {
+      adminGet<{ product: unknown; variants: { ml: number; price: number; original_price?: number; stock: number; is_default: boolean }[] }>(`/api/admin/products/${p.id}`)
+        .then((res) => {
+          setVariants(
+            res.variants.map((v) => ({
+              ml:             String(v.ml),
+              price:          String(v.price),
+              original_price: v.original_price != null ? String(v.original_price) : "",
+              stock:          String(v.stock),
+              is_default:     v.is_default,
+            }))
+          );
+        })
+        .catch(() => {});
     });
     setSlugEdited(false);
     const resolve = (u: string) => u ? (u.startsWith("/") ? `${API_URL}${u}` : u) : "";
@@ -257,28 +294,46 @@ export default function AdminProducts() {
   const handleFileSelect4 = makeGalleryFileHandler(4, setImgPreview4, setUploading4, fileRef4);
 
   const handleSave = async () => {
-    if (!form.name.trim())       { setFormError("Tên sản phẩm là bắt buộc"); return; }
-    if (!form.category_id)       { setFormError("Vui lòng chọn danh mục"); return; }
-    if (!form.price || +form.price <= 0) { setFormError("Giá phải lớn hơn 0"); return; }
-    if (!form.image_url)         { setFormError("Vui lòng thêm ảnh sản phẩm"); return; }
+    if (!form.name.trim())      { setFormError("Tên sản phẩm là bắt buộc"); return; }
+    if (!form.category_id)      { setFormError("Vui lòng chọn danh mục"); return; }
+    if (!form.image_url)        { setFormError("Vui lòng thêm ảnh sản phẩm"); return; }
+    // Price required only when there are no variants
+    if (variants.length === 0 && (!form.price || +form.price <= 0)) {
+      setFormError("Giá phải lớn hơn 0 (hoặc thêm dung tích bên dưới)"); return;
+    }
 
     setSaving(true);
     setFormError(null);
     try {
+      const parsedVariants = variants
+        .filter((v) => v.ml && v.price)
+        .map((v, i) => ({
+          ml:             Number(v.ml),
+          price:          Number(v.price),
+          original_price: v.original_price ? Number(v.original_price) : null,
+          stock:          Number(v.stock) || 0,
+          is_default:     i === 0,
+        }));
+
       const body = {
         category_id:    form.category_id,
         name:           form.name,
         slug:           form.slug || slugify(form.name),
-        price:          Number(form.price),
+        price:          parsedVariants.length ? Math.min(...parsedVariants.map((v) => v.price)) : Number(form.price),
         original_price: form.original_price ? Number(form.original_price) : null,
         image_url:      form.image_url,
         images:         [form.image_url_2, form.image_url_3, form.image_url_4].filter((u) => u.trim() !== ""),
         badge:          form.badge || null,
         description:    form.description || null,
-        material:       form.material || null,
+        top_note:       form.top_note || null,
+        mid_note:       form.mid_note || null,
+        base_note:      form.base_note || null,
         care:           form.care || null,
-        in_stock:       form.in_stock,
-        stock:          Number(form.stock),
+        in_stock:       parsedVariants.length ? parsedVariants.some((v) => v.stock > 0) : form.in_stock,
+        stock:          parsedVariants.length ? parsedVariants.reduce((s, v) => s + v.stock, 0) : Number(form.stock),
+        brand:          form.brand || null,
+        concentration:  form.concentration || null,
+        variants:       parsedVariants,
       };
       if (editing) {
         await adminPut(`/api/admin/products/${editing.id}`, body);
@@ -336,6 +391,13 @@ export default function AdminProducts() {
         <Button onClick={openCreate} className="bg-rose-500 hover:bg-rose-600 text-white gap-2 ml-auto">
           <Plus className="w-4 h-4" /> Thêm sản phẩm
         </Button>
+        <a
+          href={`${import.meta.env.VITE_API_URL ?? "http://localhost:3000"}/api/admin/products/export`}
+          download="products.csv"
+          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+        >
+          <span>&#8595;</span> CSV
+        </a>
       </div>
 
       {/* Table */}
@@ -502,6 +564,7 @@ export default function AdminProducts() {
                     ))}
                   </select>
                 </div>
+                {variants.length === 0 ? (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-gray-400 block mb-1.5">Giá bán (₫) *</label>
@@ -524,6 +587,13 @@ export default function AdminProducts() {
                     />
                   </div>
                 </div>
+                ) : (
+                  <div className="bg-gray-800/50 border border-gray-700/50 rounded-lg px-3 py-2">
+                    <p className="text-xs text-gray-400">💡 Giá hiển thị = giá thấp nhất trong các dung tích bên dưới</p>
+                  </div>
+                )}
+                {variants.length === 0 && (
+                  <>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-gray-400 block mb-1.5">Tồn kho</label>
@@ -561,6 +631,24 @@ export default function AdminProducts() {
                     {form.in_stock ? "Còn hàng" : "Hết hàng"}
                   </span>
                 </div>
+                  </>
+                )}
+                {variants.length > 0 && (
+                  <div>
+                    <label className="text-xs text-gray-400 block mb-1.5">Badge</label>
+                    <select
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
+                      value={form.badge}
+                      onChange={(e) => setForm((f) => ({ ...f, badge: e.target.value }))}
+                    >
+                      <option value="">Mặc định (không hiển thị section)</option>
+                      <option value="Mới">Mới — Dòng Sản Phẩm Mới</option>
+                      <option value="Nổi Bật">Nổi Bật — Sản Phẩm Nổi Bật</option>
+                      <option value="Giảm Giá">Giảm Giá — Deal Hời</option>
+                    </select>
+                  </div>
+                )}
+
               </div>
 
               {/* Right col */}
@@ -647,6 +735,31 @@ export default function AdminProducts() {
                   </div>
                 </div>
                 <div>
+                  <label className="text-xs text-gray-400 block mb-1.5">Thương hiệu (Brand)</label>
+                  <input
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
+                    value={form.brand}
+                    onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))}
+                    placeholder="VD: Jean Paul Gaultier"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1.5">Nồng độ</label>
+                  <select
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
+                    value={form.concentration}
+                    onChange={(e) => setForm((f) => ({ ...f, concentration: e.target.value }))}
+                  >
+                    <option value="">-- Chọn nồng độ --</option>
+                    <option value="Parfum">Parfum (25–40%)</option>
+                    <option value="Eau de Parfum">Eau de Parfum — EDP (15–20%)</option>
+                    <option value="Eau de Parfum Intense">Eau de Parfum Intense</option>
+                    <option value="Eau de Toilette">Eau de Toilette — EDT (5–15%)</option>
+                    <option value="Eau de Cologne">Eau de Cologne — EDC (2–5%)</option>
+                    <option value="Extrait de Parfum">Extrait de Parfum</option>
+                  </select>
+                </div>
+                <div>
                   <label className="text-xs text-gray-400 block mb-1.5">Mô tả</label>
                   <textarea
                     rows={3}
@@ -656,25 +769,118 @@ export default function AdminProducts() {
                     placeholder="Mô tả sản phẩm..."
                   />
                 </div>
+                {/* Fragrance pyramid */}
                 <div>
-                  <label className="text-xs text-gray-400 block mb-1.5">Chất liệu</label>
-                  <input
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
-                    value={form.material}
-                    onChange={(e) => setForm((f) => ({ ...f, material: e.target.value }))}
-                    placeholder="100% cotton hữu cơ..."
-                  />
+                  <label className="text-xs text-gray-400 block mb-2">Hương điệu (Kim tự tháp hương)</label>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-yellow-400 font-semibold uppercase w-16 shrink-0">Nốt đầu</span>
+                      <input
+                        className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
+                        value={form.top_note}
+                        onChange={(e) => setForm((f) => ({ ...f, top_note: e.target.value }))}
+                        placeholder="Cam bergamot, Chanh, Hoa cam..."
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-rose-400 font-semibold uppercase w-16 shrink-0">Nốt giữa</span>
+                      <input
+                        className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
+                        value={form.mid_note}
+                        onChange={(e) => setForm((f) => ({ ...f, mid_note: e.target.value }))}
+                        placeholder="Hoa nhài, Hoa hồng, Iris..."
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-amber-700 font-semibold uppercase w-16 shrink-0">Nốt cuối</span>
+                      <input
+                        className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
+                        value={form.base_note}
+                        onChange={(e) => setForm((f) => ({ ...f, base_note: e.target.value }))}
+                        placeholder="Gỗ đàn hương, Xạ hương, Hổ phách..."
+                      />
+                    </div>
+                  </div>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400 block mb-1.5">Hướng dẫn bảo quản</label>
+                  <label className="text-xs text-gray-400 block mb-1.5">Cách dùng / Bảo quản</label>
                   <input
                     className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
                     value={form.care}
                     onChange={(e) => setForm((f) => ({ ...f, care: e.target.value }))}
-                    placeholder="Giặt tay, không ngâm..."
+                    placeholder="Xịt lên cổ tay, sau tai. Bảo quản nơi thoáng mát."
                   />
                 </div>
               </div>
+            </div>
+
+            {/* ── Variants repeater ── */}
+            <div className="px-6 pb-5 border-t border-gray-800 pt-5">
+              <div className="flex items-center justify-between mb-4">
+                <label className="text-sm font-semibold text-white">Dung tích & Giá</label>
+                <button
+                  type="button"
+                  onClick={() => setVariants((v) => [...v, { ...EMPTY_VARIANT }])}
+                  className="flex items-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 transition-colors"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" /> Thêm dung tích
+                </button>
+              </div>
+              {variants.length === 0 && (
+                <p className="text-xs text-gray-600 italic">Chưa có dung tích — giá sẽ lấy từ trường "Giá bán" bên trên.</p>
+              )}
+              {variants.length > 0 && (
+                <>
+                  {/* Column headers */}
+                  <div className="grid grid-cols-[70px_1fr_1fr_80px_28px] gap-2 mb-2 px-1">
+                    <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">ML</span>
+                    <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Giá bán (₫)</span>
+                    <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">Giá gốc (₫)</span>
+                    <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wide text-center">Tồn kho</span>
+                    <span></span>
+                  </div>
+                  {variants.map((v, i) => (
+                    <div key={i} className="grid grid-cols-[70px_1fr_1fr_80px_28px] gap-2 items-center mb-2">
+                      <input
+                        type="number" min="1"
+                        className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-2 text-sm text-white focus:outline-none focus:border-rose-500 text-center"
+                        value={v.ml}
+                        onChange={(e) => setVariants((vs) => vs.map((x, j) => j === i ? { ...x, ml: e.target.value } : x))}
+                        placeholder="100"
+                      />
+                      <input
+                        type="number" min="0"
+                        className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
+                        value={v.price}
+                        onChange={(e) => setVariants((vs) => vs.map((x, j) => j === i ? { ...x, price: e.target.value } : x))}
+                        placeholder="VD: 850000"
+                      />
+                      <input
+                        type="number" min="0"
+                        className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
+                        value={v.original_price}
+                        onChange={(e) => setVariants((vs) => vs.map((x, j) => j === i ? { ...x, original_price: e.target.value } : x))}
+                        placeholder="VD: 1200000"
+                      />
+                      <input
+                        type="number" min="0"
+                        className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-2 text-sm text-white focus:outline-none focus:border-rose-500 text-center"
+                        value={v.stock}
+                        onChange={(e) => setVariants((vs) => vs.map((x, j) => j === i ? { ...x, stock: e.target.value } : x))}
+                        placeholder="0"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setVariants((vs) => vs.filter((_, j) => j !== i))}
+                        className="text-gray-600 hover:text-red-400 transition-colors flex items-center justify-center"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <p className="text-[11px] text-gray-600 mt-2">Hàng đầu tiên = mặc định. Giá hiển thị trên trang shop = giá thấp nhất.</p>
+                </>
+              )}
             </div>
 
             {formError && (

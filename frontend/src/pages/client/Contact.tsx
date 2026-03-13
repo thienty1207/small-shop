@@ -3,7 +3,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Mail, Phone, MapPin, Send, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { useShopSettings } from "@/hooks/useShopSettings";
+import { useShopSettingsCtx } from "@/contexts/ShopSettingsContext";
 
 // Cloudflare Turnstile site key (public — safe to embed in frontend)
 const CF_SITE_KEY = "0x4AAAAAACl-DXPV4UZR7cmo";
@@ -38,7 +38,7 @@ interface FormState {
 const INITIAL_FORM: FormState = { name: "", email: "", phone: "", message: "" };
 
 const Contact = () => {
-  const { settings } = useShopSettings();
+  const { settings } = useShopSettingsCtx();
   const storeEmail   = settings.store_email   || "hello@handmadehaven.vn";
   const storePhone   = settings.store_phone   || "0901 234 567";
   const storeAddress = settings.store_address || "123 Nguyễn Huệ, Quận 1, TP.HCM";
@@ -153,9 +153,9 @@ const Contact = () => {
     <div className="min-h-screen bg-surface-pink flex flex-col">
       <Header />
 
-      <div className="flex-1 container mx-auto px-4 md:px-8 pt-24 pb-16">
+      <div className="flex-1 container mx-auto px-4 md:px-8 pt-20 pb-10">
         <div className="max-w-2xl mx-auto">
-          <h1 className="font-display text-3xl font-bold text-foreground text-center mb-8">
+          <h1 className="font-display text-2xl font-bold text-foreground text-center mb-6">
             Liên Hệ
           </h1>
 

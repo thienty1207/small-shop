@@ -4,6 +4,23 @@ import { Paintbrush, Save, AlertCircle, CheckCircle2, ImagePlus, X } from "lucid
 import { Button } from "@/components/ui/button";
 import { adminGet, adminPut, adminUploadImage } from "@/lib/admin-api";
 
+// ─── Google Fonts options ────────────────────────────────────────────────────
+const GOOGLE_FONTS = [
+  { label: "Inter",            value: "Inter" },
+  { label: "Nunito",           value: "Nunito" },
+  { label: "Lato",             value: "Lato" },
+  { label: "Roboto",           value: "Roboto" },
+  { label: "Open Sans",        value: "Open Sans" },
+  { label: "Playfair Display", value: "Playfair Display" },
+  { label: "Poppins",          value: "Poppins" },
+  { label: "Outfit",           value: "Outfit" },
+  { label: "DM Sans",          value: "DM Sans" },
+  { label: "Montserrat",       value: "Montserrat" },
+  { label: "Raleway",          value: "Raleway" },
+  { label: "Josefin Sans",     value: "Josefin Sans" },
+];
+
+// ─── Appearance keys ─────────────────────────────────────────────────────────
 const SLIDE_KEYS = [1, 2, 3].flatMap((n) => [
   `hero_slide_${n}_img`,
   `hero_slide_${n}_title`,
@@ -12,8 +29,9 @@ const SLIDE_KEYS = [1, 2, 3].flatMap((n) => [
   `hero_slide_${n}_href`,
 ]);
 
-const BANNER_KEYS = ["banner_image_url", "banner_link"];
-const ALL_KEYS    = [...SLIDE_KEYS, ...BANNER_KEYS];
+const BANNER_KEYS = ["banner_image_url", "banner_link", "banner_title", "banner_subtitle"];
+const FONT_KEYS   = ["shop_font"];
+const ALL_KEYS    = [...SLIDE_KEYS, ...BANNER_KEYS, ...FONT_KEYS];
 
 // ─── Image upload button ────────────────────────────────────────────────────
 
@@ -123,6 +141,21 @@ export default function AdminSettingsAppearance() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Inject Google Fonts link for font picker previews (browser-only, idempotent)
+  useEffect(() => {
+    const href =
+      "https://fonts.googleapis.com/css2?family=" +
+      GOOGLE_FONTS.map((f) => f.value.replace(/ /g, "+") + ":wght@400;600;700").join("&family=") +
+      "&display=swap";
+    if (!document.querySelector(`link[data-settings-fonts]`)) {
+      const link = document.createElement("link");
+      link.rel  = "stylesheet";
+      link.href = href;
+      link.dataset.settingsFonts = "1";
+      document.head.appendChild(link);
+    }
+  }, []);
+
   const set = (key: string, val: string) => setValues((v) => ({ ...v, [key]: val }));
 
   const handleSave = async () => {
@@ -202,8 +235,56 @@ export default function AdminSettingsAppearance() {
               label="Ảnh banner"
               value={values["banner_image_url"] ?? ""}
               onChange={(url) => set("banner_image_url", url)}
-            />
-            {textField("banner_link", "Link khi click", "/products?category=...")}
+            />            <div className="grid grid-cols-2 gap-3">
+              {textField("banner_title",    "Tiêu đề",   "VD: Miễn phí vận chuyển hôm nay")}
+              {textField("banner_subtitle", "Mô tả",      "VD: Áp dụng cho đơn hàng từ 300.000đ")}
+            </div>            {textField("banner_link", "Link khi click", "/products?category=...")}
+          </div>
+
+          {/* ── Google Font Picker ───────────────────────────────────────── */}
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-5 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-white border-b border-gray-800 pb-3">Font chữ (Google Fonts)</h3>
+              <p className="text-xs text-gray-500 mt-2">Chọn font sẽ áp dụng cho toàn bộ giao diện cửa hàng. Cần tải lại trang khách để thấy thay đổi.</p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {GOOGLE_FONTS.map((font) => {
+                const selected = (values["shop_font"] || "Inter") === font.value;
+                return (
+                  <button
+                    key={font.value}
+                    type="button"
+                    onClick={() => set("shop_font", font.value)}
+                    className={`flex flex-col items-start gap-1 p-3 rounded-lg border text-left transition-all ${
+                      selected
+                        ? "border-rose-500 bg-rose-500/10"
+                        : "border-gray-700 bg-gray-800 hover:border-gray-600"
+                    }`}
+                  >
+                    <span
+                      className="text-base text-white leading-none"
+                      style={{ fontFamily: `'${font.value}', sans-serif` }}
+                    >
+                      Aa
+                    </span>
+                    <span className="text-xs text-gray-400">{font.label}</span>
+                    {selected && (
+                      <span className="text-[10px] font-semibold text-rose-400 uppercase tracking-wider">Đang dùng</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Live preview */}
+            <div className="mt-2 p-3 rounded-lg bg-gray-800 border border-gray-700">
+              <p className="text-xs text-gray-500 mb-1.5">Xem trước</p>
+              <p
+                className="text-white text-sm"
+                style={{ fontFamily: `'${values["shop_font"] || "Inter"}', sans-serif` }}
+              >
+                Cửa hàng thủ công — Quà tặng độc đáo, tạo ra bằng tình yêu
+              </p>
+            </div>
           </div>
 
           {error && (

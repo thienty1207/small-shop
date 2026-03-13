@@ -7,30 +7,35 @@ use crate::{
 };
 
 /// Get all cart items for a user, joined with product details.
+/// Uses the variant-specific price when a variant (e.g. "100ml") is stored,
+/// falling back to the product base price for variant-less items.
 pub async fn get_user_cart(
     pool: &PgPool,
     user_id: Uuid,
 ) -> Result<Vec<CartItemWithProduct>, AppError> {
-    let items = sqlx::query_as!(
-        CartItemWithProduct,
+    let items = sqlx::query_as::<_, CartItemWithProduct>(
         r#"
         SELECT
             ci.id,
             ci.product_id,
-            p.name    AS product_name,
+            p.name      AS product_name,
             p.image_url AS product_image,
-            p.slug    AS product_slug,
-            p.price,
-            p.original_price,
+            p.slug      AS product_slug,
+            COALESCE(pv.price, p.price)                   AS price,
+            COALESCE(pv.original_price, p.original_price) AS original_price,
             ci.quantity,
             ci.variant
         FROM cart_items ci
         JOIN products p ON p.id = ci.product_id
+        LEFT JOIN product_variants pv
+            ON  pv.product_id = ci.product_id
+            AND ci.variant <> ''
+            AND ci.variant = CONCAT(pv.ml, 'ml')
         WHERE ci.user_id = $1
         ORDER BY ci.created_at ASC
         "#,
-        user_id,
     )
+    .bind(user_id)
     .fetch_all(pool)
     .await?;
 

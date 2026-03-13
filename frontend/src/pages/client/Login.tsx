@@ -29,7 +29,7 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-surface-pink flex flex-col">
       <Header />
-      <div className="flex-1 container mx-auto px-4 py-16">
+      <div className="flex-1 container mx-auto px-4 pt-20 pb-10">
         <div className="max-w-sm mx-auto bg-card rounded-xl border border-border p-8">
           <h1 className="font-display text-xl font-bold text-foreground text-center mb-2">
             Đăng Nhập

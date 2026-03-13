@@ -16,7 +16,19 @@ pub async fn get_all(pool: &PgPool) -> Result<HashMap<String, String>, AppError>
     Ok(map)
 }
 
-/// Upsert multiple settings in a single transaction.
+/// Fetch only the specified keys from settings. More efficient than get_all() for public API.
+pub async fn get_by_keys(pool: &PgPool, keys: &[&str]) -> Result<HashMap<String, String>, AppError> {
+    let rows = sqlx::query_as::<_, ShopSetting>(
+        "SELECT key, value, updated_at FROM shop_settings WHERE key = ANY($1)",
+    )
+    .bind(keys)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows.into_iter().map(|r| (r.key, r.value)).collect())
+}
+
+/// Upsert multiple settings in a single batch query using UNNEST — O(1) round-trips.
 pub async fn upsert_bulk(
     pool: &PgPool,
     settings: &HashMap<String, String>,
@@ -25,22 +37,22 @@ pub async fn upsert_bulk(
         return Ok(());
     }
 
-    let mut tx = pool.begin().await?;
+    let (keys, values): (Vec<String>, Vec<String>) = settings
+        .iter()
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .unzip();
 
-    for (key, value) in settings {
-        sqlx::query(
-            r#"
-            INSERT INTO shop_settings (key, value, updated_at)
-            VALUES ($1, $2, NOW())
-            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-            "#,
-        )
-        .bind(key)
-        .bind(value)
-        .execute(&mut *tx)
-        .await?;
-    }
+    sqlx::query(
+        r#"
+        INSERT INTO shop_settings (key, value, updated_at)
+        SELECT unnest($1::text[]), unnest($2::text[]), NOW()
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+        "#,
+    )
+    .bind(&keys)
+    .bind(&values)
+    .execute(pool)
+    .await?;
 
-    tx.commit().await?;
     Ok(())
 }

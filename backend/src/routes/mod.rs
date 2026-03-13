@@ -4,6 +4,7 @@
 pub mod admin;
 pub mod cart;
 pub mod contact;
+pub mod coupon;
 pub mod order;
 pub mod product;
 pub mod user;
@@ -21,5 +22,6 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         .merge(product::routes(state.clone()))
         .merge(cart::routes(state.clone()))
         .merge(order::routes(state.clone()))
+        .merge(coupon::routes())
         .merge(admin::routes(state))
 }

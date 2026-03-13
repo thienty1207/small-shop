@@ -42,6 +42,7 @@ struct UploadResponse {
 /// `folder` — Cloudinary folder path, e.g. `"shop/products"`, `"shop/avatars"`.
 pub async fn upload_image(
     config: &CloudinaryConfig,
+    client: &reqwest::Client,
     data: Vec<u8>,
     content_type: &str,
     folder: &str,
@@ -86,12 +87,13 @@ pub async fn upload_image(
         config.cloud_name
     );
 
-    let resp = reqwest::Client::new()
+    let resp = client
         .post(&url)
         .multipart(form)
         .send()
         .await
         .map_err(|e| crate::error::AppError::Internal(format!("Cloudinary request error: {e}")))?;
+
 
     if !resp.status().is_success() {
         let msg = resp.text().await.unwrap_or_default();

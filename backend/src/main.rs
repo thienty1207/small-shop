@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
-use axum::Router;
+use axum::{http::Method, Router};
 use sqlx::postgres::PgPoolOptions;
 use tower_http::{cors::{Any, CorsLayer}, services::ServeDir};
 use tracing::info;
@@ -75,7 +75,12 @@ async fn main() {
     });
 
     // Build application state
-    let state = AppState { db, config: config.clone(), mailer, cloudinary };
+    let http_client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(15))
+        .build()
+        .expect("Failed to build HTTP client");
+
+    let state = AppState { db, config: config.clone(), http_client, mailer, cloudinary };
 
     // Ensure uploads directory exists (serves existing /uploads/* URLs for backward compat)
     tokio::fs::create_dir_all("uploads")
@@ -83,14 +88,19 @@ async fn main() {
         .expect("Failed to create uploads directory");
 
     // CORS — allow frontend origin to call the API
-    // In production, replace Any with the exact frontend domain.
     let cors = CorsLayer::new()
         .allow_origin([
             config.frontend_url
                 .parse::<axum::http::HeaderValue>()
                 .expect("Invalid FRONTEND_URL for CORS"),
         ])
-        .allow_methods(Any)
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
         .allow_headers(Any);
 
     // Build router — static /uploads served directly without CORS wrapping

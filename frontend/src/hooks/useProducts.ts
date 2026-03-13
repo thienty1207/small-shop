@@ -7,6 +7,26 @@ const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 // Raw API shapes (snake_case from the backend)
 // ---------------------------------------------------------------------------
 
+export interface ProductVariant {
+  id: string;
+  productId: string;
+  ml: number;
+  price: number;
+  originalPrice?: number;
+  stock: number;
+  isDefault: boolean;
+}
+
+interface ApiProductVariant {
+  id: string;
+  product_id: string;
+  ml: number;
+  price: number;
+  original_price?: number;
+  stock: number;
+  is_default: boolean;
+}
+
 interface ApiProduct {
   id: string;
   category_id: string;
@@ -18,12 +38,17 @@ interface ApiProduct {
   images: string[];
   badge?: string;
   description?: string;
-  material?: string;
+  top_note?: string;
+  mid_note?: string;
+  base_note?: string;
   care?: string;
   rating: number;
   review_count: number;
   in_stock: boolean;
   stock: number;
+  brand?: string;
+  concentration?: string;
+  variants?: ApiProductVariant[];
 }
 
 interface ApiCategory {
@@ -45,6 +70,18 @@ interface PaginatedResponse<T> {
 // Mappers
 // ---------------------------------------------------------------------------
 
+function mapVariant(v: ApiProductVariant): ProductVariant {
+  return {
+    id: v.id,
+    productId: v.product_id,
+    ml: v.ml,
+    price: v.price,
+    originalPrice: v.original_price,
+    stock: v.stock,
+    isDefault: v.is_default,
+  };
+}
+
 function mapProduct(p: ApiProduct): Product {
   return {
     id: p.id,
@@ -57,12 +94,17 @@ function mapProduct(p: ApiProduct): Product {
     category: p.category_id,
     badge: p.badge,
     description: p.description,
-    material: p.material,
+    topNote: p.top_note,
+    midNote: p.mid_note,
+    baseNote: p.base_note,
     care: p.care,
     rating: p.rating,
     reviewCount: p.review_count,
     inStock: p.in_stock,
     stock: p.stock,
+    brand: p.brand,
+    concentration: p.concentration,
+    variants: p.variants?.map(mapVariant) ?? [],
   };
 }
 
@@ -200,4 +242,27 @@ export function useCategories(): UseCategoriesResult {
   }, []);
 
   return { categories, isLoading, error };
+}
+
+interface UseRelatedProductsResult {
+  products: Product[];
+  isLoading: boolean;
+}
+
+/** Fetch related products for a given product slug from the backend. */
+export function useRelatedProducts(slug: string, limit = 4): UseRelatedProductsResult {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!slug) return;
+    setIsLoading(true);
+    fetch(`${API_URL}/api/products/${slug}/related?limit=${limit}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: ApiProduct[]) => setProducts(data.map(mapProduct)))
+      .catch(() => setProducts([]))
+      .finally(() => setIsLoading(false));
+  }, [slug, limit]);
+
+  return { products, isLoading };
 }

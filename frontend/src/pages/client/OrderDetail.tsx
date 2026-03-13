@@ -179,6 +179,15 @@ const OrderDetail = () => {
                   <span className="text-muted-foreground">Vận chuyển</span>
                   <span>{formatPrice(order.shipping_fee)}</span>
                 </div>
+                {(() => {
+                  const discount = order.subtotal + order.shipping_fee - order.total;
+                  return discount > 0 ? (
+                    <div className="flex justify-between text-emerald-600">
+                      <span>Giảm giá (voucher)</span>
+                      <span>-{formatPrice(discount)}</span>
+                    </div>
+                  ) : null;
+                })()}
                 <div className="border-t border-border pt-2 flex justify-between font-semibold">
                   <span>Tổng cộng</span>
                   <span className="text-price">{formatPrice(order.total)}</span>

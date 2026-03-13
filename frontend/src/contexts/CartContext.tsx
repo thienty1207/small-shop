@@ -9,14 +9,16 @@ export interface CartItem {
   id?: string; // backend cart_item id (only when synced)
   product: Product;
   quantity: number;
-  variant?: string;
+  variantId?: string;    // product_variant id
+  variantLabel?: string; // e.g. "75ml"
+  variant?: string;      // legacy free-text (kept for backward compat)
 }
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (product: Product, quantity?: number, variant?: string) => void;
-  removeItem: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addItem: (product: Product, quantity?: number, variantId?: string, variantLabel?: string) => void;
+  removeItem: (productId: string, variantId?: string) => void;
+  updateQuantity: (productId: string, quantity: number, variantId?: string) => void;
   clearCart: () => void;
   totalAmount: number;
 }
@@ -37,18 +39,20 @@ interface BackendCartItem {
 }
 
 function backendItemToCartItem(b: BackendCartItem): CartItem {
+  const variantLabel = b.variant && b.variant !== "" ? b.variant : undefined;
   return {
     id: b.id,
     product: {
       id: b.product_id,
       name: b.product_name,
       slug: b.product_slug,
-      price: b.price,
+      price: b.price,           // now correctly the variant price from backend
       originalPrice: b.original_price ?? undefined,
       image: b.product_image ?? "",
     } as Product,
     quantity: b.quantity,
-    variant: b.variant ?? undefined,
+    variant: variantLabel,       // legacy field
+    variantLabel,                // used for display + dedup key
   };
 }
 
@@ -81,20 +85,23 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [isAuthenticated, authLoading]);
 
-  const addItem = useCallback((product: Product, quantity = 1, variant?: string) => {
-    // Optimistic update
+  const addItem = useCallback((product: Product, quantity = 1, variantId?: string, variantLabel?: string) => {
+    const variantKey = variantLabel ?? variantId ?? "";
+    // Optimistic update — match by variantLabel (persisted) OR variantId (UUID, only in-memory)
     setItems((prev) => {
       const existing = prev.find(
-        (item) => item.product.id === product.id && item.variant === variant
+        (item) => item.product.id === product.id &&
+          ((item.variantLabel ?? item.variantId ?? "") === variantKey)
       );
       if (existing) {
         return prev.map((item) =>
-          item.product.id === product.id && item.variant === variant
+          item.product.id === product.id &&
+          ((item.variantLabel ?? item.variantId ?? "") === variantKey)
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       }
-      return [...prev, { product, quantity, variant }];
+      return [...prev, { product, quantity, variantId, variantLabel, variant: variantLabel }];
     });
 
     // Sync to backend if authenticated
@@ -109,13 +116,12 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         body: JSON.stringify({
           product_id: product.id,
           quantity,
-          variant: variant ?? null,
+          variant: variantLabel ?? null,
         }),
       })
         .then((r) => (r.ok ? r.json() : null))
         .then((updated) => {
           if (updated) {
-            // Refresh full cart to get accurate backend state (ids, quantities)
             return fetch(`${API_BASE}/api/cart`, {
               headers: { Authorization: `Bearer ${token}` },
             })
@@ -129,10 +135,16 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [isAuthenticated]);
 
-  const removeItem = useCallback((productId: string) => {
-    const itemToRemove = items.find((item) => item.product.id === productId);
+  const removeItem = useCallback((productId: string, variantKey?: string) => {
+    const itemToRemove = items.find(
+      (item) => item.product.id === productId &&
+        ((item.variantLabel ?? item.variantId ?? "") === (variantKey ?? ""))
+    );
 
-    setItems((prev) => prev.filter((item) => item.product.id !== productId));
+    setItems((prev) => prev.filter(
+      (item) => !(item.product.id === productId &&
+        ((item.variantLabel ?? item.variantId ?? "") === (variantKey ?? "")))
+    ));
 
     const token = localStorage.getItem(TOKEN_KEY);
     if (isAuthenticated && token && itemToRemove?.id) {
@@ -143,18 +155,19 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [isAuthenticated, items]);
 
-  const updateQuantity = useCallback((productId: string, quantity: number) => {
+  const updateQuantity = useCallback((productId: string, quantity: number, variantKey?: string) => {
     if (quantity <= 0) {
-      removeItem(productId);
+      removeItem(productId, variantKey);
       return;
     }
     setItems((prev) =>
       prev.map((item) =>
-        item.product.id === productId ? { ...item, quantity } : item
+        item.product.id === productId &&
+        ((item.variantLabel ?? item.variantId ?? "") === (variantKey ?? ""))
+          ? { ...item, quantity }
+          : item
       )
     );
-    // Note: backend only has upsert (add), not a separate "set quantity" endpoint.
-    // A full implementation would need PATCH /api/cart/items/:id — for now local only.
   }, [removeItem]);
 
   const clearCart = useCallback(() => {

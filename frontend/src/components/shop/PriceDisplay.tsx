@@ -11,7 +11,7 @@ const PriceDisplay = ({ price, originalPrice, size = "sm", compact = false }: Pr
   const sizeClasses = {
     sm: compact ? "text-xs" : "text-sm",
     md: "text-base",
-    lg: "text-xl",
+    lg: "text-lg",
   };
 
   return (

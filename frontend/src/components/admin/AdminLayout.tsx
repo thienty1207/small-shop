@@ -18,8 +18,14 @@ import {
   Building2,
   Truck,
   Mail,
+  Layers,
+  Star,
+  Ticket,
+  Bell,
+  X,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
 import { cn } from "@/lib/utils";
 
 // ─── Nav tree structure ───────────────────────────────────────────────────────
@@ -51,12 +57,21 @@ const NAV: NavItem[] = [
     children: [
       { label: "Tất cả sản phẩm", href: "/admin/products",            icon: Package },
       { label: "Danh mục",        href: "/admin/products/categories",  icon: Tag },
+      { label: "Tồn Kho",          href: "/admin/inventory",            icon: Layers },
     ],
   },
   {
     label: "Quản lý Đơn hàng",
     icon:  ShoppingCart,
     href:  "/admin/orders",
+  },
+  {
+    label: "Đánh giá & Voucher",
+    icon:  Star,
+    children: [
+      { label: "Đánh giá sản phẩm", href: "/admin/reviews", icon: Star },
+      { label: "Mã giảm giá",       href: "/admin/coupons", icon: Ticket },
+    ],
   },
   {
     label: "Người dùng",
@@ -142,6 +157,44 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
       return next;
     });
   };
+
+  // ── SSE notifications (B12) ───────────────────────────────────────────────
+  interface AdminNotification { id: string; type: string; message: string; created_at: string; }
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [bellOpen, setBellOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const bellRef = useRef<HTMLDivElement>(null);
+  const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+
+  useEffect(() => {
+    const token = localStorage.getItem("admin_auth_token");
+    if (!token) return;
+    const es = new EventSource(`${API_URL}/api/admin/notifications/stream?token=${token}`);
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data) as AdminNotification;
+        if (data.id) {
+          setNotifications((prev) => [data, ...prev].slice(0, 50));
+          setUnreadCount((c) => c + 1);
+        }
+      } catch { /* ignore parse errors */ }
+    };
+    return () => es.close();
+  }, [API_URL]);
+
+  // Close bell dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
+        setBellOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // ── Breadcrumbs (B16) ─────────────────────────────────────────────────────
+  const crumbs = useBreadcrumbs();
 
   const handleLogout = () => {
     adminLogout();
@@ -303,16 +356,67 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
       {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="flex items-center gap-4 px-6 py-4 bg-gray-950 border-b border-gray-800 shrink-0">
-          <button
-            className="lg:hidden text-gray-400 hover:text-white transition-colors"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          {title && (
-            <h1 className="text-base font-semibold text-white">{title}</h1>
-          )}
+        <header className="px-6 py-3 bg-gray-950 border-b border-gray-800 shrink-0">
+          <div className="flex items-center gap-4">
+            <button
+              className="lg:hidden text-gray-400 hover:text-white transition-colors"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            {/* Breadcrumbs (B16) */}
+            <nav className="flex-1 flex items-center gap-1.5 text-xs text-gray-500 min-w-0 overflow-hidden">
+              {crumbs.map((crumb, i) => (
+                <span key={i} className="flex items-center gap-1.5 shrink-0">
+                  {i > 0 && <ChevronRight className="w-3 h-3 text-gray-700 shrink-0" />}
+                  {crumb.href ? (
+                    <Link to={crumb.href} className="hover:text-gray-300 transition-colors truncate max-w-[120px]">
+                      {crumb.label}
+                    </Link>
+                  ) : (
+                    <span className="text-white font-medium truncate max-w-[160px]">{crumb.label}</span>
+                  )}
+                </span>
+              ))}
+            </nav>
+
+            {/* SSE Bell (B12) */}
+            <div className="relative shrink-0" ref={bellRef}>
+              <button
+                onClick={() => { setBellOpen((v) => !v); setUnreadCount(0); }}
+                className="relative p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-all"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500" />
+                )}
+              </button>
+
+              {bellOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-gray-900 border border-gray-800 rounded-xl shadow-2xl z-50 overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+                    <p className="text-xs font-semibold text-white">Thông báo</p>
+                    <button onClick={() => setBellOpen(false)} className="text-gray-500 hover:text-white">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="max-h-72 overflow-y-auto divide-y divide-gray-800">
+                    {notifications.length === 0 ? (
+                      <p className="text-center text-xs text-gray-600 py-6">Không có thông báo mới</p>
+                    ) : (
+                      notifications.map((n) => (
+                        <div key={n.id} className="px-4 py-3 hover:bg-gray-800/50 transition-colors">
+                          <p className="text-xs text-gray-200">{n.message}</p>
+                          <p className="text-[10px] text-gray-600 mt-0.5">{new Date(n.created_at).toLocaleString("vi-VN")}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </header>
 
         {/* Scrollable content */}

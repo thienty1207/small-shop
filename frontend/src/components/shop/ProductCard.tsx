@@ -1,4 +1,4 @@
-﻿import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ShoppingBag, Eye } from "lucide-react";
 import type { Product } from "@/data/products";
 import PriceDisplay from "./PriceDisplay";
@@ -12,23 +12,63 @@ interface ProductCardProps {
   compact?: boolean;
 }
 
+/**
+ * Returns the price to display on the card.
+ * Priority: 100ml variant > closest variant to 100ml > product.price (min variant).
+ * This avoids showing misleading low prices from tiny (10ml/30ml) sizes.
+ */
+function getDisplayPrice(product: Product): { price: number; originalPrice?: number } {
+  const variants = product.variants;
+  if (!variants || variants.length === 0) {
+    return { price: product.price, originalPrice: product.originalPrice };
+  }
+  // Strictly try exact 100ml first as requested. Use Number() to be safe.
+  const v100 = variants.find((v) => Number(v.ml) === 100);
+  if (v100) {
+    return { price: v100.price, originalPrice: v100.originalPrice };
+  }
+  // Fallback if 100ml not exists: pick the one closest to 100ml (usually 125ml or 75ml)
+  const sorted = [...variants].sort((a, b) => Math.abs(Number(a.ml) - 100) - Math.abs(Number(b.ml) - 100));
+  const best = sorted[0];
+  return { price: best.price, originalPrice: best.originalPrice };
+}
+
 const ProductCard = ({ product, compact = false }: ProductCardProps) => {
   const { addItem } = useCart();
   const outOfStock = product.inStock === false;
   const lowStock = !outOfStock && product.stock !== undefined && product.stock > 0 && product.stock < 5;
+  const { price, originalPrice } = getDisplayPrice(product);
+
+  // Find the best variant (100ml or closest) to pass to the cart
+  const bestVariant = (() => {
+    const variants = product.variants;
+    if (!variants || variants.length === 0) return null;
+    const v100 = variants.find((v) => Number(v.ml) === 100);
+    if (v100) return v100;
+    return [...variants].sort((a, b) => Math.abs(Number(a.ml) - 100) - Math.abs(Number(b.ml) - 100))[0];
+  })();
+
+  const navigate = useNavigate();
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (outOfStock) return;
-    addItem(product, 1);
+    // Build a product snapshot whose .price reflects the displayed price (100ml, not 10ml)
+    const productForCart = { ...product, price, originalPrice };
+    addItem(
+      productForCart,
+      1,
+      bestVariant?.id,
+      bestVariant ? `${bestVariant.ml}ml` : undefined,
+    );
   };
 
   return (
     <div className="group relative">
       <Link to={`/product/${product.slug}`} className="block">
         {/* Image container */}
-        <div className="relative aspect-square overflow-hidden rounded-2xl bg-muted">
+        <div className={`relative overflow-hidden rounded-xl bg-muted ${compact ? "aspect-[3/4]" : "aspect-[4/5]"}`}>
           <img
             src={product.image}
             alt={product.name}
@@ -48,7 +88,7 @@ const ProductCard = ({ product, compact = false }: ProductCardProps) => {
 
           {/* Low stock badge */}
           {lowStock && (
-            <span className="absolute top-2.5 right-2.5 text-[11px] font-medium text-orange-700 bg-orange-50/90 px-2 py-0.5 rounded-full shadow-sm">
+            <span className="absolute top-2 right-2 text-[11px] font-medium text-orange-700 bg-orange-50/90 px-2 py-0.5 rounded-full shadow-sm">
               Còn {product.stock}
             </span>
           )}
@@ -56,7 +96,7 @@ const ProductCard = ({ product, compact = false }: ProductCardProps) => {
           {/* Badge */}
           {product.badge && !outOfStock && (
             <div className="absolute top-3 left-3">
-              <ProductBadge type={product.badge} />
+              <ProductBadge type={product.badge as "Handmade" | "Mới" | "Hot"} />
             </div>
           )}
 
@@ -65,18 +105,18 @@ const ProductCard = ({ product, compact = false }: ProductCardProps) => {
             <div className="absolute bottom-3 left-3 right-3 flex gap-2 translate-y-3 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
               <button
                 onClick={handleAddToCart}
-                className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-xl bg-white text-foreground text-xs font-semibold shadow-lg hover:bg-primary hover:text-white transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg bg-white text-foreground text-xs font-semibold shadow-lg hover:bg-primary hover:text-white transition-colors"
               >
                 <ShoppingBag size={13} />
                 Thêm vào giỏ
               </button>
-              <Link
-                to={`/product/${product.slug}`}
-                className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/90 text-foreground shadow-lg hover:bg-primary hover:text-white transition-colors"
-                onClick={(e) => e.stopPropagation()}
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/product/${product.slug}`); }}
+                className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/90 text-foreground shadow-lg hover:bg-primary hover:text-white transition-colors"
               >
                 <Eye size={14} />
-              </Link>
+              </button>
             </div>
           )}
         </div>
@@ -84,13 +124,13 @@ const ProductCard = ({ product, compact = false }: ProductCardProps) => {
 
       {/* Info */}
       <div className={`mt-2.5 px-0.5 ${compact ? "space-y-0.5" : "mt-3"}`}>
-        <Link to={`/product/${product.slug}`}>
+        <span>
           <h3 className={`font-medium text-foreground line-clamp-2 hover:text-primary transition-colors leading-snug ${compact ? "text-xs" : "text-sm"}`}>
             {product.name}
           </h3>
-        </Link>
+        </span>
         <div className={compact ? "mt-1" : "mt-1.5"}>
-          <PriceDisplay price={product.price} originalPrice={product.originalPrice} compact={compact} />
+          <PriceDisplay price={price} originalPrice={originalPrice} compact={compact} />
         </div>
       </div>
     </div>

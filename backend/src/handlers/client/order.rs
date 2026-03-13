@@ -11,7 +11,7 @@ use crate::{
         order::{CreateOrderInput, OrderPublic},
         user::UserPublic,
     },
-    repositories::{cart_repo, order_repo},
+    repositories::{cart_repo, coupon_repo, order_repo},
     services::{email_service, order_service},
     state::AppState,
 };
@@ -23,8 +23,14 @@ pub async fn create_order(
     Json(input): Json<CreateOrderInput>,
 ) -> Result<(StatusCode, Json<OrderPublic>), AppError> {
     // 1. Validate input and calculate totals
-    let (items, subtotal, shipping_fee, total) =
+    let (items, subtotal, shipping_fee, mut total) =
         order_service::validate_and_calculate(&input)?;
+
+    // Apply coupon discount if provided
+    let discount = input.discount_amt.unwrap_or(0).max(0);
+    if discount > 0 {
+        total = (total - discount).max(0);
+    }
 
     // 2. Generate unique order code
     let order_code = order_service::generate_order_code();
@@ -50,7 +56,14 @@ pub async fn create_order(
     // 4. Clear DB cart after successful order
     let _ = cart_repo::clear_cart(&state.db, user.id).await;
 
-    // 5. Fire-and-forget: send confirmation email in background (don't block response)
+    // 5. Increment coupon used_count if a coupon was applied
+    if let Some(ref code) = input.coupon_code {
+        if !code.is_empty() {
+            let _ = coupon_repo::increment_used(&state.db, code).await;
+        }
+    }
+
+    // 6. Fire-and-forget: send confirmation email in background (don't block response)
     if let Some(mailer) = state.mailer.clone() {
         let config = state.config.clone();
         let order_clone = order.clone();
@@ -69,7 +82,7 @@ pub async fn create_order(
         });
     }
 
-    // 6. Return order details immediately (email sends in background)
+    // 7. Return order details immediately (email sends in background)
     let response = OrderPublic {
         id: order.id,
         order_code: order.order_code,

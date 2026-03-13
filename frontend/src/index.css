@@ -1,4 +1,4 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,88 +6,119 @@
 
 @layer base {
   :root {
-    --background: 36 25% 97%;
-    --foreground: 20 15% 12%;
-    --card: 0 0% 100%;
-    --card-foreground: 20 15% 12%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 20 15% 12%;
-    --primary: 346 65% 58%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 346 30% 95%;
-    --secondary-foreground: 20 15% 12%;
-    --muted: 30 20% 94%;
-    --muted-foreground: 20 10% 42%;
-    --accent: 346 65% 58%;
+    /* ── Black & White Modern Palette ──────────────────────────────────── */
+    --background:    0 0% 100%;        /* pure white                        */
+    --foreground:    0 0% 6%;          /* near black                        */
+    --card:          0 0% 100%;
+    --card-foreground: 0 0% 6%;
+    --popover:       0 0% 100%;
+    --popover-foreground: 0 0% 6%;
+
+    /* Signature accent: charcoal — avoids generic blue */
+    --primary:       0 0% 9%;          /* near-black button/accent          */
+    --primary-foreground: 0 0% 100%;   /* white text on primary             */
+    --secondary:     0 0% 96%;         /* off-white surfaces                */
+    --secondary-foreground: 0 0% 6%;
+
+    --muted:         0 0% 95%;
+    --muted-foreground: 0 0% 45%;
+    --accent:        0 0% 9%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
+    --destructive:   0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --price: 346 65% 48%;
-    --price-old: 20 10% 52%;
-    --badge-handmade: 20 15% 12%;
+
+    /* Price / badge system in monochrome */
+    --price:         0 0% 9%;
+    --price-old:     0 0% 55%;
+    --badge-handmade:  0 0% 9%;
     --badge-handmade-foreground: 0 0% 100%;
-    --badge-new: 346 65% 58%;
+    --badge-new:     0 0% 9%;
     --badge-new-foreground: 0 0% 100%;
-    --surface-pink: 36 25% 97%;
-    --surface-pink-dark: 346 30% 92%;
-    --border: 30 20% 88%;
-    --input: 30 20% 88%;
-    --ring: 346 65% 58%;
-    --radius: 0.875rem;
+
+    /* Surfaces */
+    --surface-pink:      0 0% 98%;     /* re-used utility (page bg)         */
+    --surface-pink-dark: 0 0% 93%;
+
+    /* Chrome */
+    --border: 0 0% 88%;
+    --input:  0 0% 88%;
+    --ring:   0 0% 9%;
+    --radius: 0.75rem;
+
+    /* Sidebar (admin — keep neutral to separate from client) */
     --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-foreground: 0 0% 26%;
+    --sidebar-primary: 0 0% 10%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-    --font-display: 'Playfair Display', serif;
-    --font-body: 'Inter', sans-serif;
+    --sidebar-accent: 0 0% 95%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 0 0% 91%;
+    --sidebar-ring: 0 0% 10%;
+
+    /* Typography */
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body:    'Inter', sans-serif;
   }
+
   .dark {
-    --background: 20 12% 8%;
-    --foreground: 36 20% 93%;
-    --card: 20 12% 11%;
-    --card-foreground: 36 20% 93%;
-    --popover: 20 12% 11%;
-    --popover-foreground: 36 20% 93%;
-    --primary: 346 65% 62%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 20 12% 16%;
-    --secondary-foreground: 36 20% 93%;
-    --muted: 20 12% 16%;
-    --muted-foreground: 20 10% 58%;
-    --accent: 346 65% 62%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 62.8% 30.6%;
+    --background:    0 0% 5%;
+    --foreground:    0 0% 94%;
+    --card:          0 0% 8%;
+    --card-foreground: 0 0% 94%;
+    --popover:       0 0% 8%;
+    --popover-foreground: 0 0% 94%;
+    --primary:       0 0% 94%;
+    --primary-foreground: 0 0% 5%;
+    --secondary:     0 0% 13%;
+    --secondary-foreground: 0 0% 94%;
+    --muted:         0 0% 13%;
+    --muted-foreground: 0 0% 55%;
+    --accent:        0 0% 94%;
+    --accent-foreground: 0 0% 5%;
+    --destructive:   0 62% 30%;
     --destructive-foreground: 0 0% 95%;
-    --border: 20 12% 20%;
-    --input: 20 12% 20%;
-    --ring: 346 65% 62%;
-    --surface-pink: 20 12% 8%;
-    --surface-pink-dark: 20 12% 14%;
-    --price: 346 65% 65%;
-    --price-old: 20 10% 50%;
-    --badge-handmade: 36 20% 90%;
-    --badge-handmade-foreground: 20 12% 8%;
-    --badge-new: 346 65% 62%;
-    --badge-new-foreground: 0 0% 100%;
+    --border:        0 0% 20%;
+    --input:         0 0% 20%;
+    --ring:          0 0% 94%;
+    --surface-pink:      0 0% 5%;
+    --surface-pink-dark: 0 0% 11%;
+    --price:         0 0% 90%;
+    --price-old:     0 0% 50%;
+    --badge-handmade:  0 0% 90%;
+    --badge-handmade-foreground: 0 0% 5%;
+    --badge-new:     0 0% 90%;
+    --badge-new-foreground: 0 0% 5%;
   }
 }
+
+/* ── Base resets ─────────────────────────────────────────────────────────────── */
 @layer base {
+  html { zoom: 1; }
   * { @apply border-border; }
-  body { @apply bg-background text-foreground font-body antialiased; scroll-behavior: smooth; }
-  h1, h2, h3, h4 { font-family: var(--font-display); }
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+  }
+  h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.02em; }
 }
+
+/* ── Utility overrides ───────────────────────────────────────────────────────── */
 @layer utilities {
+  .min-h-screen { min-height: 100vh; }
+  .h-screen     { height: 100vh; }
+
   .font-display { font-family: var(--font-display); }
   .font-body    { font-family: var(--font-body); }
-  .text-price      { color: hsl(var(--price)); }
-  .text-price-old  { color: hsl(var(--price-old)); }
+
+  .text-price     { color: hsl(var(--price)); }
+  .text-price-old { color: hsl(var(--price-old)); text-decoration: line-through; }
+
   .bg-surface-pink      { background-color: hsl(var(--surface-pink)); }
   .bg-surface-pink-dark { background-color: hsl(var(--surface-pink-dark)); }
 }
+
+/* ── Animations ──────────────────────────────────────────────────────────────── */
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(36px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -96,8 +127,10 @@
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+
+/* Hero zoom: subtle scale from 1.04 → 1.0 over 8s */
 @keyframes hero-scale {
-  from { transform: scale(1.07); }
+  from { transform: scale(1.04); }
   to   { transform: scale(1); }
 }
 @keyframes slide-progress {
@@ -108,11 +141,14 @@
   0%, 100% { transform: translateY(0); }
   50%       { transform: translateY(-7px); }
 }
+
 .animate-fade-up        { animation: fade-up 0.7s cubic-bezier(0.22,1,0.36,1) both; }
 .animate-fade-in        { animation: fade-in 0.5s ease both; }
-.animate-hero-scale     { animation: hero-scale 8s ease-out both; }
+.animate-hero-scale     { animation: hero-scale 9s ease-out both; }
 .animate-slide-progress { animation: slide-progress linear both; }
 .animate-float-y        { animation: float-y 3.5s ease-in-out infinite; }
+
+/* Stagger helpers */
 .stagger > *:nth-child(1) { animation-delay: 0ms; }
 .stagger > *:nth-child(2) { animation-delay: 90ms; }
 .stagger > *:nth-child(3) { animation-delay: 180ms; }
@@ -121,9 +157,24 @@
 .stagger > *:nth-child(6) { animation-delay: 450ms; }
 .stagger > *:nth-child(7) { animation-delay: 540ms; }
 .stagger > *:nth-child(8) { animation-delay: 630ms; }
+
+/* Scroll-reveal */
 .reveal {
   opacity: 0;
-  transform: translateY(30px);
-  transition: opacity 0.65s cubic-bezier(0.22,1,0.36,1), transform 0.65s cubic-bezier(0.22,1,0.36,1);
+  transform: translateY(28px);
+  transition: opacity 0.65s cubic-bezier(0.22,1,0.36,1),
+              transform 0.65s cubic-bezier(0.22,1,0.36,1);
 }
 .reveal.visible { opacity: 1; transform: translateY(0); }
+
+/* Hero image — fill frame without black borders */
+.hero-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  color: transparent;
+}
+.hero-img[src=""] { visibility: hidden; }

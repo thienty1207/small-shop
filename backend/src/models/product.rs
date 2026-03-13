@@ -12,48 +12,73 @@ pub struct Category {
     pub created_at: DateTime<Utc>,
 }
 
+/// A single size variant of a product (e.g. 75ml at 2,500,000 VND).
+#[derive(Debug, Clone, sqlx::FromRow, Serialize)]
+pub struct ProductVariant {
+    pub id:             Uuid,
+    pub product_id:     Uuid,
+    pub ml:             i32,
+    pub price:          i64,
+    pub original_price: Option<i64>,
+    pub stock:          i32,
+    pub is_default:     bool,
+    pub created_at:     DateTime<Utc>,
+}
+
 /// Raw database row for the `products` table.
-/// `rating` is fetched as f64 by casting NUMERIC in SQL.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Product {
-    pub id: Uuid,
-    pub category_id: Uuid,
-    pub name: String,
-    pub slug: String,
-    pub price: i64,
+    pub id:             Uuid,
+    pub category_id:    Uuid,
+    pub name:           String,
+    pub slug:           String,
+    // Denormalized cheapest-variant price kept for list/search queries.
+    pub price:          i64,
     pub original_price: Option<i64>,
-    pub image_url: String,
-    pub images: Vec<String>,
-    pub badge: Option<String>,
-    pub description: Option<String>,
-    pub material: Option<String>,
-    pub care: Option<String>,
-    pub rating: f64,
-    pub review_count: i32,
-    pub in_stock: bool,
-    pub stock: i32,
-    pub created_at: DateTime<Utc>,
+    pub image_url:      String,
+    pub images:         Vec<String>,
+    pub badge:          Option<String>,
+    pub description:    Option<String>,
+    pub top_note:       Option<String>,
+    pub mid_note:       Option<String>,
+    pub base_note:      Option<String>,
+    pub care:           Option<String>,
+    pub rating:         f64,
+    pub review_count:   i32,
+    pub in_stock:       bool,
+    pub stock:          i32,
+    // Perfume-specific
+    pub brand:          Option<String>,
+    pub concentration:  Option<String>,
+    pub created_at:     DateTime<Utc>,
 }
 
 /// Public-facing product response (with category included).
 #[derive(Debug, Serialize)]
 pub struct ProductPublic {
-    pub id: Uuid,
-    pub category_id: Uuid,
-    pub name: String,
-    pub slug: String,
-    pub price: i64,
+    pub id:             Uuid,
+    pub category_id:    Uuid,
+    pub name:           String,
+    pub slug:           String,
+    pub price:          i64,
     pub original_price: Option<i64>,
-    pub image_url: String,
-    pub images: Vec<String>,
-    pub badge: Option<String>,
-    pub description: Option<String>,
-    pub material: Option<String>,
-    pub care: Option<String>,
-    pub rating: f64,
-    pub review_count: i32,
-    pub in_stock: bool,
-    pub stock: i32,
+    pub image_url:      String,
+    pub images:         Vec<String>,
+    pub badge:          Option<String>,
+    pub description:    Option<String>,
+    pub top_note:       Option<String>,
+    pub mid_note:       Option<String>,
+    pub base_note:      Option<String>,
+    pub care:           Option<String>,
+    pub rating:         f64,
+    pub review_count:   i32,
+    pub in_stock:       bool,
+    pub stock:          i32,
+    pub brand:          Option<String>,
+    pub concentration:  Option<String>,
+    /// All ML variants sorted ascending by ml.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub variants:       Vec<ProductVariant>,
 }
 
 impl From<Product> for ProductPublic {
@@ -69,12 +94,17 @@ impl From<Product> for ProductPublic {
             images: p.images,
             badge: p.badge,
             description: p.description,
-            material: p.material,
+            top_note: p.top_note,
+            mid_note: p.mid_note,
+            base_note: p.base_note,
             care: p.care,
             rating: p.rating,
             review_count: p.review_count,
             in_stock: p.in_stock,
             stock: p.stock,
+            brand: p.brand,
+            concentration: p.concentration,
+            variants: vec![],   // populated by handler when fetching single product
         }
     }
 }
@@ -100,8 +130,6 @@ fn default_client_limit() -> i64 { 12 }
 // ─── Admin-only types ────────────────────────────────────────────────────────
 
 /// Product row as returned to the admin panel (includes category name & stock).
-/// Uses runtime queries (query_as::<_, AdminProduct>()) — not the macro — so
-/// the `stock` column added by migration 011 doesn't break compile-time checks.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct AdminProduct {
     pub id:             Uuid,
@@ -115,9 +143,28 @@ pub struct AdminProduct {
     pub images:         Vec<String>,
     pub badge:          Option<String>,
     pub description:    Option<String>,
+    pub top_note:       Option<String>,
+    pub mid_note:       Option<String>,
+    pub base_note:      Option<String>,
+    pub care:           Option<String>,
     pub in_stock:       bool,
     pub stock:          i32,
+    pub brand:          Option<String>,
+    pub concentration:  Option<String>,
     pub created_at:     DateTime<Utc>,
+}
+
+/// Inventory row for the admin stock management page.
+#[derive(Debug, Serialize)]
+pub struct InventoryRow {
+    pub variant_id:     Uuid,
+    pub product_id:     Uuid,
+    pub product_name:   String,
+    pub brand:          Option<String>,
+    pub ml:             i32,
+    pub price:          i64,
+    pub original_price: Option<i64>,
+    pub stock:          i32,
 }
 
 /// Paginated list wrapper.
@@ -137,17 +184,25 @@ pub struct CreateProductInput {
     pub name:           String,
     /// Auto-generated from `name` if absent.
     pub slug:           Option<String>,
-    pub price:          i64,
+    /// Fallback price for listing (auto-computed from min variant price if variants provided).
+    pub price:          Option<i64>,
     pub original_price: Option<i64>,
     pub image_url:      String,
-    /// Up to 3 extra gallery images (indexes 0-2).
+    /// Up to 3 extra gallery images.
     pub images:         Option<Vec<String>>,
     pub badge:          Option<String>,
     pub description:    Option<String>,
-    pub material:       Option<String>,
+    pub top_note:       Option<String>,
+    pub mid_note:       Option<String>,
+    pub base_note:      Option<String>,
     pub care:           Option<String>,
     pub in_stock:       Option<bool>,
     pub stock:          Option<i32>,
+    pub brand:          Option<String>,
+    pub concentration:  Option<String>,
+    /// ML variants. If provided, product.price is set to min(variant prices).
+    #[serde(default)]
+    pub variants:       Vec<VariantInput>,
 }
 
 /// Request body for updating a product (admin only, full PUT semantics).
@@ -164,10 +219,33 @@ pub struct UpdateProductInput {
     pub images:         Vec<String>,
     pub badge:          Option<String>,
     pub description:    Option<String>,
-    pub material:       Option<String>,
+    pub top_note:       Option<String>,
+    pub mid_note:       Option<String>,
+    pub base_note:      Option<String>,
     pub care:           Option<String>,
     pub in_stock:       bool,
     pub stock:          i32,
+    pub brand:          Option<String>,
+    pub concentration:  Option<String>,
+    #[serde(default)]
+    pub variants:       Vec<VariantInput>,
+}
+
+/// A variant entry in create/update product requests.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct VariantInput {
+    pub ml:             i32,
+    pub price:          i64,
+    pub original_price: Option<i64>,
+    pub stock:          i32,
+    #[serde(default)]
+    pub is_default:     bool,
+}
+
+/// Payload to patch a single variant's stock level.
+#[derive(Debug, Deserialize)]
+pub struct UpdateStockInput {
+    pub stock: i32,
 }
 
 fn default_page()  -> i64 { 1  }

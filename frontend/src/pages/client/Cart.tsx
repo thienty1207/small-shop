@@ -58,8 +58,8 @@ const Cart = () => {
                   {item.variant && <p className="text-xs text-muted-foreground mt-0.5">{item.variant}</p>}
                   <p className="text-sm text-price font-semibold mt-1">{formatPrice(item.product.price)}</p>
                   <div className="flex items-center justify-between mt-2">
-                    <QuantityStepper value={item.quantity} onChange={(q) => updateQuantity(item.product.id, q)} />
-                    <button onClick={() => removeItem(item.product.id)} className="p-1 text-muted-foreground hover:text-destructive">
+                    <QuantityStepper value={item.quantity} onChange={(q) => updateQuantity(item.product.id, q, item.variantLabel ?? item.variant)} />
+                    <button onClick={() => removeItem(item.product.id, item.variantLabel ?? item.variant)} className="p-1 text-muted-foreground hover:text-destructive">
                       <Trash2 size={16} />
                     </button>
                   </div>

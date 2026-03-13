@@ -4,8 +4,10 @@
 pub mod admin;
 pub mod cart;
 pub mod contact;
+pub mod coupon;
 pub mod order;
 pub mod product;
+pub mod review;
 pub mod settings;
 pub mod user;
 

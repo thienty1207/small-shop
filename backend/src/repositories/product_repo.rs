@@ -1,28 +1,30 @@
 use sqlx::PgPool;
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::{
     error::AppError,
     models::product::{
         AdminProduct, AdminProductQuery, Category, CategoryInput, CreateProductInput,
-        PaginatedResponse, Product, ProductPublic, ProductQuery, UpdateProductInput,
+        InventoryRow, PaginatedResponse, Product, ProductPublic, ProductQuery,
+        ProductVariant, UpdateProductInput, UpdateStockInput, VariantInput,
     },
 };
 
+// ─── Public client queries ────────────────────────────────────────────────────
+
 /// Fetch products with optional category/search filter, sort, and pagination.
-/// Returns a paginated response.
 pub async fn find_all(
     pool: &PgPool,
     query: &ProductQuery,
 ) -> Result<PaginatedResponse<ProductPublic>, AppError> {
     let offset = (query.page - 1) * query.limit;
 
-    // Build ORDER BY clause (safe: values are controlled, not raw user input)
     let order_by = match query.sort.as_deref() {
-        Some("price_asc")     => "p.price ASC, p.created_at DESC",
-        Some("price_desc")    => "p.price DESC, p.created_at DESC",
-        Some("best_selling")  => "COALESCE(sales.total_sold, 0) DESC, p.created_at DESC",
-        _                     => "p.created_at DESC", // newest (default)
+        Some("price_asc")    => "p.price ASC,  p.created_at DESC",
+        Some("price_desc")   => "p.price DESC, p.created_at DESC",
+        Some("best_selling") => "COALESCE(sales.total_sold, 0) DESC, p.created_at DESC",
+        _                    => "p.created_at DESC",
     };
 
     let sql = format!(
@@ -33,9 +35,11 @@ pub async fn find_all(
         )
         SELECT
             p.id, p.category_id, p.name, p.slug, p.price, p.original_price,
-            p.image_url, p.images, p.badge, p.description, p.material, p.care,
+            p.image_url, p.images, p.badge, p.description, p.top_note, p.mid_note, p.base_note, p.care,
             p.rating::float8 AS rating,
-            p.review_count, p.in_stock, p.stock, p.created_at
+            p.review_count, p.in_stock, p.stock,
+            p.brand, p.concentration,
+            p.created_at
         FROM products p
         JOIN categories c ON c.id = p.category_id
         LEFT JOIN sales ON sales.product_id = p.id
@@ -73,30 +77,79 @@ pub async fn find_all(
     .fetch_one(pool)
     .await?;
 
-    let public: Vec<ProductPublic> = items.into_iter().map(ProductPublic::from).collect();
-    let total_pages = (total + query.limit - 1) / query.limit;
+    let product_ids: Vec<Uuid> = items.iter().map(|p| p.id).collect();
 
+    // Batch fetch all variants for these products
+    let all_variants = sqlx::query_as::<_, ProductVariant>(
+        r#"
+        SELECT id, product_id, ml, price, original_price, stock, is_default, created_at
+        FROM product_variants
+        WHERE product_id = ANY($1::uuid[])
+        ORDER BY ml ASC
+        "#,
+    )
+    .bind(&product_ids)
+    .fetch_all(pool)
+    .await?;
+
+    // Group variants by product_id
+    let mut variants_map: HashMap<Uuid, Vec<ProductVariant>> = HashMap::new();
+    for v in all_variants {
+        variants_map.entry(v.product_id).or_default().push(v);
+    }
+
+    let public: Vec<ProductPublic> = items
+        .into_iter()
+        .map(|p| {
+            let id = p.id;
+            let mut pub_prod = ProductPublic::from(p);
+            pub_prod.variants = variants_map.remove(&id).unwrap_or_default();
+            pub_prod
+        })
+        .collect();
+
+    let total_pages = (total + query.limit - 1) / query.limit;
     Ok(PaginatedResponse { items: public, total, page: query.page, limit: query.limit, total_pages })
 }
 
 /// Fetch a single product by its slug.
 pub async fn find_by_slug(pool: &PgPool, slug: &str) -> Result<Option<Product>, AppError> {
-    let product = sqlx::query_as!(
-        Product,
+    let product = sqlx::query_as::<_, Product>(
         r#"
         SELECT id, category_id, name, slug, price, original_price,
-               image_url, images, badge, description, material, care,
-               rating::float8 AS "rating!: f64",
-               review_count, in_stock, stock, created_at
+               image_url, images, badge, description, top_note, mid_note, base_note, care,
+               rating::float8 AS rating,
+               review_count, in_stock, stock,
+               brand, concentration,
+               created_at
         FROM products
         WHERE slug = $1
         "#,
-        slug,
     )
+    .bind(slug)
     .fetch_optional(pool)
     .await?;
 
     Ok(product)
+}
+
+/// Fetch variants for a product, sorted by ml ascending.
+pub async fn find_variants_by_product(
+    pool: &PgPool,
+    product_id: Uuid,
+) -> Result<Vec<ProductVariant>, AppError> {
+    let variants = sqlx::query_as::<_, ProductVariant>(
+        r#"
+        SELECT id, product_id, ml, price, original_price, stock, is_default, created_at
+        FROM product_variants
+        WHERE product_id = $1
+        ORDER BY ml ASC
+        "#,
+    )
+    .bind(product_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(variants)
 }
 
 /// Fetch all categories.
@@ -107,33 +160,48 @@ pub async fn find_all_categories(pool: &PgPool) -> Result<Vec<Category>, AppErro
     )
     .fetch_all(pool)
     .await?;
-
     Ok(categories)
 }
 
 /// Fetch a product by its UUID (used during order creation).
 pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<Product>, AppError> {
-    let product = sqlx::query_as!(
-        Product,
+    let product = sqlx::query_as::<_, Product>(
         r#"
         SELECT id, category_id, name, slug, price, original_price,
-               image_url, images, badge, description, material, care,
-               rating::float8 AS "rating!: f64",
-               review_count, in_stock, stock, created_at
+               image_url, images, badge, description, top_note, mid_note, base_note, care,
+               rating::float8 AS rating,
+               review_count, in_stock, stock,
+               brand, concentration,
+               created_at
         FROM products
         WHERE id = $1
         "#,
-        id,
     )
+    .bind(id)
     .fetch_optional(pool)
     .await?;
-
     Ok(product)
 }
 
-// ─── Admin CRUD ──────────────────────────────────────────────────────────────
+/// Fetch a single variant by id (used during order creation).
+pub async fn find_variant_by_id(
+    pool: &PgPool,
+    variant_id: Uuid,
+) -> Result<Option<ProductVariant>, AppError> {
+    let v = sqlx::query_as::<_, ProductVariant>(
+        r#"
+        SELECT id, product_id, ml, price, original_price, stock, is_default, created_at
+        FROM product_variants WHERE id = $1
+        "#,
+    )
+    .bind(variant_id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(v)
+}
 
-/// Helper: transliterate a string into an ASCII slug.
+// ─── Admin CRUD ───────────────────────────────────────────────────────────────
+
 fn slugify(s: &str) -> String {
     let map: &[(&str, &str)] = &[
         ("à|á|ả|ã|ạ|ă|ắ|ặ|ằ|ẳ|ẵ|â|ấ|ầ|ẩ|ẫ|ậ", "a"),
@@ -160,13 +228,176 @@ fn slugify(s: &str) -> String {
         .join("-")
 }
 
+/// Upsert variants for a product (delete removed, insert/update kept).
+/// Also updates products.price / in_stock / stock to reflect the cheapest variant.
+pub async fn upsert_variants(
+    pool: &PgPool,
+    product_id: Uuid,
+    variants: &[VariantInput],
+) -> Result<Vec<ProductVariant>, AppError> {
+    if variants.is_empty() {
+        return find_variants_by_product(pool, product_id).await;
+    }
+
+    // Ensure exactly one default
+    let has_default = variants.iter().any(|v| v.is_default);
+    let mut variants_owned: Vec<VariantInput> = variants.to_vec();
+    if !has_default {
+        if let Some(first) = variants_owned.first_mut() {
+            first.is_default = true;
+        }
+    }
+
+    // Collect the ml sizes being submitted — delete any that are not in the list.
+    let submitted_mls: Vec<i32> = variants_owned.iter().map(|v| v.ml).collect();
+    sqlx::query(
+        "DELETE FROM product_variants WHERE product_id = $1 AND ml != ALL($2)",
+    )
+    .bind(product_id)
+    .bind(&submitted_mls)
+    .execute(pool)
+    .await?;
+
+    // Reset all existing defaults first to avoid partial unique index conflict
+    sqlx::query("UPDATE product_variants SET is_default = FALSE WHERE product_id = $1")
+        .bind(product_id)
+        .execute(pool)
+        .await?;
+
+    // UPSERT each variant
+    for v in &variants_owned {
+        sqlx::query(
+            r#"
+            INSERT INTO product_variants (product_id, ml, price, original_price, stock, is_default)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (product_id, ml) DO UPDATE SET
+                price          = EXCLUDED.price,
+                original_price = EXCLUDED.original_price,
+                stock          = EXCLUDED.stock,
+                is_default     = EXCLUDED.is_default
+            "#,
+        )
+        .bind(product_id)
+        .bind(v.ml)
+        .bind(v.price)
+        .bind(v.original_price)
+        .bind(v.stock)
+        .bind(v.is_default)
+        .execute(pool)
+        .await?;
+    }
+
+    // Keep products.price = cheapest variant price and update stock/in_stock aggregate
+    sqlx::query(
+        r#"
+        UPDATE products SET
+            price    = (SELECT MIN(price) FROM product_variants WHERE product_id = $1),
+            stock    = (SELECT COALESCE(SUM(stock), 0) FROM product_variants WHERE product_id = $1),
+            in_stock = (SELECT COALESCE(SUM(stock), 0) > 0 FROM product_variants WHERE product_id = $1)
+        WHERE id = $1
+        "#,
+    )
+    .bind(product_id)
+    .execute(pool)
+    .await?;
+
+    find_variants_by_product(pool, product_id).await
+}
+
+/// Patch a single variant's stock level.
+pub async fn update_variant_stock(
+    pool: &PgPool,
+    variant_id: Uuid,
+    input: &UpdateStockInput,
+) -> Result<ProductVariant, AppError> {
+    let rows = sqlx::query(
+        "UPDATE product_variants SET stock = $2 WHERE id = $1",
+    )
+    .bind(variant_id)
+    .bind(input.stock)
+    .execute(pool)
+    .await?;
+
+    if rows.rows_affected() == 0 {
+        return Err(AppError::NotFound(format!("Variant {variant_id} not found")));
+    }
+
+    // Re-sync products.stock / in_stock
+    sqlx::query(
+        r#"
+        UPDATE products SET
+            stock    = (SELECT COALESCE(SUM(stock), 0) FROM product_variants WHERE product_id = (SELECT product_id FROM product_variants WHERE id = $1)),
+            in_stock = (SELECT COALESCE(SUM(stock), 0) > 0 FROM product_variants WHERE product_id = (SELECT product_id FROM product_variants WHERE id = $1))
+        WHERE id = (SELECT product_id FROM product_variants WHERE id = $1)
+        "#,
+    )
+    .bind(variant_id)
+    .execute(pool)
+    .await?;
+
+    find_variant_by_id(pool, variant_id)
+        .await?
+        .ok_or_else(|| AppError::Internal("Variant disappeared after update".into()))
+}
+
+/// Admin inventory list — all variants with product name.
+pub async fn get_inventory_list(pool: &PgPool) -> Result<Vec<InventoryRow>, AppError> {
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        variant_id:     Uuid,
+        product_id:     Uuid,
+        product_name:   String,
+        brand:          Option<String>,
+        ml:             i32,
+        price:          i64,
+        original_price: Option<i64>,
+        stock:          i32,
+    }
+
+    let rows = sqlx::query_as::<_, Row>(
+        r#"
+        SELECT
+            pv.id      AS variant_id,
+            p.id       AS product_id,
+            p.name     AS product_name,
+            p.brand,
+            pv.ml,
+            pv.price,
+            pv.original_price,
+            pv.stock
+        FROM product_variants pv
+        JOIN products p ON p.id = pv.product_id
+        ORDER BY p.name ASC, pv.ml ASC
+        "#,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| InventoryRow {
+            variant_id: r.variant_id,
+            product_id: r.product_id,
+            product_name: r.product_name,
+            brand: r.brand,
+            ml: r.ml,
+            price: r.price,
+            original_price: r.original_price,
+            stock: r.stock,
+        })
+        .collect())
+}
+
 /// Fetch a single AdminProduct by id (used after create/update).
 pub async fn find_admin_by_id(pool: &PgPool, id: Uuid) -> Result<Option<AdminProduct>, AppError> {
     let product = sqlx::query_as::<_, AdminProduct>(
         r#"
         SELECT p.id, p.category_id, c.name AS category_name, p.name, p.slug,
                p.price, p.original_price, p.image_url, p.images, p.badge, p.description,
-               p.in_stock, p.stock, p.created_at
+               p.top_note, p.mid_note, p.base_note, p.care,
+               p.in_stock, p.stock,
+               p.brand, p.concentration,
+               p.created_at
         FROM products p
         JOIN categories c ON c.id = p.category_id
         WHERE p.id = $1
@@ -189,7 +420,10 @@ pub async fn find_all_admin(
         r#"
         SELECT p.id, p.category_id, c.name AS category_name, p.name, p.slug,
                p.price, p.original_price, p.image_url, p.images, p.badge, p.description,
-               p.in_stock, p.stock, p.created_at
+               p.top_note, p.mid_note, p.base_note, p.care,
+               p.in_stock, p.stock,
+               p.brand, p.concentration,
+               p.created_at
         FROM products p
         JOIN categories c ON c.id = p.category_id
         WHERE ($1::TEXT  IS NULL OR p.name ILIKE '%' || $1 || '%')
@@ -225,7 +459,7 @@ pub async fn find_all_admin(
     Ok(PaginatedResponse { items, total, page: query.page, limit: query.limit, total_pages })
 }
 
-/// Create a new product and return the full AdminProduct.
+/// Create a new product (and optional variants) and return the full AdminProduct.
 pub async fn create_product(
     pool: &PgPool,
     input: &CreateProductInput,
@@ -239,30 +473,46 @@ pub async fn create_product(
     let stock    = input.stock.unwrap_or(0);
     let images   = input.images.clone().unwrap_or_default();
 
+    // If variants provided, derive price from the cheapest variant.
+    let price = if !input.variants.is_empty() {
+        input.variants.iter().map(|v| v.price).min().unwrap_or(input.price.unwrap_or(0))
+    } else {
+        input.price.unwrap_or(0)
+    };
+
     let id = sqlx::query_scalar::<_, Uuid>(
         r#"
         INSERT INTO products
             (category_id, name, slug, price, original_price, image_url, images,
-             badge, description, material, care, in_stock, stock)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+             badge, description, top_note, mid_note, base_note, care, in_stock, stock,
+             brand, concentration)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         RETURNING id
         "#,
     )
     .bind(input.category_id)
     .bind(&input.name)
     .bind(&slug)
-    .bind(input.price)
+    .bind(price)
     .bind(input.original_price)
     .bind(&input.image_url)
     .bind(&images)
     .bind(&input.badge)
     .bind(&input.description)
-    .bind(&input.material)
+    .bind(&input.top_note)
+    .bind(&input.mid_note)
+    .bind(&input.base_note)
     .bind(&input.care)
     .bind(in_stock)
     .bind(stock)
+    .bind(&input.brand)
+    .bind(&input.concentration)
     .fetch_one(pool)
     .await?;
+
+    if !input.variants.is_empty() {
+        upsert_variants(pool, id, &input.variants).await?;
+    }
 
     find_admin_by_id(pool, id)
         .await?
@@ -275,6 +525,13 @@ pub async fn update_product(
     id: Uuid,
     input: &UpdateProductInput,
 ) -> Result<AdminProduct, AppError> {
+    // Derive price if variants are being submitted
+    let price = if !input.variants.is_empty() {
+        input.variants.iter().map(|v| v.price).min().unwrap_or(input.price)
+    } else {
+        input.price
+    };
+
     let rows = sqlx::query(
         r#"
         UPDATE products
@@ -287,10 +544,14 @@ pub async fn update_product(
             images         = $8,
             badge          = $9,
             description    = $10,
-            material       = $11,
-            care           = $12,
-            in_stock       = $13,
-            stock          = $14
+            top_note       = $11,
+            mid_note       = $12,
+            base_note      = $13,
+            care           = $14,
+            in_stock       = $15,
+            stock          = $16,
+            brand          = $17,
+            concentration  = $18
         WHERE id = $1
         "#,
     )
@@ -298,21 +559,29 @@ pub async fn update_product(
     .bind(input.category_id)
     .bind(&input.name)
     .bind(&input.slug)
-    .bind(input.price)
+    .bind(price)
     .bind(input.original_price)
     .bind(&input.image_url)
     .bind(&input.images)
     .bind(&input.badge)
     .bind(&input.description)
-    .bind(&input.material)
+    .bind(&input.top_note)
+    .bind(&input.mid_note)
+    .bind(&input.base_note)
     .bind(&input.care)
     .bind(input.in_stock)
     .bind(input.stock)
+    .bind(&input.brand)
+    .bind(&input.concentration)
     .execute(pool)
     .await?;
 
     if rows.rows_affected() == 0 {
         return Err(AppError::NotFound(format!("Product {id} not found")));
+    }
+
+    if !input.variants.is_empty() {
+        upsert_variants(pool, id, &input.variants).await?;
     }
 
     find_admin_by_id(pool, id)
@@ -334,7 +603,6 @@ pub async fn delete_product(pool: &PgPool, id: Uuid) -> Result<(), AppError> {
 
 // ─── Category admin CRUD ─────────────────────────────────────────────────────
 
-/// Create a new category.
 pub async fn create_category(pool: &PgPool, input: &CategoryInput) -> Result<Category, AppError> {
     let slug = input
         .slug
@@ -359,7 +627,6 @@ pub async fn create_category(pool: &PgPool, input: &CategoryInput) -> Result<Cat
     Ok(cat)
 }
 
-/// Update a category.
 pub async fn update_category(
     pool: &PgPool,
     id: Uuid,
@@ -396,7 +663,81 @@ pub async fn update_category(
     Ok(cat)
 }
 
-/// Delete a category (fails if products are still linked).
+/// Return up to `limit` related products for a given product slug.
+/// Strategy: same brand (if product has a brand) → fallback same category.
+/// Excludes the product itself. Sorted by best-selling then newest.
+pub async fn find_related(
+    pool: &PgPool,
+    slug: &str,
+    limit: i64,
+) -> Result<Vec<ProductPublic>, AppError> {
+    // First fetch the product so we know its id, category_id, brand
+    let product = match find_by_slug(pool, slug).await? {
+        Some(p) => p,
+        None    => return Ok(vec![]),
+    };
+
+    let sql = r#"
+        WITH sales AS (
+            SELECT product_id, SUM(quantity)::BIGINT AS total_sold
+            FROM order_items GROUP BY product_id
+        )
+        SELECT
+            p.id, p.category_id, p.name, p.slug, p.price, p.original_price,
+            p.image_url, p.images, p.badge, p.description,
+            p.top_note, p.mid_note, p.base_note, p.care,
+            p.rating::float8 AS rating,
+            p.review_count, p.in_stock, p.stock,
+            p.brand, p.concentration, p.created_at
+        FROM products p
+        LEFT JOIN sales ON sales.product_id = p.id
+        WHERE p.id <> $1
+          AND (
+              -- Prefer same brand when brand is not null
+              ($2::TEXT IS NOT NULL AND p.brand = $2)
+              -- Fallback: same category
+              OR p.category_id = $3
+          )
+        ORDER BY
+            -- Same-brand rows first
+            CASE WHEN $2::TEXT IS NOT NULL AND p.brand = $2 THEN 0 ELSE 1 END ASC,
+            COALESCE(sales.total_sold, 0) DESC,
+            p.created_at DESC
+        LIMIT $4
+    "#;
+
+    let items = sqlx::query_as::<_, Product>(sql)
+        .bind(product.id)
+        .bind(product.brand.as_deref())
+        .bind(product.category_id)
+        .bind(limit)
+        .fetch_all(pool)
+        .await?;
+
+    let product_ids: Vec<Uuid> = items.iter().map(|p| p.id).collect();
+    let all_variants = sqlx::query_as::<_, ProductVariant>(
+        "SELECT id, product_id, ml, price, original_price, stock, is_default, created_at
+         FROM product_variants WHERE product_id = ANY($1::uuid[]) ORDER BY ml ASC",
+    )
+    .bind(&product_ids)
+    .fetch_all(pool)
+    .await?;
+
+    let mut variants_map: std::collections::HashMap<Uuid, Vec<ProductVariant>> = std::collections::HashMap::new();
+    for v in all_variants {
+        variants_map.entry(v.product_id).or_default().push(v);
+    }
+
+    let result = items.into_iter().map(|p| {
+        let id = p.id;
+        let mut pub_prod = ProductPublic::from(p);
+        pub_prod.variants = variants_map.remove(&id).unwrap_or_default();
+        pub_prod
+    }).collect();
+
+    Ok(result)
+}
+
 pub async fn delete_category(pool: &PgPool, id: Uuid) -> Result<(), AppError> {
     let count: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM products WHERE category_id = $1",

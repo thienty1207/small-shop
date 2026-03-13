@@ -13,7 +13,10 @@ pub async fn get_settings(
     Extension(_admin): Extension<AdminPublic>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let settings = settings_repo::get_all(&state.db).await?;
-    Ok(Json(serde_json::to_value(settings).unwrap_or_default()))
+    let value = serde_json::to_value(settings)
+        .map_err(|e| AppError::Internal(format!("Serialization error: {e}")))?
+    ;
+    Ok(Json(value))
 }
 
 /// PUT /api/admin/settings — bulk-upsert settings (super_admin only)
@@ -28,56 +31,35 @@ pub async fn update_settings(
 
     settings_repo::upsert_bulk(&state.db, &input.settings).await?;
     let updated = settings_repo::get_all(&state.db).await?;
-    Ok(Json(serde_json::to_value(updated).unwrap_or_default()))
+    let value = serde_json::to_value(updated)
+        .map_err(|e| AppError::Internal(format!("Serialization error: {e}")))?
+    ;
+    Ok(Json(value))
 }
 
 /// GET /api/settings — public endpoint: returns selected settings for the client
 pub async fn get_public_settings(
     State(state): State<AppState>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let all = settings_repo::get_all(&state.db).await?;
-
-    // Only expose the keys safe for public consumption
-    let public_keys = [
-        "store_name",
-        "store_email",
-        "store_phone",
-        "store_address",
-        "social_facebook",
-        "social_instagram",
-        "social_tiktok",
-        "hero_title",
-        "hero_subtitle",
-        "hero_image_url",
-        "banner_image_url",
-        "banner_link",
-        "shipping_fee_default",
-        "free_shipping_from",
-        // Hero slides (up to 3)
-        "hero_slide_1_img",
-        "hero_slide_1_title",
-        "hero_slide_1_subtitle",
-        "hero_slide_1_cta",
-        "hero_slide_1_href",
-        "hero_slide_2_img",
-        "hero_slide_2_title",
-        "hero_slide_2_subtitle",
-        "hero_slide_2_cta",
-        "hero_slide_2_href",
-        "hero_slide_3_img",
-        "hero_slide_3_title",
-        "hero_slide_3_subtitle",
-        "hero_slide_3_cta",
-        "hero_slide_3_href",
+    // Query only the keys we need — no full table scan
+    let public_keys: &[&str] = &[
+        "store_name", "store_email", "store_phone", "store_address",
+        "social_facebook", "social_instagram", "social_tiktok",
+        "hero_title", "hero_subtitle", "hero_image_url",
+        "banner_image_url", "banner_link", "banner_title", "banner_subtitle",
+        "shipping_fee_default", "free_shipping_from",
+        "hero_slide_1_img", "hero_slide_1_title", "hero_slide_1_subtitle", "hero_slide_1_cta", "hero_slide_1_href",
+        "hero_slide_2_img", "hero_slide_2_title", "hero_slide_2_subtitle", "hero_slide_2_cta", "hero_slide_2_href",
+        "hero_slide_3_img", "hero_slide_3_title", "hero_slide_3_subtitle", "hero_slide_3_cta", "hero_slide_3_href",
+        "shop_font",
     ];
 
-    let public: serde_json::Map<String, serde_json::Value> = public_keys
-        .iter()
-        .filter_map(|k| {
-            all.get(*k)
-                .map(|v| (k.to_string(), serde_json::Value::String(v.clone())))
-        })
+    let settings = settings_repo::get_by_keys(&state.db, public_keys).await?;
+
+    let map: serde_json::Map<String, serde_json::Value> = settings
+        .into_iter()
+        .map(|(k, v)| (k, serde_json::Value::String(v)))
         .collect();
 
-    Ok(Json(serde_json::Value::Object(public)))
+    Ok(Json(serde_json::Value::Object(map)))
 }

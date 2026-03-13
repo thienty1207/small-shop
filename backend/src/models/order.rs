@@ -50,13 +50,15 @@ pub struct OrderItemInput {
 /// Request body for placing an order (COD).
 #[derive(Debug, Deserialize)]
 pub struct CreateOrderInput {
-    pub customer_name: String,
+    pub customer_name:  String,
     pub customer_email: String,
     pub customer_phone: String,
-    pub address: String,
-    pub note: Option<String>,
+    pub address:        String,
+    pub note:           Option<String>,
     pub payment_method: String, // "cod" | "bank_transfer" | "wallet"
-    pub items: Vec<OrderItemInput>,
+    pub items:          Vec<OrderItemInput>,
+    pub coupon_code:    Option<String>,
+    pub discount_amt:   Option<i64>,
 }
 
 /// Full order response including items.

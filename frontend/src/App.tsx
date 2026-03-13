@@ -6,6 +6,8 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AdminAuthProvider, useAdminAuth } from "@/contexts/AdminAuthContext";
+import { ShopSettingsProvider, useShopSettingsCtx } from "@/contexts/ShopSettingsContext";
+import { useApplyShopFont } from "@/hooks/useApplyShopFont";
 
 // ── Client pages ──────────────────────────────────────────────────────────────
 import Index from "./pages/client/Index";
@@ -36,8 +38,18 @@ import AdminSettingsAppearance from "./pages/admin/SettingsAppearance";
 import AdminSettingsStore from "./pages/admin/SettingsStore";
 import AdminSettingsShipping from "./pages/admin/SettingsShipping";
 import AdminSettingsEmail from "./pages/admin/SettingsEmail";
+import AdminInventory from "./pages/admin/Inventory";
+import AdminReviews from "./pages/admin/Reviews";
+import AdminCoupons from "./pages/admin/Coupons";
 
 const queryClient = new QueryClient();
+
+/** Applies the shop font from settings to the entire document. */
+function FontApplier() {
+  const { settings } = useShopSettingsCtx();
+  useApplyShopFont(settings);
+  return null;
+}
 
 /** Redirects unauthenticated users to /login, preserving the intended destination. */
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -80,54 +92,96 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+/** Requires super_admin role. Redirects manager/staff to /admin dashboard. */
+const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAdminAuthenticated, isAdminLoading, adminUser } = useAdminAuth();
+
+  if (isAdminLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-950">
+        <p className="text-sm text-gray-500">Đang tải...</p>
+      </div>
+    );
+  }
+
+  if (!isAdminAuthenticated) return <Navigate to="/admin/login" replace />;
+  if (adminUser?.role !== "super_admin") return <Navigate to="/admin" replace />;
+
+  return <>{children}</>;
+};
+
+/** Requires manager or super_admin role. Redirects staff to /admin dashboard. */
+const ManagerRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAdminAuthenticated, isAdminLoading, adminUser } = useAdminAuth();
+
+  if (isAdminLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-950">
+        <p className="text-sm text-gray-500">Đang tải...</p>
+      </div>
+    );
+  }
+
+  if (!isAdminAuthenticated) return <Navigate to="/admin/login" replace />;
+  if (adminUser?.role === "staff") return <Navigate to="/admin" replace />;
+
+  return <>{children}</>;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
         <AdminAuthProvider>
-          <BrowserRouter>
-            <CartProvider>
-              <Toaster />
-              <Sonner />
-              <Routes>
-                {/* Public routes */}
-                <Route path="/" element={<Index />} />
-                <Route path="/products" element={<Products />} />
-                <Route path="/product/:slug" element={<ProductDetail />} />
-                <Route path="/cart" element={<Cart />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="/policy" element={<Policy />} />
+          <ShopSettingsProvider>
+            <BrowserRouter>
+              <CartProvider>
+                <Toaster />
+                <Sonner />
+                <FontApplier />
+                <Routes>
+                  {/* Public routes */}
+                  <Route path="/" element={<Index />} />
+                  <Route path="/products" element={<Products />} />
+                  <Route path="/product/:slug" element={<ProductDetail />} />
+                  <Route path="/cart" element={<Cart />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/auth/callback" element={<AuthCallback />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/contact" element={<Contact />} />
+                  <Route path="/policy" element={<Policy />} />
 
-                {/* Protected routes — require login */}
-                <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-                <Route path="/order/success" element={<ProtectedRoute><OrderSuccess /></ProtectedRoute>} />
-                <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
-                <Route path="/account/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
+                  {/* Protected routes — require login */}
+                  <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+                  <Route path="/order/success" element={<ProtectedRoute><OrderSuccess /></ProtectedRoute>} />
+                  <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+                  <Route path="/account/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
 
-                {/* Admin public */}
-                <Route path="/admin/login" element={<AdminLogin />} />
+                  {/* Admin public */}
+                  <Route path="/admin/login" element={<AdminLogin />} />
 
-                {/* Admin protected — require admin JWT */}
-                <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-                <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
-                <Route path="/admin/products/categories" element={<AdminRoute><AdminCategories /></AdminRoute>} />
-                <Route path="/admin/orders" element={<AdminRoute><AdminOrders /></AdminRoute>} />
-                <Route path="/admin/customers" element={<AdminRoute><AdminCustomers /></AdminRoute>} />
-                <Route path="/admin/users/customers" element={<AdminRoute><AdminCustomers /></AdminRoute>} />
-                <Route path="/admin/users/staff" element={<AdminRoute><AdminStaff /></AdminRoute>} />
-                <Route path="/admin/users/permissions" element={<AdminRoute><AdminPermissions /></AdminRoute>} />
-                <Route path="/admin/settings/appearance" element={<AdminRoute><AdminSettingsAppearance /></AdminRoute>} />
-                <Route path="/admin/settings/store" element={<AdminRoute><AdminSettingsStore /></AdminRoute>} />
-                <Route path="/admin/settings/shipping" element={<AdminRoute><AdminSettingsShipping /></AdminRoute>} />
-                <Route path="/admin/settings/email" element={<AdminRoute><AdminSettingsEmail /></AdminRoute>} />
+                  {/* Admin protected — require admin JWT */}
+                  <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                  <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
+                  <Route path="/admin/products/categories" element={<AdminRoute><AdminCategories /></AdminRoute>} />
+                  <Route path="/admin/inventory" element={<AdminRoute><AdminInventory /></AdminRoute>} />
+                  <Route path="/admin/orders" element={<AdminRoute><AdminOrders /></AdminRoute>} />
+                  <Route path="/admin/customers" element={<AdminRoute><AdminCustomers /></AdminRoute>} />
+                  <Route path="/admin/users/customers" element={<AdminRoute><AdminCustomers /></AdminRoute>} />
+                  <Route path="/admin/users/staff" element={<ManagerRoute><AdminStaff /></ManagerRoute>} />
+                  <Route path="/admin/users/permissions" element={<SuperAdminRoute><AdminPermissions /></SuperAdminRoute>} />
+                  <Route path="/admin/settings/appearance" element={<SuperAdminRoute><AdminSettingsAppearance /></SuperAdminRoute>} />
+                  <Route path="/admin/settings/store" element={<SuperAdminRoute><AdminSettingsStore /></SuperAdminRoute>} />
+                  <Route path="/admin/settings/shipping" element={<SuperAdminRoute><AdminSettingsShipping /></SuperAdminRoute>} />
+                  <Route path="/admin/settings/email" element={<SuperAdminRoute><AdminSettingsEmail /></SuperAdminRoute>} />
+                  <Route path="/admin/reviews" element={<ManagerRoute><AdminReviews /></ManagerRoute>} />
+                  <Route path="/admin/coupons" element={<ManagerRoute><AdminCoupons /></ManagerRoute>} />
 
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </CartProvider>
-          </BrowserRouter>
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </CartProvider>
+            </BrowserRouter>
+          </ShopSettingsProvider>
         </AdminAuthProvider>
       </AuthProvider>
     </TooltipProvider>

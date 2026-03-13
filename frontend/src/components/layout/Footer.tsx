@@ -1,9 +1,9 @@
-﻿import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Facebook, Instagram, Youtube, MapPin, Phone, Mail } from "lucide-react";
-import { useShopSettings } from "@/hooks/useShopSettings";
+import { useShopSettingsCtx } from "@/contexts/ShopSettingsContext";
 
 const Footer = () => {
-  const { settings } = useShopSettings();
+  const { settings } = useShopSettingsCtx();
 
   const storeName    = settings.store_name    || "Handmade Haven";
   const storeEmail   = settings.store_email   || "hello@handmadehaven.vn";
@@ -15,7 +15,7 @@ const Footer = () => {
 
   return (
     <footer className="bg-foreground text-background/80">
-      <div className="container mx-auto px-4 md:px-8 py-14">
+      <div className="container mx-auto px-4 md:px-8 py-10">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
           {/* Brand */}
           <div className="md:col-span-1">
