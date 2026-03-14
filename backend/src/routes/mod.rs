@@ -24,6 +24,7 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         .merge(order::routes(state.clone()))
         .merge(coupon::routes())
         .nest("/api/wishlist", wishlist::client_wishlist_routes(state.clone()))
+        .nest("/api/wishlists", wishlist::client_wishlist_routes(state.clone()))
         .merge(admin::routes(state))
 }
 

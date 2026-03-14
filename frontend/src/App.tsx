@@ -20,6 +20,7 @@ import OrderSuccess from "./pages/client/OrderSuccess";
 import Login from "./pages/client/Login";
 import AuthCallback from "./pages/client/AuthCallback";
 import Account from "./pages/client/Account";
+import WishlistPage from "./pages/client/Wishlist";
 import OrderDetail from "./pages/client/OrderDetail";
 import About from "./pages/client/About";
 import Contact from "./pages/client/Contact";
@@ -135,7 +136,7 @@ const App = () => (
       <AuthProvider>
         <AdminAuthProvider>
           <ShopSettingsProvider>
-            <BrowserRouter>
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
               <WishlistProvider>
                 <CartProvider>
                   <Toaster />
@@ -157,6 +158,7 @@ const App = () => (
                   <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
                   <Route path="/order/success" element={<ProtectedRoute><OrderSuccess /></ProtectedRoute>} />
                   <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+                  <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
                   <Route path="/account/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
 
                   {/* Admin public */}

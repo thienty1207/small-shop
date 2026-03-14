@@ -184,7 +184,7 @@ const Header = ({ transparent = false }: HeaderProps) => {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/account?tab=wishlist" className="flex items-center gap-2 cursor-pointer">
+                  <Link to="/wishlist" className="flex items-center gap-2 cursor-pointer">
                     <Heart size={14} /> Yêu thích
                   </Link>
                 </DropdownMenuItem>
@@ -207,6 +207,22 @@ const Header = ({ transparent = false }: HeaderProps) => {
               <User size={19} />
             </button>
           )}
+
+          {/* Wishlist */}
+          <Link
+            to="/wishlist"
+            className={`p-2 rounded-lg transition-colors relative ${
+              location.pathname === "/wishlist"
+                ? "text-rose-500"
+                : isSolid
+                ? "text-muted-foreground hover:text-foreground hover:bg-muted"
+                : "text-white/80 hover:text-white hover:bg-white/10"
+            }`}
+            title="Yêu thích"
+            aria-label="Yêu thích"
+          >
+            <Heart size={19} />
+          </Link>
 
           {/* Cart */}
           <Link

@@ -2,7 +2,6 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ShoppingBag, Eye, Heart } from "lucide-react";
 import type { Product } from "@/data/products";
 import PriceDisplay from "./PriceDisplay";
-import ProductBadge from "./ProductBadge";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -125,13 +124,6 @@ const ProductCard = ({ product, compact = false }: ProductCardProps) => {
             <span className="absolute top-2 right-2 text-[11px] font-medium text-orange-700 bg-orange-50/90 px-2 py-0.5 rounded-full shadow-sm">
               Còn {product.stock}
             </span>
-          )}
-
-          {/* Badge */}
-          {product.badge && !outOfStock && (
-            <div className="absolute top-3 left-3">
-              <ProductBadge type={product.badge as "Handmade" | "Mới" | "Hot"} />
-            </div>
           )}
 
           {/* Action buttons */}

@@ -64,6 +64,53 @@ export async function adminUploadImage(file: File): Promise<string> {
   return url;
 }
 
+function resolveDownloadFilename(contentDisposition: string | null, fallback: string): string {
+  if (!contentDisposition) return fallback;
+
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      return utf8Match[1];
+    }
+  }
+
+  const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  if (plainMatch?.[1]) return plainMatch[1];
+
+  return fallback;
+}
+
+/** Download protected admin reports/files with Authorization header. */
+export async function adminDownload(path: string, fallbackFilename: string): Promise<void> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "GET",
+    headers: authHeaders(),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    throw new Error((err as { error?: string }).error ?? `Download failed: ${res.status}`);
+  }
+
+  const blob = await res.blob();
+  const filename = resolveDownloadFilename(
+    res.headers.get("content-disposition"),
+    fallbackFilename,
+  );
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // ─── Convenience wrappers ────────────────────────────────────────────────────
 
 export const adminGet  = <T>(path: string) => adminFetch<T>(path);

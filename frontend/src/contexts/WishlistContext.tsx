@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 const TOKEN_KEY = "auth_token";
+const WISHLIST_BASES = ["/api/wishlist", "/api/wishlists"];
 
 interface ApiProductVariant {
   id: string;
@@ -90,6 +91,24 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const [wishlistIds, setWishlistIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  const requestWishlist = useCallback(
+    async (path: string, init?: RequestInit): Promise<Response> => {
+      let lastRes: Response | null = null;
+
+      for (const base of WISHLIST_BASES) {
+        const res = await fetch(`${API_URL}${base}${path}`, init);
+        if (res.ok) return res;
+
+        // fallback to next base only when endpoint not found
+        if (res.status !== 404) return res;
+        lastRes = res;
+      }
+
+      return lastRes ?? new Response(null, { status: 404 });
+    },
+    [],
+  );
+
   const fetchIds = useCallback(async () => {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token || !isAuthenticated) {
@@ -99,7 +118,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/wishlist/ids`, {
+      const res = await requestWishlist("/ids", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to fetch wishlist ids");
@@ -110,13 +129,13 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, requestWishlist]);
 
   const fetchWishlistProducts = useCallback(async (): Promise<Product[]> => {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token || !isAuthenticated) return [];
 
-    const res = await fetch(`${API_URL}/api/wishlist`, {
+    const res = await requestWishlist("", {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -124,7 +143,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     const json = await res.json();
     const rows: ApiWishlistProduct[] = Array.isArray(json?.data) ? json.data : [];
     return rows.map(mapProduct);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, requestWishlist]);
 
   const toggleWishlist = useCallback(async (productId: string): Promise<boolean> => {
     const token = localStorage.getItem(TOKEN_KEY);
@@ -132,7 +151,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       throw new Error("UNAUTHENTICATED");
     }
 
-    const res = await fetch(`${API_URL}/api/wishlist/${productId}`, {
+    const res = await requestWishlist(`/${productId}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -146,7 +165,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     );
 
     return isWishlisted;
-  }, [isAuthenticated]);
+  }, [isAuthenticated, requestWishlist]);
 
   useEffect(() => {
     if (authLoading) return;

@@ -20,8 +20,26 @@ fn csv_response(filename: &str, body: String) -> Response<Body> {
             header::CONTENT_DISPOSITION,
             format!("attachment; filename=\"{}\"", filename),
         )
-        .body(Body::from(body))
+        .body(Body::from(with_utf8_bom(body)))
         .unwrap()
+}
+
+fn with_utf8_bom(body: String) -> String {
+    format!("\u{FEFF}{body}")
+}
+
+fn csv_escape(value: impl ToString) -> String {
+    let s = value.to_string();
+    if s.contains(',') || s.contains('"') || s.contains('\n') || s.contains('\r') {
+        format!("\"{}\"", s.replace('"', "\"\""))
+    } else {
+        s
+    }
+}
+
+/// Prefix with tab so spreadsheet apps keep it as text (avoid scientific notation / trimming).
+fn as_text_cell(value: &str) -> String {
+    format!("\t{value}")
 }
 
 fn excel_response(filename: &str, body: String) -> Response<Body> {
@@ -31,7 +49,7 @@ fn excel_response(filename: &str, body: String) -> Response<Body> {
             header::CONTENT_DISPOSITION,
             format!("attachment; filename=\"{}\"", filename),
         )
-        .body(Body::from(body))
+        .body(Body::from(with_utf8_bom(body)))
         .unwrap()
 }
 
@@ -72,10 +90,10 @@ pub async fn export_orders(
             for r in rows {
                 tsv.push_str(&format!(
                     "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
-                    r.order_code,
+                    as_text_cell(&r.order_code),
                     r.customer_name,
                     r.customer_email,
-                    r.customer_phone,
+                    as_text_cell(&r.customer_phone),
                     r.address.replace('\t', " ").replace('\n', " "),
                     r.payment_method,
                     r.status,
@@ -94,17 +112,17 @@ pub async fn export_orders(
             for r in rows {
                 csv.push_str(&format!(
                     "{},{},{},{},{},{},{},{},{},{},{}\n",
-                    r.order_code,
-                    r.customer_name,
-                    r.customer_email,
-                    r.customer_phone,
-                    r.address.replace(',', ";"),
-                    r.payment_method,
-                    r.status,
-                    r.subtotal,
-                    r.shipping_fee,
-                    r.total,
-                    r.created_at.format("%Y-%m-%d %H:%M"),
+                    csv_escape(as_text_cell(&r.order_code)),
+                    csv_escape(r.customer_name),
+                    csv_escape(r.customer_email),
+                    csv_escape(as_text_cell(&r.customer_phone)),
+                    csv_escape(r.address),
+                    csv_escape(r.payment_method),
+                    csv_escape(r.status),
+                    csv_escape(r.subtotal),
+                    csv_escape(r.shipping_fee),
+                    csv_escape(r.total),
+                    csv_escape(r.created_at.format("%Y-%m-%d %H:%M")),
                 ));
             }
             Ok(csv_response("orders.csv", csv))
@@ -148,7 +166,7 @@ pub async fn export_products(
                 tsv.push_str(&format!(
                     "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
                     r.name.replace('\t', " ").replace('\n', " "),
-                    r.slug,
+                    as_text_cell(&r.slug),
                     r.category,
                     r.price,
                     r.original_price.unwrap_or(0),
@@ -170,21 +188,43 @@ pub async fn export_products(
             for r in rows {
                 csv.push_str(&format!(
                     "{},{},{},{},{},{},{},{},{},{},{},{}\n",
-                    r.name.replace(',', ";"),
-                    r.slug,
-                    r.category,
-                    r.price,
-                    r.original_price.unwrap_or(0),
-                    r.stock,
-                    r.badge.unwrap_or_default(),
-                    r.brand.unwrap_or_default(),
-                    r.rating,
-                    r.review_count,
-                    if r.in_stock { "Có" } else { "Hết" },
-                    r.created_at.format("%Y-%m-%d"),
+                    csv_escape(r.name),
+                    csv_escape(as_text_cell(&r.slug)),
+                    csv_escape(r.category),
+                    csv_escape(r.price),
+                    csv_escape(r.original_price.unwrap_or(0)),
+                    csv_escape(r.stock),
+                    csv_escape(r.badge.unwrap_or_default()),
+                    csv_escape(r.brand.unwrap_or_default()),
+                    csv_escape(r.rating),
+                    csv_escape(r.review_count),
+                    csv_escape(if r.in_stock { "Có" } else { "Hết" }),
+                    csv_escape(r.created_at.format("%Y-%m-%d")),
                 ));
             }
             Ok(csv_response("products.csv", csv))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{as_text_cell, csv_escape, with_utf8_bom};
+
+    #[test]
+    fn adds_utf8_bom() {
+        let s = with_utf8_bom("Tên".to_string());
+        assert!(s.starts_with('\u{FEFF}'));
+    }
+
+    #[test]
+    fn escapes_csv_quotes_and_commas() {
+        let escaped = csv_escape("a,\"b\"");
+        assert_eq!(escaped, "\"a,\"\"b\"\"\"");
+    }
+
+    #[test]
+    fn text_cell_has_tab_prefix() {
+        assert_eq!(as_text_cell("012345"), "\t012345");
     }
 }

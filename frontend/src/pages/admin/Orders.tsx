@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   adminGet,
+  adminDownload,
   adminPut,
   type AdminOrder,
   type OrderDetail,
@@ -79,6 +80,7 @@ export default function AdminOrders() {
   const [exportFrom, setExportFrom] = useState("");
   const [exportTo, setExportTo] = useState("");
   const [exportFormat, setExportFormat] = useState<"csv" | "excel">("csv");
+  const [exporting, setExporting] = useState(false);
 
   const load = async (p = page) => {
     setLoading(true);
@@ -139,27 +141,41 @@ export default function AdminOrders() {
 
   const totalPages = data?.total_pages ?? 1;
 
-  const ordersExportHref = (() => {
+  const ordersExportPath = (() => {
     const params = new URLSearchParams();
     if (tab) params.set("status", tab);
     if (exportFrom) params.set("from", new Date(`${exportFrom}T00:00:00.000Z`).toISOString());
     if (exportTo) params.set("to", new Date(`${exportTo}T23:59:59.999Z`).toISOString());
     params.set("format", exportFormat);
     const q = params.toString();
-    return `${import.meta.env.VITE_API_URL ?? "http://localhost:3000"}/api/admin/orders/export${q ? `?${q}` : ""}`;
+    return `/api/admin/orders/export${q ? `?${q}` : ""}`;
   })();
+
+  const handleExportOrders = async () => {
+    setExporting(true);
+    try {
+      await adminDownload(
+        ordersExportPath,
+        `orders.${exportFormat === "excel" ? "xls" : "csv"}`,
+      );
+    } catch (e) {
+      alert((e as Error).message);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <AdminLayout title="Quản lý Đơn hàng">
       {/* Export */}
-      <div className="flex flex-wrap items-end justify-end gap-2 mb-3">
+      <div className="flex flex-wrap items-end justify-end gap-2 mb-4">
         <div>
           <label className="block text-[11px] text-gray-500 mb-1">Từ ngày</label>
           <input
             type="date"
             value={exportFrom}
             onChange={(e) => setExportFrom(e.target.value)}
-            className="h-8 bg-gray-900 border border-gray-800 rounded-lg px-2 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
+            className="h-9 bg-gray-900 border border-gray-800 rounded-lg px-2.5 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
           />
         </div>
         <div>
@@ -168,7 +184,7 @@ export default function AdminOrders() {
             type="date"
             value={exportTo}
             onChange={(e) => setExportTo(e.target.value)}
-            className="h-8 bg-gray-900 border border-gray-800 rounded-lg px-2 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
+            className="h-9 bg-gray-900 border border-gray-800 rounded-lg px-2.5 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
           />
         </div>
         <div>
@@ -176,19 +192,20 @@ export default function AdminOrders() {
           <select
             value={exportFormat}
             onChange={(e) => setExportFormat(e.target.value as "csv" | "excel")}
-            className="h-8 bg-gray-900 border border-gray-800 rounded-lg px-2 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
+            className="h-9 bg-gray-900 border border-gray-800 rounded-lg px-2.5 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
           >
             <option value="csv">CSV</option>
             <option value="excel">Excel</option>
           </select>
         </div>
-        <a
-          href={ordersExportHref}
-          download={`orders.${exportFormat === "excel" ? "xls" : "csv"}`}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+        <Button
+          type="button"
+          onClick={handleExportOrders}
+          disabled={exporting}
+          className="h-9 inline-flex items-center gap-1.5 px-3 text-xs rounded-lg border border-gray-700 bg-transparent text-gray-300 hover:text-white hover:border-gray-500"
         >
-          <Download size={13} /> Xuất báo cáo
-        </a>
+          <Download size={13} /> {exporting ? "Đang xuất..." : "Xuất báo cáo"}
+        </Button>
       </div>
 
       {/* Status tabs */}
@@ -278,7 +295,7 @@ export default function AdminOrders() {
                             <button
                               onClick={() => openDetail(order.id)}
                               title="Xem chi tiết"
-                              className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
+                              className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
                             >
                               <Eye className="w-3.5 h-3.5" />
                             </button>
@@ -287,7 +304,7 @@ export default function AdminOrders() {
                                 key={ns}
                                 onClick={() => openStatusUpdate(order, ns)}
                                 title={STATUS_ACTION_LABELS[ns]}
-                                className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+                                className={`h-8 px-2.5 inline-flex items-center rounded-lg text-xs font-medium transition-colors ${
                                   ns === "cancelled"
                                     ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
                                     : "bg-rose-500/10 text-rose-400 hover:bg-rose-500/20"

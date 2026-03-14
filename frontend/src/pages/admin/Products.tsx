@@ -2,11 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import {
   Package, Plus, Pencil, Trash2, Search, AlertCircle,
-  ImagePlus, ChevronLeft, ChevronRight, X, PlusCircle, Minus, GripVertical,
+  ImagePlus, ChevronLeft, ChevronRight, X, PlusCircle, Minus, GripVertical, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   adminGet,
+  adminDownload,
   adminPost,
   adminPut,
   adminDel,
@@ -164,6 +165,7 @@ export default function AdminProducts() {
   const [exportFrom, setExportFrom] = useState("");
   const [exportTo, setExportTo] = useState("");
   const [exportFormat, setExportFormat] = useState<"csv" | "excel">("csv");
+  const [exporting, setExporting] = useState(false);
 
   const load = async (p = page) => {
     setLoading(true);
@@ -437,30 +439,44 @@ export default function AdminProducts() {
 
   const totalPages = data?.total_pages ?? 1;
 
-  const productsExportHref = (() => {
+  const productsExportPath = (() => {
     const params = new URLSearchParams();
     if (exportFrom) params.set("from", new Date(`${exportFrom}T00:00:00.000Z`).toISOString());
     if (exportTo) params.set("to", new Date(`${exportTo}T23:59:59.999Z`).toISOString());
     params.set("format", exportFormat);
     const q = params.toString();
-    return `${import.meta.env.VITE_API_URL ?? "http://localhost:3000"}/api/admin/products/export${q ? `?${q}` : ""}`;
+    return `/api/admin/products/export${q ? `?${q}` : ""}`;
   })();
+
+  const handleExportProducts = async () => {
+    setExporting(true);
+    try {
+      await adminDownload(
+        productsExportPath,
+        `products.${exportFormat === "excel" ? "xls" : "csv"}`,
+      );
+    } catch (e) {
+      alert((e as Error).message);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <AdminLayout title="Quản lý Sản phẩm">
       {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
+      <div className="flex flex-col xl:flex-row gap-3 mb-5">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
-            className="w-full bg-gray-900 border border-gray-800 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500 placeholder:text-gray-600"
+            className="h-9 w-full bg-gray-900 border border-gray-800 rounded-lg pl-9 pr-3 text-sm text-white focus:outline-none focus:border-rose-500 placeholder:text-gray-600"
             placeholder="Tìm theo tên..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <select
-          className="bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
+          className="h-9 bg-gray-900 border border-gray-800 rounded-lg px-3 text-sm text-white focus:outline-none focus:border-rose-500"
           value={catFilter}
           onChange={(e) => setCatFilter(e.target.value)}
         >
@@ -469,17 +485,17 @@ export default function AdminProducts() {
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
-        <Button onClick={openCreate} className="bg-rose-500 hover:bg-rose-600 text-white gap-2 ml-auto">
+        <Button onClick={openCreate} className="h-9 bg-rose-500 hover:bg-rose-600 text-white gap-2 xl:ml-auto">
           <Plus className="w-4 h-4" /> Thêm sản phẩm
         </Button>
-        <div className="flex items-end gap-2">
+        <div className="flex flex-wrap items-end gap-2">
           <div>
             <label className="block text-[11px] text-gray-500 mb-1">Từ</label>
             <input
               type="date"
               value={exportFrom}
               onChange={(e) => setExportFrom(e.target.value)}
-              className="h-9 bg-gray-900 border border-gray-800 rounded-lg px-2 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
+              className="h-9 bg-gray-900 border border-gray-800 rounded-lg px-2.5 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
             />
           </div>
           <div>
@@ -488,7 +504,7 @@ export default function AdminProducts() {
               type="date"
               value={exportTo}
               onChange={(e) => setExportTo(e.target.value)}
-              className="h-9 bg-gray-900 border border-gray-800 rounded-lg px-2 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
+              className="h-9 bg-gray-900 border border-gray-800 rounded-lg px-2.5 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
             />
           </div>
           <div>
@@ -496,19 +512,20 @@ export default function AdminProducts() {
             <select
               value={exportFormat}
               onChange={(e) => setExportFormat(e.target.value as "csv" | "excel")}
-              className="h-9 bg-gray-900 border border-gray-800 rounded-lg px-2 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
+              className="h-9 bg-gray-900 border border-gray-800 rounded-lg px-2.5 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
             >
               <option value="csv">CSV</option>
               <option value="excel">Excel</option>
             </select>
           </div>
-          <a
-            href={productsExportHref}
-            download={`products.${exportFormat === "excel" ? "xls" : "csv"}`}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+          <Button
+            type="button"
+            onClick={handleExportProducts}
+            disabled={exporting}
+            className="h-9 inline-flex items-center gap-1.5 px-3 text-xs rounded-lg border border-gray-700 bg-transparent text-gray-300 hover:text-white hover:border-gray-500"
           >
-            <span>&#8595;</span> Xuất báo cáo
-          </a>
+            <Download className="w-3.5 h-3.5" /> {exporting ? "Đang xuất..." : "Xuất báo cáo"}
+          </Button>
         </div>
       </div>
 
@@ -581,13 +598,13 @@ export default function AdminProducts() {
                         <div className="flex items-center gap-2 justify-end">
                           <button
                             onClick={() => openEdit(p)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
+                            className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => setDeleteTarget(p)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                            className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-gray-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

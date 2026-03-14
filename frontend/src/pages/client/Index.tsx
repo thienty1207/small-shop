@@ -6,7 +6,6 @@ import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/shop/ProductCard";
 import { useProducts, useCategories } from "@/hooks/useProducts";
 import { useShopSettingsCtx } from "@/contexts/ShopSettingsContext";
-import type { Product } from "@/data/products";
 import heroBanner from "@/assets/hero-banner.jpg";
 import candlesCat from "@/assets/categories/candles.jpg";
 import cardsCat from "@/assets/categories/cards.jpg";
@@ -76,24 +75,14 @@ const Index = () => {
   // Fetch products for each badge-driven section
   const { products: featuredBadge }         = useProducts({ badge: "Nổi Bật", limit: 4 });
   const { products: dealBadge }             = useProducts({ badge: "Giảm Giá", limit: 4 });
-  const { products: newBadge, isLoading }   = useProducts({ badge: "Mới", limit: 4 });
-  // Fallback pool: all products sorted newest — used when badge sections are empty
-  const { products: allProducts }           = useProducts({ sort: "newest", limit: 20 });
-  const { products: bestSelling }           = useProducts({ sort: "best_selling", limit: 4 });
+  const { products: newBadge }              = useProducts({ badge: "Mới", limit: 4 });
   const { categories }                      = useCategories();
 
-  // Sections: prefer badge-tagged products. Fallbacks explicitly filter out products with conflicting badges
-  // to prevent a "Nổi Bật" product from appearing in "Deal Hời" or "Mới" sections erroneously.
-  const featuredProducts = featuredBadge.length > 0 ? featuredBadge : bestSelling;
-  
-  // Stricter filter: exclude anything that has the "Nổi Bật" badge from Deal/New if we are using fallbacks.
-  const isFeatured = (p: Product) => p.badge?.toLowerCase().includes("nổi bật") || p.badge?.includes("Ná»i");
-  
-  const dealCandidates = allProducts.filter(p => !isFeatured(p) && p.originalPrice && p.originalPrice > p.price);
-  const dealProducts = dealBadge.length > 0 ? dealBadge : dealCandidates.slice(0, 6);
-    
-  const newCandidates = allProducts.filter(p => !isFeatured(p) && (!p.badge || !p.badge.toLowerCase().includes("giảm")));
-  const newProducts = newBadge.length > 0 ? newBadge : newCandidates.slice(0, 6);
+  // Strictly badge-driven sections:
+  // - product badge = "Mặc định" (empty/no badge) => does NOT appear in these sections
+  const featuredProducts = featuredBadge;
+  const dealProducts = dealBadge;
+  const newProducts = newBadge;
 
   // Build hero slides from settings — fall back to static if none configured
   const heroSlides = (() => {
@@ -124,8 +113,6 @@ const Index = () => {
   const goTo = (i: number) => { setSlideIdx(i); setProgKey((p) => p + 1); };
 
   // Scroll-reveal refs
-  const featuredRef = useReveal() as React.RefObject<HTMLElement>;
-  const newRef      = useReveal() as React.RefObject<HTMLElement>;
   const catRef      = useReveal() as React.RefObject<HTMLElement>;
   const reviewRef   = useReveal() as React.RefObject<HTMLElement>;
   const bannerRef   = useReveal() as React.RefObject<HTMLElement>;
@@ -302,35 +289,36 @@ const Index = () => {
       </section>
 
       {/*  Featured Products  */}
-      <section
-        ref={featuredRef as React.RefObject<HTMLDivElement>}
-        className="reveal container mx-auto px-4 md:px-8 py-10"
-      >
-        <div className="flex items-end justify-between mb-6">
-          <div>
-            <p className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-1">Handpicked for you</p>
-            <h2 className="font-display text-xl md:text-2xl font-bold text-foreground tracking-tight">Sản Phẩm Nổi Bật</h2>
-          </div>
-          <Link
-            to="/products?sort=best_selling"
-            className="hidden md:inline-flex items-center gap-1.5 text-sm text-foreground/50 hover:text-foreground transition-colors"
-          >
-            Xem tất cả <ArrowRight size={14} />
-          </Link>
-        </div>
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 md:gap-4 stagger">
-          {featuredProducts.map((product) => (
-            <div key={product.id} className="animate-fade-up">
-              <ProductCard product={product} compact />
+      {featuredProducts.length > 0 && (
+        <section
+          className="container mx-auto px-4 md:px-8 py-10"
+        >
+          <div className="flex items-end justify-between mb-6">
+            <div>
+              <p className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-1">Handpicked for you</p>
+              <h2 className="font-display text-xl md:text-2xl font-bold text-foreground tracking-tight">Sản Phẩm Nổi Bật</h2>
             </div>
-          ))}
-        </div>
-        <div className="mt-5 text-center md:hidden">
-          <Link to="/products" className="inline-flex items-center gap-1.5 text-sm text-foreground/50 hover:text-foreground transition-colors">
-            Xem tất cả <ArrowRight size={14} />
-          </Link>
-        </div>
-      </section>
+            <Link
+              to="/products?sort=best_selling"
+              className="hidden md:inline-flex items-center gap-1.5 text-sm text-foreground/50 hover:text-foreground transition-colors"
+            >
+              Xem tất cả <ArrowRight size={14} />
+            </Link>
+          </div>
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-3 md:gap-4 stagger">
+            {featuredProducts.map((product) => (
+              <div key={product.id} className="animate-fade-up">
+                <ProductCard product={product} compact />
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 text-center md:hidden">
+            <Link to="/products" className="inline-flex items-center gap-1.5 text-sm text-foreground/50 hover:text-foreground transition-colors">
+              Xem tất cả <ArrowRight size={14} />
+            </Link>
+          </div>
+        </section>
+      )}
 
 
       {/*  Deal Hời — only shown when there are badge="Giảm Giá" or discounted products */}
@@ -362,43 +350,39 @@ const Index = () => {
       </section>}
 
       {/*  Dòng Sản Phẩm Mới  */}
-      <section
-        ref={newRef as React.RefObject<HTMLDivElement>}
-        className="reveal container mx-auto px-4 md:px-8 py-10"
-      >
-        <div className="flex items-end justify-between mb-6">
-          <div>
-            <p className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-1 flex items-center gap-1.5">
-              <Zap size={10} /> Mới cập nhật
-            </p>
-            <h2 className="font-display text-xl md:text-2xl font-bold text-foreground tracking-tight">Dòng Sản Phẩm Mới</h2>
-            <p className="text-sm text-muted-foreground mt-1">Những sản phẩm vừa được thêm vào cửa hàng</p>
+      {newProducts.length > 0 && (
+        <section
+          className="container mx-auto px-4 md:px-8 py-10"
+        >
+          <div className="flex items-end justify-between mb-6">
+            <div>
+              <p className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                <Zap size={10} /> Mới cập nhật
+              </p>
+              <h2 className="font-display text-xl md:text-2xl font-bold text-foreground tracking-tight">Dòng Sản Phẩm Mới</h2>
+              <p className="text-sm text-muted-foreground mt-1">Những sản phẩm vừa được thêm vào cửa hàng</p>
+            </div>
+            <Link
+              to="/products?sort=newest"
+              className="hidden md:inline-flex items-center gap-1.5 text-sm text-foreground/50 hover:text-foreground transition-colors"
+            >
+              Xem tất cả <ArrowRight size={14} />
+            </Link>
           </div>
-          <Link
-            to="/products?sort=newest"
-            className="hidden md:inline-flex items-center gap-1.5 text-sm text-foreground/50 hover:text-foreground transition-colors"
-          >
-            Xem tất cả <ArrowRight size={14} />
-          </Link>
-        </div>
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 md:gap-4 stagger">
-          {isLoading
-            ? Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="aspect-[3/4] bg-muted animate-pulse rounded-lg" />
-              ))
-            : newProducts.map((product) => (
-                <div key={product.id} className="animate-fade-up">
-                  <ProductCard product={product} compact />
-                </div>
-              ))
-          }
-        </div>
-        <div className="mt-5 text-center md:hidden">
-          <Link to="/products?sort=newest" className="inline-flex items-center gap-1.5 text-sm text-foreground/50 hover:text-foreground transition-colors">
-            Xem tất cả <ArrowRight size={14} />
-          </Link>
-        </div>
-      </section>
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-3 md:gap-4 stagger">
+            {newProducts.map((product) => (
+              <div key={product.id} className="animate-fade-up">
+                <ProductCard product={product} compact />
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 text-center md:hidden">
+            <Link to="/products?sort=newest" className="inline-flex items-center gap-1.5 text-sm text-foreground/50 hover:text-foreground transition-colors">
+              Xem tất cả <ArrowRight size={14} />
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/*  Promo Banner — reads from shop_settings (banner_image_url / banner_link)  */}
       {(() => {
