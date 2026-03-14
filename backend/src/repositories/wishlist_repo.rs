@@ -35,7 +35,28 @@ pub async fn toggle_wishlist(pool: &PgPool, user_id: Uuid, product_id: Uuid) -> 
 pub async fn get_wishlist(pool: &PgPool, user_id: Uuid) -> Result<Vec<Product>> {
     sqlx::query_as::<_, Product>(
         r#"
-        SELECT p.* 
+        SELECT
+            p.id,
+            p.category_id,
+            p.name,
+            p.slug,
+            p.price,
+            p.original_price,
+            p.image_url,
+            p.images,
+            p.badge,
+            p.description,
+            p.top_note,
+            p.mid_note,
+            p.base_note,
+            p.care,
+            p.rating::float8 AS rating,
+            p.review_count,
+            p.in_stock,
+            p.stock,
+            p.brand,
+            p.concentration,
+            p.created_at
         FROM products p
         JOIN wishlists w ON p.id = w.product_id
         WHERE w.user_id = $1

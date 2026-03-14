@@ -7,6 +7,7 @@ import { formatPrice, type Product } from "@/data/products";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const TOKEN_KEY = "auth_token";
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
@@ -90,7 +91,10 @@ const Account = () => {
     setWishlistLoading(true);
     fetchWishlistProducts()
       .then(setWishlist)
-      .catch(() => setWishlist([]))
+      .catch(() => {
+        setWishlist([]);
+        toast.error("Không thể tải danh sách yêu thích");
+      })
       .finally(() => setWishlistLoading(false));
   }, [activeTab, fetchWishlistProducts]);
 

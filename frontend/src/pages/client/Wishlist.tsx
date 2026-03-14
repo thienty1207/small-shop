@@ -6,6 +6,7 @@ import ProductCard from "@/components/shop/ProductCard";
 import type { Product } from "@/data/products";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { Loader2, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 
 export default function WishlistPage() {
   const { fetchWishlistProducts } = useWishlist();
@@ -16,7 +17,10 @@ export default function WishlistPage() {
     setLoading(true);
     fetchWishlistProducts()
       .then(setItems)
-      .catch(() => setItems([]))
+      .catch(() => {
+        setItems([]);
+        toast.error("Không thể tải danh sách yêu thích");
+      })
       .finally(() => setLoading(false));
   }, [fetchWishlistProducts]);
 

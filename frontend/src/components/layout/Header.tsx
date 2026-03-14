@@ -3,6 +3,7 @@ import { Search, ShoppingCart, User, LogOut, Package, Settings, Menu, X, Heart }
 import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWishlist } from "@/contexts/WishlistContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,8 +23,10 @@ const Header = ({ transparent = false }: HeaderProps) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { items } = useCart();
+  const { wishlistIds } = useWishlist();
   const { user, isAuthenticated, logout } = useAuth();
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalWishlistItems = wishlistIds.length;
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -222,6 +225,11 @@ const Header = ({ transparent = false }: HeaderProps) => {
             aria-label="Yêu thích"
           >
             <Heart size={19} />
+            {isAuthenticated && totalWishlistItems > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 bg-rose-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-semibold">
+                {totalWishlistItems}
+              </span>
+            )}
           </Link>
 
           {/* Cart */}
