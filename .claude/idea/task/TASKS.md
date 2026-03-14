@@ -170,7 +170,7 @@
 - [x] Backend API: `GET /api/wishlist` (danh sách yêu thích)
 - [x] Frontend: Nút trái tim trên card sản phẩm + trang chi tiết
 - [x] Frontend: Trang "Yêu thích" trong account
-- [ ] Git push
+- [x] Git push
 
 ---
 
@@ -221,7 +221,7 @@
 - [x] Backend: API sắp xếp thứ tự ảnh (thứ tự dựa vào vị trí trong mảng, chưa có drag-sort API)
 - [x] Frontend (client): Gallery slider trên trang chi tiết với thumbnail (chưa có lightbox)
 - [x] Frontend (admin): Drag-drop sắp xếp ảnh khi thêm/sửa sản phẩm
-- [ ] Git push
+- [x] Git push
 
 ---
 
