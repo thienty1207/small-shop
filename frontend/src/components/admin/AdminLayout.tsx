@@ -166,6 +166,29 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const bellRef = useRef<HTMLDivElement>(null);
   const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
+  const playNotificationSound = () => {
+    try {
+      const AudioCtx = (window as Window & { webkitAudioContext?: typeof AudioContext }).AudioContext
+        || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.2);
+      setTimeout(() => { void ctx.close(); }, 300);
+    } catch {
+      // ignore audio errors
+    }
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("admin_auth_token");
     if (!token) return;
@@ -176,6 +199,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
         if (data.id) {
           setNotifications((prev) => [data, ...prev].slice(0, 50));
           setUnreadCount((c) => c + 1);
+          playNotificationSound();
         }
       } catch { /* ignore parse errors */ }
     };

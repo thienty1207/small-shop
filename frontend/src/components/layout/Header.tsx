@@ -1,5 +1,5 @@
 ﻿import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Search, ShoppingCart, User, LogOut, Package, Settings, Menu, X } from "lucide-react";
+import { Search, ShoppingCart, User, LogOut, Package, Settings, Menu, X, Heart } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -181,6 +181,11 @@ const Header = ({ transparent = false }: HeaderProps) => {
                 <DropdownMenuItem asChild>
                   <Link to="/account?tab=orders" className="flex items-center gap-2 cursor-pointer">
                     <Package size={14} /> Đơn hàng của tôi
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/account?tab=wishlist" className="flex items-center gap-2 cursor-pointer">
+                    <Heart size={14} /> Yêu thích
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

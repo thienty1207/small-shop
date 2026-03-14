@@ -1,0 +1,62 @@
+use sqlx::{PgPool, Result, Row};
+use uuid::Uuid;
+use crate::models::product::Product;
+
+pub async fn toggle_wishlist(pool: &PgPool, user_id: Uuid, product_id: Uuid) -> Result<bool> {
+    let exists: Option<i32> = sqlx::query_scalar(
+        r#"SELECT 1 as x FROM wishlists WHERE user_id = $1 AND product_id = $2"#
+    )
+    .bind(user_id)
+    .bind(product_id)
+    .fetch_optional(pool)
+    .await?;
+
+    if exists.is_some() {
+        sqlx::query(
+            r#"DELETE FROM wishlists WHERE user_id = $1 AND product_id = $2"#
+        )
+        .bind(user_id)
+        .bind(product_id)
+        .execute(pool)
+        .await?;
+        Ok(false)
+    } else {
+        sqlx::query(
+            r#"INSERT INTO wishlists (user_id, product_id) VALUES ($1, $2)"#
+        )
+        .bind(user_id)
+        .bind(product_id)
+        .execute(pool)
+        .await?;
+        Ok(true)
+    }
+}
+
+pub async fn get_wishlist(pool: &PgPool, user_id: Uuid) -> Result<Vec<Product>> {
+    sqlx::query_as::<_, Product>(
+        r#"
+        SELECT p.* 
+        FROM products p
+        JOIN wishlists w ON p.id = w.product_id
+        WHERE w.user_id = $1
+        ORDER BY w.created_at DESC
+        "#
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await
+}
+
+pub async fn get_wishlist_ids(pool: &PgPool, user_id: Uuid) -> Result<Vec<Uuid>> {
+    let rows = sqlx::query(
+        r#"
+        SELECT product_id FROM wishlists WHERE user_id = $1
+        "#
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?;
+
+    let ids = rows.into_iter().map(|row| row.get("product_id")).collect();
+    Ok(ids)
+}

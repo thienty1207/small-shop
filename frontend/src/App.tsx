@@ -7,6 +7,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AdminAuthProvider, useAdminAuth } from "@/contexts/AdminAuthContext";
 import { ShopSettingsProvider, useShopSettingsCtx } from "@/contexts/ShopSettingsContext";
+import { WishlistProvider } from "@/contexts/WishlistContext";
 import { useApplyShopFont } from "@/hooks/useApplyShopFont";
 
 // ── Client pages ──────────────────────────────────────────────────────────────
@@ -135,11 +136,12 @@ const App = () => (
         <AdminAuthProvider>
           <ShopSettingsProvider>
             <BrowserRouter>
-              <CartProvider>
-                <Toaster />
-                <Sonner />
-                <FontApplier />
-                <Routes>
+              <WishlistProvider>
+                <CartProvider>
+                  <Toaster />
+                  <Sonner />
+                  <FontApplier />
+                  <Routes>
                   {/* Public routes */}
                   <Route path="/" element={<Index />} />
                   <Route path="/products" element={<Products />} />
@@ -178,8 +180,9 @@ const App = () => (
                   <Route path="/admin/coupons" element={<ManagerRoute><AdminCoupons /></ManagerRoute>} />
 
                   <Route path="*" element={<NotFound />} />
-                </Routes>
-              </CartProvider>
+                  </Routes>
+                </CartProvider>
+              </WishlistProvider>
             </BrowserRouter>
           </ShopSettingsProvider>
         </AdminAuthProvider>

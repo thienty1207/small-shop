@@ -10,3 +10,5 @@ pub mod product_repo;
 pub mod review_repo;
 pub mod settings_repo;
 pub mod user_repo;
+
+pub mod wishlist_repo;

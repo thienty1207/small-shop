@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ChevronRight, Star, ShoppingBag, Zap, CheckCircle2,
-  Droplets, Wind, Clock, BadgeCheck, Send
+  Droplets, Wind, Clock, BadgeCheck, Send, Heart
 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -12,6 +12,7 @@ import { useProduct, useProducts, useRelatedProducts } from "@/hooks/useProducts
 import type { ProductVariant } from "@/hooks/useProducts";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWishlist } from "@/contexts/WishlistContext";
 import { formatPrice } from "@/data/products";
 import { toast } from "sonner";
 
@@ -67,6 +68,9 @@ const ProductDetail = () => {
     : fallbackProducts.filter((p) => p.id !== product?.id).slice(0, 4);
   const { addItem } = useCart();
   const { user, isAuthenticated } = useAuth();
+  const { isWishlisted, toggleWishlist } = useWishlist();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [quantity, setQuantity] = useState(1);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("description");
@@ -190,6 +194,22 @@ const ProductDetail = () => {
         ? `Đã thêm ${product.name} (${selectedVariant.ml}ml) vào giỏ hàng!`
         : "Đã thêm vào giỏ hàng!",
     );
+  };
+
+  const handleToggleWishlist = async () => {
+    if (!isAuthenticated) {
+      const returnTo = location.pathname + location.search;
+      sessionStorage.setItem("returnTo", returnTo);
+      navigate("/login", { state: { returnTo } });
+      return;
+    }
+
+    try {
+      const nowWishlisted = await toggleWishlist(product.id);
+      toast.success(nowWishlisted ? "Đã thêm vào yêu thích" : "Đã bỏ khỏi yêu thích");
+    } catch {
+      toast.error("Không thể cập nhật yêu thích");
+    }
   };
 
   const tabs = [
@@ -403,6 +423,15 @@ const ProductDetail = () => {
                 Mua ngay
               </Link>
             )}
+
+            <button
+              type="button"
+              onClick={handleToggleWishlist}
+              className="mt-2 w-full py-3 border border-rose-200 text-rose-600 text-sm font-semibold text-center hover:bg-rose-50 transition-colors tracking-wide flex items-center justify-center gap-2"
+            >
+              <Heart size={15} className={isWishlisted(product.id) ? "fill-rose-500" : ""} />
+              {isWishlisted(product.id) ? "Đã yêu thích" : "Thêm vào yêu thích"}
+            </button>
 
             {/* ── Trust badges ──────────────────────────────────────────── */}
             <div className="mt-6 grid grid-cols-2 gap-3">

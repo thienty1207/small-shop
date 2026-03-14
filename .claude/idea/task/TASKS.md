@@ -165,11 +165,11 @@
 ## 🟡 NÊN CÓ — UX tốt hơn
 
 ### B9: Wishlist / Yêu thích
-- [ ] Database: Bảng `wishlists` (user_id, product_id)
-- [ ] Backend API: `POST /api/wishlist/:product_id` (toggle yêu thích)
-- [ ] Backend API: `GET /api/wishlist` (danh sách yêu thích)
-- [ ] Frontend: Nút trái tim trên card sản phẩm + trang chi tiết
-- [ ] Frontend: Trang "Yêu thích" trong account
+- [x] Database: Bảng `wishlists` (user_id, product_id)
+- [x] Backend API: `POST /api/wishlist/:product_id` (toggle yêu thích)
+- [x] Backend API: `GET /api/wishlist` (danh sách yêu thích)
+- [x] Frontend: Nút trái tim trên card sản phẩm + trang chi tiết
+- [x] Frontend: Trang "Yêu thích" trong account
 - [ ] Git push
 
 ---
@@ -201,7 +201,7 @@
 - [x] Backend: Gửi notification khi có đơn hàng mới
 - [x] Frontend (admin): Icon chuông trên header + badge số đơn mới
 - [x] Frontend (admin): Dropdown danh sách thông báo
-- [ ] Frontend (admin): Âm thanh khi có đơn mới (optional)
+- [x] Frontend (admin): Âm thanh khi có đơn mới (optional)
 - [x] Git push
 
 ---
@@ -210,17 +210,17 @@
 - [x] Backend API: `GET /api/admin/orders/export?format=csv&from=&to=`
 - [x] Backend API: `GET /api/admin/products/export?format=csv`
 - [x] Frontend (admin): Nút "Xuất báo cáo" trên trang Đơn hàng + Sản phẩm
-- [ ] Frontend (admin): Chọn khoảng thời gian + format (CSV / Excel)
+- [x] Frontend (admin): Chọn khoảng thời gian + format (CSV / Excel)
 - [x] Git push
 
 ---
 
 ### B14: Ảnh sản phẩm nhiều tấm (Gallery) ⚠️ Một phần
-- [ ] Database: Bảng `product_images` riêng (hiện dùng `images TEXT[]` trong `products` — khác thiết kế ban đầu)
+- [x] Database: Bảng `product_images` riêng (hiện dùng `images TEXT[]` trong `products` — khác thiết kế ban đầu)
 - [x] Backend: Upload nhiều ảnh cho 1 sản phẩm (4 slot ảnh trong admin, lưu vào mảng `images`)
-- [ ] Backend: API sắp xếp thứ tự ảnh (thứ tự dựa vào vị trí trong mảng, chưa có drag-sort API)
+- [x] Backend: API sắp xếp thứ tự ảnh (thứ tự dựa vào vị trí trong mảng, chưa có drag-sort API)
 - [x] Frontend (client): Gallery slider trên trang chi tiết với thumbnail (chưa có lightbox)
-- [ ] Frontend (admin): Drag-drop sắp xếp ảnh khi thêm/sửa sản phẩm
+- [x] Frontend (admin): Drag-drop sắp xếp ảnh khi thêm/sửa sản phẩm
 - [ ] Git push
 
 ---

@@ -24,6 +24,7 @@ pub fn routes(state: AppState) -> Router<AppState> {
         .route("/products/:id", get(product::get_product)
                                     .put(product::update_product)
                                     .delete(product::delete_product))
+        .route("/products/:id/images/reorder", put(product::reorder_product_images))
 
         // ── Image upload ──────────────────────────────────────────────────
         .route("/upload/image", post(product::upload_image))

@@ -2,6 +2,7 @@ use axum::{
     extract::{Multipart, Path, Query, State},
     Extension, Json,
 };
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
@@ -62,6 +63,32 @@ pub async fn update_product(
         return Err(AppError::BadRequest("Product name is required".into()));
     }
     let product = product_repo::update_product(&state.db, id, &input).await?;
+    Ok(Json(serde_json::json!(product)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReorderImagesInput {
+    pub images: Vec<String>,
+}
+
+/// PUT /api/admin/products/:id/images/reorder
+pub async fn reorder_product_images(
+    State(state): State<AppState>,
+    Extension(_admin): Extension<AdminPublic>,
+    Path(id): Path<Uuid>,
+    Json(input): Json<ReorderImagesInput>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    if input.images.len() > 3 {
+        return Err(AppError::BadRequest("Tối đa 3 ảnh gallery".into()));
+    }
+
+    let clean_images: Vec<String> = input
+        .images
+        .into_iter()
+        .filter(|u| !u.trim().is_empty())
+        .collect();
+
+    let product = product_repo::reorder_product_images(&state.db, id, &clean_images).await?;
     Ok(Json(serde_json::json!(product)))
 }
 

@@ -228,6 +228,29 @@ fn slugify(s: &str) -> String {
         .join("-")
 }
 
+async fn sync_product_images(pool: &PgPool, product_id: Uuid, images: &[String]) -> Result<(), AppError> {
+    sqlx::query("DELETE FROM product_images WHERE product_id = $1")
+        .bind(product_id)
+        .execute(pool)
+        .await?;
+
+    for (idx, url) in images.iter().enumerate() {
+        sqlx::query(
+            r#"
+            INSERT INTO product_images (product_id, image_url, position)
+            VALUES ($1, $2, $3)
+            "#,
+        )
+        .bind(product_id)
+        .bind(url)
+        .bind(idx as i32)
+        .execute(pool)
+        .await?;
+    }
+
+    Ok(())
+}
+
 /// Upsert variants for a product (delete removed, insert/update kept).
 /// Also updates products.price / in_stock / stock to reflect the cheapest variant.
 pub async fn upsert_variants(
@@ -514,6 +537,8 @@ pub async fn create_product(
         upsert_variants(pool, id, &input.variants).await?;
     }
 
+    sync_product_images(pool, id, &images).await?;
+
     find_admin_by_id(pool, id)
         .await?
         .ok_or_else(|| AppError::Internal("Failed to fetch created product".into()))
@@ -584,9 +609,40 @@ pub async fn update_product(
         upsert_variants(pool, id, &input.variants).await?;
     }
 
+    sync_product_images(pool, id, &input.images).await?;
+
     find_admin_by_id(pool, id)
         .await?
         .ok_or_else(|| AppError::Internal("Failed to fetch updated product".into()))
+}
+
+/// Reorder gallery images (`products.images`) by replacing with the provided order.
+pub async fn reorder_product_images(
+    pool: &PgPool,
+    id: Uuid,
+    images: &[String],
+) -> Result<AdminProduct, AppError> {
+    let rows = sqlx::query(
+        r#"
+        UPDATE products
+        SET images = $2
+        WHERE id = $1
+        "#,
+    )
+    .bind(id)
+    .bind(images)
+    .execute(pool)
+    .await?;
+
+    if rows.rows_affected() == 0 {
+        return Err(AppError::NotFound(format!("Product {id} not found")));
+    }
+
+    sync_product_images(pool, id, images).await?;
+
+    find_admin_by_id(pool, id)
+        .await?
+        .ok_or_else(|| AppError::Internal("Failed to fetch reordered product".into()))
 }
 
 /// Hard-delete a product.

@@ -12,3 +12,5 @@ pub mod settings;
 pub mod user;
 
 pub use user::{AuthResponse, Claims, GoogleUserInfo, NewUser, User, UserPublic};
+
+pub mod wishlist;

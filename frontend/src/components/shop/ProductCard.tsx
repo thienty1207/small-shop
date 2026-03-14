@@ -1,9 +1,12 @@
-import { Link, useNavigate } from "react-router-dom";
-import { ShoppingBag, Eye } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ShoppingBag, Eye, Heart } from "lucide-react";
 import type { Product } from "@/data/products";
 import PriceDisplay from "./PriceDisplay";
 import ProductBadge from "./ProductBadge";
 import { useCart } from "@/contexts/CartContext";
+import { useWishlist } from "@/contexts/WishlistContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface ProductCardProps {
   product: Product;
@@ -35,6 +38,9 @@ function getDisplayPrice(product: Product): { price: number; originalPrice?: num
 
 const ProductCard = ({ product, compact = false }: ProductCardProps) => {
   const { addItem } = useCart();
+  const { isAuthenticated } = useAuth();
+  const { isWishlisted, toggleWishlist } = useWishlist();
+  const wishlisted = isWishlisted(product.id);
   const outOfStock = product.inStock === false;
   const lowStock = !outOfStock && product.stock !== undefined && product.stock > 0 && product.stock < 5;
   const { price, originalPrice } = getDisplayPrice(product);
@@ -49,6 +55,26 @@ const ProductCard = ({ product, compact = false }: ProductCardProps) => {
   })();
 
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleToggleWishlist = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!isAuthenticated) {
+      const returnTo = location.pathname + location.search;
+      sessionStorage.setItem("returnTo", returnTo);
+      navigate("/login", { state: { returnTo } });
+      return;
+    }
+
+    try {
+      const nowWishlisted = await toggleWishlist(product.id);
+      toast.success(nowWishlisted ? "Đã thêm vào yêu thích" : "Đã bỏ khỏi yêu thích");
+    } catch {
+      toast.error("Không thể cập nhật yêu thích");
+    }
+  };
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -66,6 +92,14 @@ const ProductCard = ({ product, compact = false }: ProductCardProps) => {
 
   return (
     <div className="group relative">
+      <button
+        type="button"
+        onClick={handleToggleWishlist}
+        className="absolute top-2 right-2 z-20 w-8 h-8 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow hover:bg-white transition-colors"
+        aria-label={wishlisted ? "Bỏ khỏi yêu thích" : "Thêm vào yêu thích"}
+      >
+        <Heart size={15} className={wishlisted ? "fill-rose-500 text-rose-500" : "text-foreground/70"} />
+      </button>
       <Link to={`/product/${product.slug}`} className="block">
         {/* Image container */}
         <div className={`relative overflow-hidden rounded-xl bg-muted ${compact ? "aspect-[3/4]" : "aspect-[4/5]"}`}>

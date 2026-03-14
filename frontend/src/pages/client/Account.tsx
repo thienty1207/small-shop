@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { formatPrice } from "@/data/products";
+import ProductCard from "@/components/shop/ProductCard";
+import { formatPrice, type Product } from "@/data/products";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWishlist } from "@/contexts/WishlistContext";
 import { Loader2 } from "lucide-react";
 
 const TOKEN_KEY = "auth_token";
@@ -44,32 +46,34 @@ function formatDate(iso: string) {
 
 const Account = () => {
   const [searchParams] = useSearchParams();
-  const initialTab = searchParams.get("tab") === "orders" ? "orders" : "profile";
+  const tab = searchParams.get("tab");
+  const initialTab = tab === "orders" || tab === "wishlist" ? tab : "profile";
   const [activeTab, setActiveTab] = useState(initialTab);
 
   const { user, updateProfile } = useAuth();
+  const { fetchWishlistProducts } = useWishlist();
 
-  // Local editable state — only phone & address are editable
   const [phone, setPhone] = useState(user?.phone ?? "");
   const [address, setAddress] = useState(user?.address ?? "");
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
-  // Real orders state
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
 
-  // Sync if user data loads after mount
+  const [wishlist, setWishlist] = useState<Product[]>([]);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
+
   useEffect(() => {
     setPhone(user?.phone ?? "");
     setAddress(user?.address ?? "");
   }, [user?.phone, user?.address]);
 
-  // Fetch real orders when switching to orders tab
   useEffect(() => {
     if (activeTab !== "orders") return;
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) return;
+
     setOrdersLoading(true);
     fetch(`${API_BASE}/api/orders`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -79,6 +83,16 @@ const Account = () => {
       .catch(() => setOrders([]))
       .finally(() => setOrdersLoading(false));
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "wishlist") return;
+
+    setWishlistLoading(true);
+    fetchWishlistProducts()
+      .then(setWishlist)
+      .catch(() => setWishlist([]))
+      .finally(() => setWishlistLoading(false));
+  }, [activeTab, fetchWishlistProducts]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -97,6 +111,7 @@ const Account = () => {
   const tabs = [
     { key: "profile", label: "Thông tin" },
     { key: "orders", label: "Đơn hàng" },
+    { key: "wishlist", label: "Yêu thích" },
   ];
 
   return (
@@ -105,7 +120,6 @@ const Account = () => {
       <div className="flex-1 container mx-auto px-4 md:px-8 pt-20 pb-8">
         <h1 className="font-display text-2xl font-bold text-foreground mb-6">Tài Khoản</h1>
 
-        {/* Tabs */}
         <div className="flex gap-4 border-b border-border mb-6">
           {tabs.map((t) => (
             <button
@@ -122,10 +136,8 @@ const Account = () => {
           ))}
         </div>
 
-        {/* Profile tab */}
         {activeTab === "profile" && (
           <div className="max-w-lg mx-auto bg-card rounded-xl border border-border p-6 space-y-4">
-            {/* Avatar + name header */}
             {user && (
               <div className="flex items-center gap-3 pb-2">
                 {user.avatar_url ? (
@@ -142,12 +154,13 @@ const Account = () => {
                 )}
                 <div>
                   <p className="text-sm font-semibold text-foreground">{user.name}</p>
-                  <p className="text-xs text-muted-foreground">{user.role === "admin" ? "Quản trị viên" : "Khách hàng"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {user.role === "admin" ? "Quản trị viên" : "Khách hàng"}
+                  </p>
                 </div>
               </div>
             )}
 
-            {/* Name — read-only (from Google) */}
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Họ tên</label>
               <input
@@ -158,7 +171,6 @@ const Account = () => {
               <p className="text-xs text-muted-foreground/70">Đồng bộ từ Google, không thể chỉnh sửa</p>
             </div>
 
-            {/* Email — read-only (from Google) */}
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email</label>
               <input
@@ -169,7 +181,6 @@ const Account = () => {
               <p className="text-xs text-muted-foreground/70">Đồng bộ từ Google, không thể chỉnh sửa</p>
             </div>
 
-            {/* Phone — editable */}
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Số điện thoại</label>
               <input
@@ -181,7 +192,6 @@ const Account = () => {
               />
             </div>
 
-            {/* Address — editable */}
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Địa chỉ giao hàng</label>
               <textarea
@@ -193,7 +203,6 @@ const Account = () => {
               />
             </div>
 
-            {/* Save */}
             <div className="flex items-center gap-3 pt-1">
               <button
                 onClick={handleSave}
@@ -212,7 +221,6 @@ const Account = () => {
           </div>
         )}
 
-        {/* Orders tab */}
         {activeTab === "orders" && (
           <div className="max-w-lg mx-auto space-y-4">
             {ordersLoading ? (
@@ -253,6 +261,29 @@ const Account = () => {
                   </div>
                 </Link>
               ))
+            )}
+          </div>
+        )}
+
+        {activeTab === "wishlist" && (
+          <div className="max-w-5xl mx-auto">
+            {wishlistLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="animate-spin text-muted-foreground" size={28} />
+              </div>
+            ) : wishlist.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-sm text-muted-foreground">Bạn chưa có sản phẩm yêu thích nào.</p>
+                <Link to="/products" className="mt-3 inline-block text-sm text-primary hover:underline">
+                  Khám phá sản phẩm
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
+                {wishlist.map((product) => (
+                  <ProductCard key={product.id} product={product} compact />
+                ))}
+              </div>
             )}
           </div>
         )}

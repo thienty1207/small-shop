@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import {
   Package, Plus, Pencil, Trash2, Search, AlertCircle,
-  ImagePlus, ChevronLeft, ChevronRight, X, PlusCircle, Minus,
+  ImagePlus, ChevronLeft, ChevronRight, X, PlusCircle, Minus, GripVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +41,7 @@ const EMPTY_FORM = {
 };
 
 type FormState = typeof EMPTY_FORM;
+type GallerySlot = 2 | 3 | 4;
 
 interface VariantRow {
   ml:             string;
@@ -151,6 +152,7 @@ export default function AdminProducts() {
   const [uploading2,  setUploading2]  = useState(false);
   const [uploading3,  setUploading3]  = useState(false);
   const [uploading4,  setUploading4]  = useState(false);
+  const [draggingSlot, setDraggingSlot] = useState<GallerySlot | null>(null);
   const fileRef  = useRef<HTMLInputElement>(null);
   const fileRef2 = useRef<HTMLInputElement>(null);
   const fileRef3 = useRef<HTMLInputElement>(null);
@@ -159,6 +161,9 @@ export default function AdminProducts() {
   // Delete
   const [deleteTarget, setDeleteTarget] = useState<AdminProduct | null>(null);
   const [deleting,     setDeleting]     = useState(false);
+  const [exportFrom, setExportFrom] = useState("");
+  const [exportTo, setExportTo] = useState("");
+  const [exportFormat, setExportFormat] = useState<"csv" | "excel">("csv");
 
   const load = async (p = page) => {
     setLoading(true);
@@ -293,6 +298,73 @@ export default function AdminProducts() {
   const handleFileSelect3 = makeGalleryFileHandler(3, setImgPreview3, setUploading3, fileRef3);
   const handleFileSelect4 = makeGalleryFileHandler(4, setImgPreview4, setUploading4, fileRef4);
 
+  const readGallerySlot = (slot: GallerySlot) => {
+    switch (slot) {
+      case 2: return { url: form.image_url_2, preview: imgPreview2 };
+      case 3: return { url: form.image_url_3, preview: imgPreview3 };
+      case 4: return { url: form.image_url_4, preview: imgPreview4 };
+    }
+  };
+
+  const swapGallerySlots = (from: GallerySlot, to: GallerySlot) => {
+    const fromData = readGallerySlot(from);
+    const toData = readGallerySlot(to);
+
+    setForm((f) => ({
+      ...f,
+      image_url_2: from === 2 ? toData.url : to === 2 ? fromData.url : f.image_url_2,
+      image_url_3: from === 3 ? toData.url : to === 3 ? fromData.url : f.image_url_3,
+      image_url_4: from === 4 ? toData.url : to === 4 ? fromData.url : f.image_url_4,
+    }));
+
+    setImgPreview2(from === 2 ? toData.preview : to === 2 ? fromData.preview : imgPreview2);
+    setImgPreview3(from === 3 ? toData.preview : to === 3 ? fromData.preview : imgPreview3);
+    setImgPreview4(from === 4 ? toData.preview : to === 4 ? fromData.preview : imgPreview4);
+  };
+
+  const handleGalleryDragStart = (slot: GallerySlot) => (e: React.DragEvent<HTMLDivElement>) => {
+    const { url } = readGallerySlot(slot);
+    if (!url) {
+      e.preventDefault();
+      return;
+    }
+    setDraggingSlot(slot);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(slot));
+  };
+
+  const handleGalleryDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleGalleryDrop = (target: GallerySlot) => async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const from = (draggingSlot ?? Number(e.dataTransfer.getData("text/plain"))) as GallerySlot;
+    setDraggingSlot(null);
+    if (!from || from === target) return;
+
+    const fromData = readGallerySlot(from);
+    const toData = readGallerySlot(target);
+
+    const next = {
+      2: from === 2 ? toData.url : target === 2 ? fromData.url : form.image_url_2,
+      3: from === 3 ? toData.url : target === 3 ? fromData.url : form.image_url_3,
+      4: from === 4 ? toData.url : target === 4 ? fromData.url : form.image_url_4,
+    };
+
+    swapGallerySlots(from, target);
+
+    if (editing) {
+      const images = [next[2], next[3], next[4]].filter((u) => u.trim() !== "");
+      try {
+        await adminPut(`/api/admin/products/${editing.id}/images/reorder`, { images });
+      } catch {
+        // ignore background sync error; final save still persists
+      }
+    }
+  };
+
   const handleSave = async () => {
     if (!form.name.trim())      { setFormError("Tên sản phẩm là bắt buộc"); return; }
     if (!form.category_id)      { setFormError("Vui lòng chọn danh mục"); return; }
@@ -365,6 +437,15 @@ export default function AdminProducts() {
 
   const totalPages = data?.total_pages ?? 1;
 
+  const productsExportHref = (() => {
+    const params = new URLSearchParams();
+    if (exportFrom) params.set("from", new Date(`${exportFrom}T00:00:00.000Z`).toISOString());
+    if (exportTo) params.set("to", new Date(`${exportTo}T23:59:59.999Z`).toISOString());
+    params.set("format", exportFormat);
+    const q = params.toString();
+    return `${import.meta.env.VITE_API_URL ?? "http://localhost:3000"}/api/admin/products/export${q ? `?${q}` : ""}`;
+  })();
+
   return (
     <AdminLayout title="Quản lý Sản phẩm">
       {/* Toolbar */}
@@ -391,13 +472,44 @@ export default function AdminProducts() {
         <Button onClick={openCreate} className="bg-rose-500 hover:bg-rose-600 text-white gap-2 ml-auto">
           <Plus className="w-4 h-4" /> Thêm sản phẩm
         </Button>
-        <a
-          href={`${import.meta.env.VITE_API_URL ?? "http://localhost:3000"}/api/admin/products/export`}
-          download="products.csv"
-          className="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
-        >
-          <span>&#8595;</span> CSV
-        </a>
+        <div className="flex items-end gap-2">
+          <div>
+            <label className="block text-[11px] text-gray-500 mb-1">Từ</label>
+            <input
+              type="date"
+              value={exportFrom}
+              onChange={(e) => setExportFrom(e.target.value)}
+              className="h-9 bg-gray-900 border border-gray-800 rounded-lg px-2 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] text-gray-500 mb-1">Đến</label>
+            <input
+              type="date"
+              value={exportTo}
+              onChange={(e) => setExportTo(e.target.value)}
+              className="h-9 bg-gray-900 border border-gray-800 rounded-lg px-2 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] text-gray-500 mb-1">Format</label>
+            <select
+              value={exportFormat}
+              onChange={(e) => setExportFormat(e.target.value as "csv" | "excel")}
+              className="h-9 bg-gray-900 border border-gray-800 rounded-lg px-2 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
+            >
+              <option value="csv">CSV</option>
+              <option value="excel">Excel</option>
+            </select>
+          </div>
+          <a
+            href={productsExportHref}
+            download={`products.${exportFormat === "excel" ? "xls" : "csv"}`}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+          >
+            <span>&#8595;</span> Xuất báo cáo
+          </a>
+        </div>
       </div>
 
       {/* Table */}
@@ -680,8 +792,20 @@ export default function AdminProducts() {
                 {/* Gallery images (optional, 3 slots) */}
                 <div>
                   <label className="text-xs text-gray-400 block mb-2">Ảnh gallery (tuỳ chọn, tối đa 3)</label>
+                  <p className="text-[11px] text-gray-500 mb-2">Kéo thả các ô để đổi thứ tự hiển thị gallery.</p>
                   <div className="grid grid-cols-3 gap-2">
-                    <div className="flex flex-col gap-1">
+                    <div
+                      className={`flex flex-col gap-1 rounded-md p-1 ${draggingSlot === 2 ? "bg-rose-500/10" : ""}`}
+                      draggable={Boolean(form.image_url_2)}
+                      onDragStart={handleGalleryDragStart(2)}
+                      onDragOver={handleGalleryDragOver}
+                      onDrop={handleGalleryDrop(2)}
+                      onDragEnd={() => setDraggingSlot(null)}
+                    >
+                      <div className="flex items-center justify-between text-[10px] text-gray-500 mb-0.5 px-0.5">
+                        <span>Ảnh 2</span>
+                        <GripVertical className="w-3 h-3" />
+                      </div>
                       <ImageUploadSlot
                         preview={imgPreview2}
                         uploading={uploading2}
@@ -698,7 +822,18 @@ export default function AdminProducts() {
                         placeholder="URL ảnh 2"
                       />
                     </div>
-                    <div className="flex flex-col gap-1">
+                    <div
+                      className={`flex flex-col gap-1 rounded-md p-1 ${draggingSlot === 3 ? "bg-rose-500/10" : ""}`}
+                      draggable={Boolean(form.image_url_3)}
+                      onDragStart={handleGalleryDragStart(3)}
+                      onDragOver={handleGalleryDragOver}
+                      onDrop={handleGalleryDrop(3)}
+                      onDragEnd={() => setDraggingSlot(null)}
+                    >
+                      <div className="flex items-center justify-between text-[10px] text-gray-500 mb-0.5 px-0.5">
+                        <span>Ảnh 3</span>
+                        <GripVertical className="w-3 h-3" />
+                      </div>
                       <ImageUploadSlot
                         preview={imgPreview3}
                         uploading={uploading3}
@@ -715,7 +850,18 @@ export default function AdminProducts() {
                         placeholder="URL ảnh 3"
                       />
                     </div>
-                    <div className="flex flex-col gap-1">
+                    <div
+                      className={`flex flex-col gap-1 rounded-md p-1 ${draggingSlot === 4 ? "bg-rose-500/10" : ""}`}
+                      draggable={Boolean(form.image_url_4)}
+                      onDragStart={handleGalleryDragStart(4)}
+                      onDragOver={handleGalleryDragOver}
+                      onDrop={handleGalleryDrop(4)}
+                      onDragEnd={() => setDraggingSlot(null)}
+                    >
+                      <div className="flex items-center justify-between text-[10px] text-gray-500 mb-0.5 px-0.5">
+                        <span>Ảnh 4</span>
+                        <GripVertical className="w-3 h-3" />
+                      </div>
                       <ImageUploadSlot
                         preview={imgPreview4}
                         uploading={uploading4}

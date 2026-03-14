@@ -76,6 +76,9 @@ export default function AdminOrders() {
   const [noteText,     setNoteText]     = useState("");
   const [updating,     setUpdating]     = useState(false);
   const [updateError,  setUpdateError]  = useState<string | null>(null);
+  const [exportFrom, setExportFrom] = useState("");
+  const [exportTo, setExportTo] = useState("");
+  const [exportFormat, setExportFormat] = useState<"csv" | "excel">("csv");
 
   const load = async (p = page) => {
     setLoading(true);
@@ -136,16 +139,55 @@ export default function AdminOrders() {
 
   const totalPages = data?.total_pages ?? 1;
 
+  const ordersExportHref = (() => {
+    const params = new URLSearchParams();
+    if (tab) params.set("status", tab);
+    if (exportFrom) params.set("from", new Date(`${exportFrom}T00:00:00.000Z`).toISOString());
+    if (exportTo) params.set("to", new Date(`${exportTo}T23:59:59.999Z`).toISOString());
+    params.set("format", exportFormat);
+    const q = params.toString();
+    return `${import.meta.env.VITE_API_URL ?? "http://localhost:3000"}/api/admin/orders/export${q ? `?${q}` : ""}`;
+  })();
+
   return (
     <AdminLayout title="Quản lý Đơn hàng">
       {/* Export */}
-      <div className="flex justify-end mb-3">
+      <div className="flex flex-wrap items-end justify-end gap-2 mb-3">
+        <div>
+          <label className="block text-[11px] text-gray-500 mb-1">Từ ngày</label>
+          <input
+            type="date"
+            value={exportFrom}
+            onChange={(e) => setExportFrom(e.target.value)}
+            className="h-8 bg-gray-900 border border-gray-800 rounded-lg px-2 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
+          />
+        </div>
+        <div>
+          <label className="block text-[11px] text-gray-500 mb-1">Đến ngày</label>
+          <input
+            type="date"
+            value={exportTo}
+            onChange={(e) => setExportTo(e.target.value)}
+            className="h-8 bg-gray-900 border border-gray-800 rounded-lg px-2 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
+          />
+        </div>
+        <div>
+          <label className="block text-[11px] text-gray-500 mb-1">Định dạng</label>
+          <select
+            value={exportFormat}
+            onChange={(e) => setExportFormat(e.target.value as "csv" | "excel")}
+            className="h-8 bg-gray-900 border border-gray-800 rounded-lg px-2 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
+          >
+            <option value="csv">CSV</option>
+            <option value="excel">Excel</option>
+          </select>
+        </div>
         <a
-          href={`${import.meta.env.VITE_API_URL ?? "http://localhost:3000"}/api/admin/orders/export${tab ? `?status=${tab}` : ""}`}
-          download="orders.csv"
+          href={ordersExportHref}
+          download={`orders.${exportFormat === "excel" ? "xls" : "csv"}`}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
         >
-          <Download size={13} /> Xuất CSV
+          <Download size={13} /> Xuất báo cáo
         </a>
       </div>
 
