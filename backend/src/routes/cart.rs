@@ -1,6 +1,6 @@
 use axum::{
     middleware,
-    routing::{delete, get, post},
+    routing::{get, patch, post},
     Router,
 };
 
@@ -10,6 +10,9 @@ pub fn routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/api/cart", get(cart::get_cart).delete(cart::clear_cart))
         .route("/api/cart/items", post(cart::add_to_cart))
-        .route("/api/cart/items/:id", delete(cart::remove_cart_item))
+        .route(
+            "/api/cart/items/:id",
+            patch(cart::update_cart_item).delete(cart::remove_cart_item),
+        )
         .layer(middleware::from_fn_with_state(state, jwt_auth))
 }

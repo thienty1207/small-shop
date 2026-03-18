@@ -47,16 +47,16 @@ pub fn verify_password(password: &str, hash: &str) -> Result<bool, AppError> {
 /// Reuses the shared `Claims` struct so `admin_guard` can verify with the
 /// same `auth_service::verify_jwt` function.
 pub fn generate_admin_jwt(config: &Arc<Config>, admin: &AdminUser) -> Result<String, AppError> {
-    let now    = Utc::now().timestamp();
+    let now = Utc::now().timestamp();
     let expiry = now + config.jwt_expiration_hours * 3_600;
 
     let claims = Claims {
-        sub:   admin.id.to_string(),
+        sub: admin.id.to_string(),
         email: String::new(), // admin accounts have no email
-        name:  admin.username.clone(),
-        role:  "admin".into(),
-        exp:   expiry,
-        iat:   now,
+        name: admin.username.clone(),
+        role: "admin".into(),
+        exp: expiry,
+        iat: now,
     };
 
     encode(
@@ -90,9 +90,7 @@ pub async fn seed_admin_user(pool: &PgPool, config: &Config) -> Result<(), AppEr
             config.admin_username
         );
     } else {
-        tracing::info!(
-            "Admin account already exists — skipping seed"
-        );
+        tracing::info!("Admin account already exists — skipping seed");
     }
 
     Ok(())

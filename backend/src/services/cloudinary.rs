@@ -10,7 +10,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct CloudinaryConfig {
     pub cloud_name: String,
-    pub api_key:    String,
+    pub api_key: String,
     pub api_secret: String,
 }
 
@@ -26,7 +26,7 @@ impl CloudinaryConfig {
             .ok_or("Invalid CLOUDINARY_URL: missing ':' in credentials")?;
         Ok(Self {
             cloud_name: cloud_name.to_string(),
-            api_key:    api_key.to_string(),
+            api_key: api_key.to_string(),
             api_secret: api_secret.to_string(),
         })
     }
@@ -55,18 +55,18 @@ pub async fn upload_image(
     // Cloudinary signature: SHA1("folder={f}&timestamp={t}{api_secret}")
     // Parameters must be sorted alphabetically; api_key / file / resource_type excluded.
     let params_str = format!("folder={folder}&timestamp={timestamp}");
-    let to_sign    = format!("{params_str}{}", config.api_secret);
+    let to_sign = format!("{params_str}{}", config.api_secret);
 
     let mut hasher = Sha1::new();
     hasher.update(to_sign.as_bytes());
-    let digest    = hasher.finalize();
+    let digest = hasher.finalize();
     let signature: String = digest.iter().map(|b| format!("{b:02x}")).collect();
 
     let ext = match content_type {
-        "image/png"  => "png",
+        "image/png" => "png",
         "image/webp" => "webp",
-        "image/gif"  => "gif",
-        _            => "jpg",
+        "image/gif" => "gif",
+        _ => "jpg",
     };
     let filename = format!("{}.{}", Uuid::new_v4(), ext);
 
@@ -77,9 +77,9 @@ pub async fn upload_image(
 
     let form = multipart::Form::new()
         .part("file", part)
-        .text("api_key",   config.api_key.clone())
+        .text("api_key", config.api_key.clone())
         .text("timestamp", timestamp.to_string())
-        .text("folder",    folder.to_string())
+        .text("folder", folder.to_string())
         .text("signature", signature);
 
     let url = format!(
@@ -93,7 +93,6 @@ pub async fn upload_image(
         .send()
         .await
         .map_err(|e| crate::error::AppError::Internal(format!("Cloudinary request error: {e}")))?;
-
 
     if !resp.status().is_success() {
         let msg = resp.text().await.unwrap_or_default();

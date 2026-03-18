@@ -8,10 +8,7 @@ use crate::{
 
 /// Find a user by their Google account ID.
 /// This is the primary lookup on every OAuth callback.
-pub async fn find_by_google_id(
-    pool: &PgPool,
-    google_id: &str,
-) -> Result<Option<User>, AppError> {
+pub async fn find_by_google_id(pool: &PgPool, google_id: &str) -> Result<Option<User>, AppError> {
     let user = sqlx::query_as::<_, User>(
         r#"
         SELECT id, google_id, email, name, avatar_url, role,
@@ -31,10 +28,7 @@ pub async fn find_by_google_id(
 
 /// Find a user by email address.
 /// Used to detect account merges (same email, different provider).
-pub async fn find_by_email(
-    pool: &PgPool,
-    email: &str,
-) -> Result<Option<User>, AppError> {
+pub async fn find_by_email(pool: &PgPool, email: &str) -> Result<Option<User>, AppError> {
     let user = sqlx::query_as::<_, User>(
         r#"
         SELECT id, google_id, email, name, avatar_url, role,
@@ -53,10 +47,7 @@ pub async fn find_by_email(
 }
 
 /// Find a user by their internal UUID.
-pub async fn find_by_id(
-    pool: &PgPool,
-    id: Uuid,
-) -> Result<Option<User>, AppError> {
+pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<User>, AppError> {
     let user = sqlx::query_as::<_, User>(
         r#"
         SELECT id, google_id, email, name, avatar_url, role,
@@ -75,10 +66,7 @@ pub async fn find_by_id(
 }
 
 /// Insert a new user row and return the created record.
-pub async fn insert_user(
-    pool: &PgPool,
-    data: NewUser,
-) -> Result<User, AppError> {
+pub async fn insert_user(pool: &PgPool, data: NewUser) -> Result<User, AppError> {
     let user = sqlx::query_as::<_, User>(
         r#"
         INSERT INTO users (google_id, email, name, avatar_url)
@@ -100,10 +88,7 @@ pub async fn insert_user(
 }
 
 /// Stamp the `last_login_at` column with the current timestamp.
-pub async fn update_last_login(
-    pool: &PgPool,
-    user_id: Uuid,
-) -> Result<(), AppError> {
+pub async fn update_last_login(pool: &PgPool, user_id: Uuid) -> Result<(), AppError> {
     sqlx::query("UPDATE users SET last_login_at = now() WHERE id = $1")
         .bind(user_id)
         .execute(pool)

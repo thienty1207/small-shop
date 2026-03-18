@@ -9,11 +9,7 @@
 mod tests {
     use std::sync::Arc;
 
-    use crate::{
-        config::Config,
-        models::admin::AdminUser,
-        services::admin_auth_service,
-    };
+    use crate::{config::Config, models::admin::AdminUser, services::admin_auth_service};
 
     // -----------------------------------------------------------------------
     // Helpers
@@ -22,35 +18,35 @@ mod tests {
     /// Build a minimal in-memory Config for tests.
     fn test_config() -> Arc<Config> {
         Arc::new(Config {
-            server_port:           3000,
-            database_url:          "postgres://localhost/test".into(),
-            jwt_secret:            "super_secret_test_key_32_chars!!".into(),
-            jwt_expiration_hours:  24,
-            google_client_id:      "test_client_id".into(),
-            google_client_secret:  "test_client_secret".into(),
-            google_redirect_uri:   "http://localhost:3000/auth/callback".into(),
-            frontend_url:          "http://localhost:5173".into(),
-            smtp_host:             "localhost".into(),
-            smtp_port:             1025,
-            smtp_username:         "test@example.com".into(),
-            smtp_password:         "testpassword".into(),
-            contact_from_name:     "Test Shop".into(),
-            contact_from_email:    "noreply@example.com".into(),
-            contact_admin_email:   "admin@example.com".into(),
-            reply_logo_url:        "".into(),
+            server_port: 3000,
+            database_url: "postgres://localhost/test".into(),
+            jwt_secret: "super_secret_test_key_32_chars!!".into(),
+            jwt_expiration_hours: 24,
+            google_client_id: "test_client_id".into(),
+            google_client_secret: "test_client_secret".into(),
+            google_redirect_uri: "http://localhost:3000/auth/callback".into(),
+            frontend_url: "http://localhost:5173".into(),
+            smtp_host: "localhost".into(),
+            smtp_port: 1025,
+            smtp_username: "test@example.com".into(),
+            smtp_password: "testpassword".into(),
+            contact_from_name: "Test Shop".into(),
+            contact_from_email: "noreply@example.com".into(),
+            contact_admin_email: "admin@example.com".into(),
+            reply_logo_url: "".into(),
             cloudflare_secret_key: "0x0000000000000000000000000000000000000000".into(),
-            admin_username:        "hothienty".into(),
-            admin_password:        "tohkaty01".into(),
+            admin_username: "hothienty".into(),
+            admin_password: "tohkaty01".into(),
         })
     }
 
     /// Build a fake AdminUser for JWT-generation tests.
     fn fake_admin() -> AdminUser {
         AdminUser {
-            id:            uuid::Uuid::new_v4(),
-            username:      "hothienty".into(),
+            id: uuid::Uuid::new_v4(),
+            username: "hothienty".into(),
             password_hash: "$argon2id$fake".into(),
-            created_at:    chrono::Utc::now(),
+            created_at: chrono::Utc::now(),
         }
     }
 
@@ -61,12 +57,14 @@ mod tests {
     #[test]
     fn hash_roundtrip_correct_password() {
         let password = "tohkaty01";
-        let hash = admin_auth_service::hash_password(password)
-            .expect("hashing should succeed");
+        let hash = admin_auth_service::hash_password(password).expect("hashing should succeed");
 
         // Hash is a non-empty PHC string
         assert!(!hash.is_empty(), "hash must not be empty");
-        assert!(hash.starts_with("$argon2id$"), "expected Argon2id PHC format");
+        assert!(
+            hash.starts_with("$argon2id$"),
+            "expected Argon2id PHC format"
+        );
 
         // Verification with the correct password must return true
         let ok = admin_auth_service::verify_password(password, &hash)
@@ -77,8 +75,7 @@ mod tests {
     #[test]
     fn hash_roundtrip_wrong_password() {
         let password = "tohkaty01";
-        let hash = admin_auth_service::hash_password(password)
-            .expect("hashing should succeed");
+        let hash = admin_auth_service::hash_password(password).expect("hashing should succeed");
 
         let ok = admin_auth_service::verify_password("wrongpassword", &hash)
             .expect("verify should not error");
@@ -106,13 +103,17 @@ mod tests {
     #[test]
     fn generate_admin_jwt_produces_non_empty_token() {
         let config = test_config();
-        let admin  = fake_admin();
-        let token  = admin_auth_service::generate_admin_jwt(&config, &admin)
+        let admin = fake_admin();
+        let token = admin_auth_service::generate_admin_jwt(&config, &admin)
             .expect("JWT generation should succeed");
 
         assert!(!token.is_empty(), "token must not be empty");
         // A standard JWT has three base64url segments separated by dots
-        assert_eq!(token.split('.').count(), 3, "JWT must have exactly 3 segments");
+        assert_eq!(
+            token.split('.').count(),
+            3,
+            "JWT must have exactly 3 segments"
+        );
     }
 
     #[test]
@@ -120,15 +121,15 @@ mod tests {
         use crate::services::auth_service;
 
         let config = test_config();
-        let admin  = fake_admin();
-        let token  = admin_auth_service::generate_admin_jwt(&config, &admin).unwrap();
+        let admin = fake_admin();
+        let token = admin_auth_service::generate_admin_jwt(&config, &admin).unwrap();
 
         let claims = auth_service::verify_jwt(&config, &token)
             .expect("token generated with the same config must be verifiable");
 
-        assert_eq!(claims.role, "admin",     "role claim must be 'admin'");
-        assert_eq!(claims.sub,  admin.id.to_string(), "sub must match admin id");
-        assert_eq!(claims.name, admin.username,       "name must match username");
+        assert_eq!(claims.role, "admin", "role claim must be 'admin'");
+        assert_eq!(claims.sub, admin.id.to_string(), "sub must match admin id");
+        assert_eq!(claims.name, admin.username, "name must match username");
     }
 
     #[test]
@@ -136,12 +137,15 @@ mod tests {
         use crate::services::auth_service;
 
         let config = test_config();
-        let admin  = fake_admin();
-        let token  = admin_auth_service::generate_admin_jwt(&config, &admin).unwrap();
+        let admin = fake_admin();
+        let token = admin_auth_service::generate_admin_jwt(&config, &admin).unwrap();
         let claims = auth_service::verify_jwt(&config, &token).unwrap();
 
         // Explicitly assert not "user" — guards depend on this distinction
-        assert_ne!(claims.role, "user", "admin token must not carry 'user' role");
+        assert_ne!(
+            claims.role, "user",
+            "admin token must not carry 'user' role"
+        );
     }
 
     #[test]
@@ -149,8 +153,8 @@ mod tests {
         use crate::services::auth_service;
 
         let config = test_config();
-        let admin  = fake_admin();
-        let token  = admin_auth_service::generate_admin_jwt(&config, &admin).unwrap();
+        let admin = fake_admin();
+        let token = admin_auth_service::generate_admin_jwt(&config, &admin).unwrap();
 
         // Build a second config with a different secret
         let mut wrong_config = (*config).clone();
@@ -158,6 +162,9 @@ mod tests {
         let wrong_config = Arc::new(wrong_config);
 
         let result = auth_service::verify_jwt(&wrong_config, &token);
-        assert!(result.is_err(), "token signed with a different secret must not verify");
+        assert!(
+            result.is_err(),
+            "token signed with a different secret must not verify"
+        );
     }
 }

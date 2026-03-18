@@ -1,11 +1,7 @@
+use crate::{handlers::client::wishlist, middleware::auth::jwt_auth, state::AppState};
 use axum::{
     routing::{get, post},
     Router,
-};
-use crate::{
-    handlers::client::wishlist,
-    middleware::auth::jwt_auth,
-    state::AppState,
 };
 
 pub fn client_wishlist_routes(state: AppState) -> Router<AppState> {

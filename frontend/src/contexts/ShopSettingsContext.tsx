@@ -6,11 +6,13 @@ import { useShopSettings } from "@/hooks/useShopSettings";
 interface ShopSettingsContextValue {
   settings: Record<string, string>;
   isLoading: boolean;
+  refreshSettings: () => Promise<void>;
 }
 
 const ShopSettingsContext = createContext<ShopSettingsContextValue>({
   settings: {},
   isLoading: true,
+  refreshSettings: async () => {},
 });
 
 /**

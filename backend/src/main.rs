@@ -2,11 +2,19 @@ use std::{sync::Arc, time::Duration};
 
 use axum::{http::Method, Router};
 use sqlx::postgres::PgPoolOptions;
-use tower_http::{cors::{Any, CorsLayer}, services::ServeDir};
+use tower_http::{
+    cors::{Any, CorsLayer},
+    services::ServeDir,
+};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-use backend::{config::Config, routes, services::{admin_auth_service, cloudinary::CloudinaryConfig, email_service}, state::AppState};
+use backend::{
+    config::Config,
+    routes,
+    services::{admin_auth_service, cloudinary::CloudinaryConfig, email_service},
+    state::AppState,
+};
 
 #[tokio::main]
 async fn main() {
@@ -51,7 +59,10 @@ async fn main() {
     // Build the SMTP mailer once — reused across all requests (avoids per-request TLS handshake)
     let mailer = match email_service::build_mailer(&config) {
         Ok(m) => {
-            info!("SMTP mailer ready ({}:{})", config.smtp_host, config.smtp_port);
+            info!(
+                "SMTP mailer ready ({}:{})",
+                config.smtp_host, config.smtp_port
+            );
             Some(m)
         }
         Err(e) => {
@@ -80,7 +91,13 @@ async fn main() {
         .build()
         .expect("Failed to build HTTP client");
 
-    let state = AppState { db, config: config.clone(), http_client, mailer, cloudinary };
+    let state = AppState {
+        db,
+        config: config.clone(),
+        http_client,
+        mailer,
+        cloudinary,
+    };
 
     // Ensure uploads directory exists (serves existing /uploads/* URLs for backward compat)
     tokio::fs::create_dir_all("uploads")
@@ -89,11 +106,10 @@ async fn main() {
 
     // CORS — allow frontend origin to call the API
     let cors = CorsLayer::new()
-        .allow_origin([
-            config.frontend_url
-                .parse::<axum::http::HeaderValue>()
-                .expect("Invalid FRONTEND_URL for CORS"),
-        ])
+        .allow_origin([config
+            .frontend_url
+            .parse::<axum::http::HeaderValue>()
+            .expect("Invalid FRONTEND_URL for CORS")])
         .allow_methods([
             Method::GET,
             Method::POST,
@@ -117,7 +133,5 @@ async fn main() {
         .await
         .expect("Failed to bind address");
 
-    axum::serve(listener, app)
-        .await
-        .expect("Server error");
+    axum::serve(listener, app).await.expect("Server error");
 }

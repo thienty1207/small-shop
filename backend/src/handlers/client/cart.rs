@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     models::{
-        cart::{AddToCartInput, CartItemWithProduct},
+        cart::{AddToCartInput, CartItemWithProduct, UpdateCartInput},
         user::UserPublic,
     },
     repositories::cart_repo,
@@ -31,7 +31,9 @@ pub async fn add_to_cart(
     Json(input): Json<AddToCartInput>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), AppError> {
     if input.quantity <= 0 {
-        return Err(AppError::BadRequest("Quantity must be greater than 0".into()));
+        return Err(AppError::BadRequest(
+            "Quantity must be greater than 0".into(),
+        ));
     }
 
     let item = cart_repo::upsert_item(&state.db, user.id, &input).await?;
@@ -55,6 +57,25 @@ pub async fn remove_cart_item(
     } else {
         Err(AppError::NotFound("Cart item not found".into()))
     }
+}
+
+/// PATCH /api/cart/items/:id — update quantity for a specific cart item
+pub async fn update_cart_item(
+    State(state): State<AppState>,
+    Extension(user): Extension<UserPublic>,
+    Path(item_id): Path<Uuid>,
+    Json(input): Json<UpdateCartInput>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    if input.quantity <= 0 {
+        return Err(AppError::BadRequest(
+            "Quantity must be greater than 0".into(),
+        ));
+    }
+
+    let item = cart_repo::update_item_quantity(&state.db, user.id, item_id, input.quantity).await?;
+    Ok(Json(
+        serde_json::json!({ "message": "Cart item updated", "id": item.id }),
+    ))
 }
 
 /// DELETE /api/cart — clear the entire cart

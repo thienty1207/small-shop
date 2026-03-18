@@ -148,17 +148,17 @@ pub async fn update_staff(
 /// Delete a staff member. Prevents deleting super_admin accounts.
 pub async fn delete_staff(pool: &PgPool, id: Uuid) -> Result<(), AppError> {
     // Get the role first — super_admin cannot be deleted
-    let role: Option<String> = sqlx::query_scalar(
-        "SELECT role FROM admin_users WHERE id = $1",
-    )
-    .bind(id)
-    .fetch_optional(pool)
-    .await?;
+    let role: Option<String> = sqlx::query_scalar("SELECT role FROM admin_users WHERE id = $1")
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
 
     match role.as_deref() {
         None => return Err(AppError::NotFound(format!("Staff {id} not found"))),
         Some("super_admin") => {
-            return Err(AppError::BadRequest("Không thể xoá tài khoản super_admin".into()))
+            return Err(AppError::BadRequest(
+                "Không thể xoá tài khoản super_admin".into(),
+            ))
         }
         _ => {}
     }

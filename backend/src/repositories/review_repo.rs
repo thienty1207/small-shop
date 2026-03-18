@@ -8,9 +8,9 @@ use crate::{
 
 /// Fetch paginated reviews for a product, enriched with user info.
 pub async fn find_by_product(
-    pool:       &PgPool,
+    pool: &PgPool,
     product_id: Uuid,
-    query:      &ReviewQuery,
+    query: &ReviewQuery,
 ) -> Result<(Vec<ReviewPublic>, i64), AppError> {
     let offset = (query.page - 1) * query.limit;
 
@@ -43,8 +43,8 @@ pub async fn find_by_product(
 
 /// Check whether user has purchased and received the product.
 pub async fn has_purchased(
-    pool:       &PgPool,
-    user_id:    Uuid,
+    pool: &PgPool,
+    user_id: Uuid,
     product_id: Uuid,
 ) -> Result<bool, AppError> {
     let count: i64 = sqlx::query_scalar(
@@ -66,8 +66,8 @@ pub async fn has_purchased(
 
 /// Check whether user already reviewed this product.
 pub async fn find_by_user_product(
-    pool:       &PgPool,
-    user_id:    Uuid,
+    pool: &PgPool,
+    user_id: Uuid,
     product_id: Uuid,
 ) -> Result<Option<ReviewPublic>, AppError> {
     let row = sqlx::query_as::<_, ReviewPublic>(
@@ -89,13 +89,15 @@ pub async fn find_by_user_product(
 
 /// Upsert a review (INSERT or UPDATE if already reviewed).
 pub async fn upsert(
-    pool:       &PgPool,
-    user_id:    Uuid,
+    pool: &PgPool,
+    user_id: Uuid,
     product_id: Uuid,
-    input:      &CreateReviewInput,
+    input: &CreateReviewInput,
 ) -> Result<ReviewPublic, AppError> {
     if input.rating < 1 || input.rating > 5 {
-        return Err(AppError::BadRequest("Rating must be between 1 and 5".into()));
+        return Err(AppError::BadRequest(
+            "Rating must be between 1 and 5".into(),
+        ));
     }
 
     let review_id: Uuid = sqlx::query_scalar(
@@ -132,9 +134,9 @@ pub async fn upsert(
 
 /// Admin: list all reviews across all products, newest first.
 pub async fn find_all_admin(
-    pool:   &PgPool,
-    page:   i64,
-    limit:  i64,
+    pool: &PgPool,
+    page: i64,
+    limit: i64,
 ) -> Result<(Vec<ReviewPublic>, i64), AppError> {
     let offset = (page - 1) * limit;
 

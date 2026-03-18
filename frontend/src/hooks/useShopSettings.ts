@@ -14,20 +14,32 @@ const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 export function useShopSettings(): {
   settings: Record<string, string>;
   isLoading: boolean;
+  refreshSettings: () => Promise<void>;
 } {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
 
+  const refreshSettings = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/settings`, { cache: "no-store" });
+      if (!res.ok) {
+        setSettings({});
+        return;
+      }
+
+      const data = await (res.json() as Promise<Record<string, string>>);
+      setSettings(data ?? {});
+    } catch {
+      setSettings({});
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetch(`${API_URL}/api/settings`)
-      .then((r) => {
-        if (!r.ok) return {};
-        return r.json() as Promise<Record<string, string>>;
-      })
-      .then((data) => setSettings(data ?? {}))
-      .catch(() => {})
-      .finally(() => setIsLoading(false));
+    void refreshSettings();
   }, []);
 
-  return { settings, isLoading };
+  return { settings, isLoading, refreshSettings };
 }

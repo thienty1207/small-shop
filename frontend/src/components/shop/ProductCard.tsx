@@ -75,18 +75,28 @@ const ProductCard = ({ product, compact = false }: ProductCardProps) => {
     }
   };
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (outOfStock) return;
     // Build a product snapshot whose .price reflects the displayed price (100ml, not 10ml)
-    const productForCart = { ...product, price, originalPrice };
-    addItem(
+    const productForCart = {
+      ...product,
+      price,
+      originalPrice,
+      stock: bestVariant?.stock ?? product.stock,
+    };
+    const result = await addItem(
       productForCart,
       1,
       bestVariant?.id,
       bestVariant ? `${bestVariant.ml}ml` : undefined,
     );
+    if (!result.ok) {
+      toast.error(result.error ?? "Không thể thêm vào giỏ hàng");
+      return;
+    }
+    toast.success("Đã thêm vào giỏ hàng");
   };
 
   return (

@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
 import type { Product } from "@/data/products";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -14,18 +21,22 @@ export interface CartItem {
   variant?: string;      // legacy free-text (kept for backward compat)
 }
 
+interface CartActionResult {
+  ok: boolean;
+  error?: string;
+}
+
 interface CartContextType {
   items: CartItem[];
-  addItem: (product: Product, quantity?: number, variantId?: string, variantLabel?: string) => void;
+  addItem: (product: Product, quantity?: number, variantId?: string, variantLabel?: string) => Promise<CartActionResult>;
   removeItem: (productId: string, variantId?: string) => void;
-  updateQuantity: (productId: string, quantity: number, variantId?: string) => void;
+  updateQuantity: (productId: string, quantity: number, variantId?: string) => Promise<CartActionResult>;
   clearCart: () => void;
   totalAmount: number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-// Map backend cart item to frontend CartItem shape
 interface BackendCartItem {
   id: string;
   product_id: string;
@@ -36,6 +47,7 @@ interface BackendCartItem {
   product_slug: string;
   price: number;
   original_price: number | null;
+  stock: number;
 }
 
 function backendItemToCartItem(b: BackendCartItem): CartItem {
@@ -46,68 +58,83 @@ function backendItemToCartItem(b: BackendCartItem): CartItem {
       id: b.product_id,
       name: b.product_name,
       slug: b.product_slug,
-      price: b.price,           // now correctly the variant price from backend
+      price: b.price,
       originalPrice: b.original_price ?? undefined,
       image: b.product_image ?? "",
+      stock: b.stock,
+      inStock: b.stock > 0,
     } as Product,
     quantity: b.quantity,
-    variant: variantLabel,       // legacy field
-    variantLabel,                // used for display + dedup key
+    variant: variantLabel,
+    variantLabel,
   };
+}
+
+function getCartLineKey(variantLabel?: string, variantId?: string): string {
+  return variantLabel ?? variantId ?? "";
+}
+
+function getStockLimit(product: Product, variantLabel?: string, variantId?: string): number {
+  const matchedVariant = product.variants?.find((variant) => {
+    const label = `${variant.ml}ml`;
+    return label === variantLabel || variant.id === variantId;
+  });
+
+  return matchedVariant?.stock ?? product.stock ?? 99;
 }
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [items, setItems] = useState<CartItem[]>([]);
 
-  // Fetch cart from backend when user logs in
+  const fetchCart = useCallback(async (token: string) => {
+    const res = await fetch(`${API_BASE}/api/cart`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return;
+
+    const data = await (res.json() as Promise<BackendCartItem[]>);
+    setItems(data.map(backendItemToCartItem));
+  }, []);
+
   useEffect(() => {
-    if (authLoading) return;
-    if (!isAuthenticated) return;
+    if (authLoading || !isAuthenticated) return;
 
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) return;
 
-    fetch(`${API_BASE}/api/cart`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data: BackendCartItem[]) => {
-        setItems(data.map(backendItemToCartItem));
-      })
-      .catch(() => {/* keep local state on error */});
-  }, [isAuthenticated, authLoading]);
+    fetchCart(token).catch(() => {});
+  }, [authLoading, fetchCart, isAuthenticated]);
 
-  // Clear local cart when user logs out
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       setItems([]);
     }
   }, [isAuthenticated, authLoading]);
 
-  const addItem = useCallback((product: Product, quantity = 1, variantId?: string, variantLabel?: string) => {
-    const variantKey = variantLabel ?? variantId ?? "";
-    // Optimistic update — match by variantLabel (persisted) OR variantId (UUID, only in-memory)
-    setItems((prev) => {
-      const existing = prev.find(
-        (item) => item.product.id === product.id &&
-          ((item.variantLabel ?? item.variantId ?? "") === variantKey)
-      );
-      if (existing) {
-        return prev.map((item) =>
-          item.product.id === product.id &&
-          ((item.variantLabel ?? item.variantId ?? "") === variantKey)
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
-        );
-      }
-      return [...prev, { product, quantity, variantId, variantLabel, variant: variantLabel }];
-    });
+  const addItem = useCallback(async (
+    product: Product,
+    quantity = 1,
+    variantId?: string,
+    variantLabel?: string,
+  ): Promise<CartActionResult> => {
+    const variantKey = getCartLineKey(variantLabel, variantId);
+    const existingQuantity = items.find(
+      (item) => item.product.id === product.id &&
+        getCartLineKey(item.variantLabel, item.variantId) === variantKey,
+    )?.quantity ?? 0;
+    const stockLimit = getStockLimit(product, variantLabel, variantId);
 
-    // Sync to backend if authenticated
+    if (existingQuantity + quantity > stockLimit) {
+      return {
+        ok: false,
+        error: `Chỉ còn ${stockLimit} chai cho dung tích ${variantLabel ?? "đã chọn"}.`,
+      };
+    }
+
     const token = localStorage.getItem(TOKEN_KEY);
     if (isAuthenticated && token) {
-      fetch(`${API_BASE}/api/cart/items`, {
+      const res = await fetch(`${API_BASE}/api/cart/items`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -118,32 +145,48 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
           quantity,
           variant: variantLabel ?? null,
         }),
-      })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((updated) => {
-          if (updated) {
-            return fetch(`${API_BASE}/api/cart`, {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-              .then((r) => (r.ok ? r.json() : null))
-              .then((data: BackendCartItem[] | null) => {
-                if (data) setItems(data.map(backendItemToCartItem));
-              });
-          }
-        })
-        .catch(() => {/* keep optimistic state */});
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Không thể thêm vào giỏ hàng" }));
+        return {
+          ok: false,
+          error: (err as { error?: string }).error ?? "Không thể thêm vào giỏ hàng",
+        };
+      }
+
+      await fetchCart(token);
+      return { ok: true };
     }
-  }, [isAuthenticated]);
+
+    setItems((prev) => {
+      const existing = prev.find(
+        (item) => item.product.id === product.id &&
+          getCartLineKey(item.variantLabel, item.variantId) === variantKey,
+      );
+      if (existing) {
+        return prev.map((item) =>
+          item.product.id === product.id &&
+          getCartLineKey(item.variantLabel, item.variantId) === variantKey
+            ? { ...item, quantity: item.quantity + quantity }
+            : item,
+        );
+      }
+      return [...prev, { product, quantity, variantId, variantLabel, variant: variantLabel }];
+    });
+
+    return { ok: true };
+  }, [fetchCart, isAuthenticated, items]);
 
   const removeItem = useCallback((productId: string, variantKey?: string) => {
     const itemToRemove = items.find(
       (item) => item.product.id === productId &&
-        ((item.variantLabel ?? item.variantId ?? "") === (variantKey ?? ""))
+        getCartLineKey(item.variantLabel, item.variantId) === (variantKey ?? ""),
     );
 
     setItems((prev) => prev.filter(
       (item) => !(item.product.id === productId &&
-        ((item.variantLabel ?? item.variantId ?? "") === (variantKey ?? "")))
+        getCartLineKey(item.variantLabel, item.variantId) === (variantKey ?? "")),
     ));
 
     const token = localStorage.getItem(TOKEN_KEY);
@@ -151,24 +194,70 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       fetch(`${API_BASE}/api/cart/items/${itemToRemove.id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {/* ignore errors */});
+      }).catch(() => {});
     }
   }, [isAuthenticated, items]);
 
-  const updateQuantity = useCallback((productId: string, quantity: number, variantKey?: string) => {
+  const updateQuantity = useCallback(async (
+    productId: string,
+    quantity: number,
+    variantKey?: string,
+  ): Promise<CartActionResult> => {
     if (quantity <= 0) {
       removeItem(productId, variantKey);
-      return;
+      return { ok: true };
     }
+
+    const existingItem = items.find(
+      (item) => item.product.id === productId &&
+        getCartLineKey(item.variantLabel, item.variantId) === (variantKey ?? ""),
+    );
+
+    if (!existingItem) {
+      return { ok: false, error: "Không tìm thấy sản phẩm trong giỏ." };
+    }
+
+    const stockLimit = getStockLimit(existingItem.product, existingItem.variantLabel, existingItem.variantId);
+    if (quantity > stockLimit) {
+      return {
+        ok: false,
+        error: `Chỉ còn ${stockLimit} chai cho ${existingItem.variantLabel ?? "sản phẩm này"}.`,
+      };
+    }
+
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (isAuthenticated && token && existingItem.id) {
+      const res = await fetch(`${API_BASE}/api/cart/items/${existingItem.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ quantity }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Không thể cập nhật giỏ hàng" }));
+        return {
+          ok: false,
+          error: (err as { error?: string }).error ?? "Không thể cập nhật giỏ hàng",
+        };
+      }
+
+      await fetchCart(token);
+      return { ok: true };
+    }
+
     setItems((prev) =>
       prev.map((item) =>
         item.product.id === productId &&
-        ((item.variantLabel ?? item.variantId ?? "") === (variantKey ?? ""))
+        getCartLineKey(item.variantLabel, item.variantId) === (variantKey ?? "")
           ? { ...item, quantity }
-          : item
-      )
+          : item,
+      ),
     );
-  }, [removeItem]);
+    return { ok: true };
+  }, [fetchCart, isAuthenticated, items, removeItem]);
 
   const clearCart = useCallback(() => {
     setItems([]);
@@ -178,13 +267,13 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       fetch(`${API_BASE}/api/cart`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {/* ignore errors */});
+      }).catch(() => {});
     }
   }, [isAuthenticated]);
 
   const totalAmount = items.reduce(
     (sum, item) => sum + item.product.price * item.quantity,
-    0
+    0,
   );
 
   return (
@@ -199,4 +288,3 @@ export const useCart = () => {
   if (!context) throw new Error("useCart must be used within CartProvider");
   return context;
 };
-

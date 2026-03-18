@@ -1,17 +1,13 @@
+use axum::body::Body;
 use axum::{
     extract::{Query, State},
     http::header,
     response::Response,
     Extension,
 };
-use axum::body::Body;
 use std::collections::HashMap;
 
-use crate::{
-    error::AppError,
-    models::admin::AdminPublic,
-    state::AppState,
-};
+use crate::{error::AppError, models::admin::AdminPublic, state::AppState};
 
 fn csv_response(filename: &str, body: String) -> Response<Body> {
     Response::builder()
@@ -44,7 +40,10 @@ fn as_text_cell(value: &str) -> String {
 
 fn excel_response(filename: &str, body: String) -> Response<Body> {
     Response::builder()
-        .header(header::CONTENT_TYPE, "application/vnd.ms-excel; charset=utf-8")
+        .header(
+            header::CONTENT_TYPE,
+            "application/vnd.ms-excel; charset=utf-8",
+        )
         .header(
             header::CONTENT_DISPOSITION,
             format!("attachment; filename=\"{}\"", filename),
@@ -59,10 +58,13 @@ pub async fn export_orders(
     Extension(_admin): Extension<AdminPublic>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Response<Body>, AppError> {
-    let format = params.get("format").map(|s| s.to_lowercase()).unwrap_or_else(|| "csv".into());
+    let format = params
+        .get("format")
+        .map(|s| s.to_lowercase())
+        .unwrap_or_else(|| "csv".into());
     let status_filter = params.get("status").cloned();
-    let from_filter   = params.get("from").cloned();
-    let to_filter     = params.get("to").cloned();
+    let from_filter = params.get("from").cloned();
+    let to_filter = params.get("to").cloned();
 
     let rows = sqlx::query!(
         r#"
@@ -76,8 +78,12 @@ pub async fn export_orders(
         ORDER BY o.created_at DESC
         "#,
         status_filter.as_deref(),
-        from_filter.as_deref().and_then(|s| s.parse::<chrono::DateTime<chrono::Utc>>().ok()),
-        to_filter.as_deref().and_then(|s| s.parse::<chrono::DateTime<chrono::Utc>>().ok()),
+        from_filter
+            .as_deref()
+            .and_then(|s| s.parse::<chrono::DateTime<chrono::Utc>>().ok()),
+        to_filter
+            .as_deref()
+            .and_then(|s| s.parse::<chrono::DateTime<chrono::Utc>>().ok()),
     )
     .fetch_all(&state.db)
     .await?;
@@ -136,7 +142,10 @@ pub async fn export_products(
     Extension(_admin): Extension<AdminPublic>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Response<Body>, AppError> {
-    let format = params.get("format").map(|s| s.to_lowercase()).unwrap_or_else(|| "csv".into());
+    let format = params
+        .get("format")
+        .map(|s| s.to_lowercase())
+        .unwrap_or_else(|| "csv".into());
     let from_filter = params.get("from").cloned();
     let to_filter = params.get("to").cloned();
 
@@ -151,8 +160,12 @@ pub async fn export_products(
           AND ($2::TIMESTAMPTZ IS NULL OR p.created_at <= $2::TIMESTAMPTZ)
         ORDER BY p.created_at DESC
         "#,
-        from_filter.as_deref().and_then(|s| s.parse::<chrono::DateTime<chrono::Utc>>().ok()),
-        to_filter.as_deref().and_then(|s| s.parse::<chrono::DateTime<chrono::Utc>>().ok()),
+        from_filter
+            .as_deref()
+            .and_then(|s| s.parse::<chrono::DateTime<chrono::Utc>>().ok()),
+        to_filter
+            .as_deref()
+            .and_then(|s| s.parse::<chrono::DateTime<chrono::Utc>>().ok()),
     )
     .fetch_all(&state.db)
     .await?;

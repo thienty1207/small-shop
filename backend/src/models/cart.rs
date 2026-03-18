@@ -24,6 +24,7 @@ pub struct CartItemWithProduct {
     pub product_slug: String,
     pub price: i64,
     pub original_price: Option<i64>,
+    pub stock: i32,
     pub quantity: i32,
     pub variant: String,
 }

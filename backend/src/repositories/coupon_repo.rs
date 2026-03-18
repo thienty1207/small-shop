@@ -3,13 +3,15 @@ use uuid::Uuid;
 
 use crate::{
     error::AppError,
-    models::coupon::{Coupon, CreateCouponInput, CouponValidated, UpdateCouponInput, ValidateCouponInput},
+    models::coupon::{
+        Coupon, CouponValidated, CreateCouponInput, UpdateCouponInput, ValidateCouponInput,
+    },
 };
 
 /// Validate a coupon code against an order total.
 /// Returns the validated coupon with computed discount amount.
 pub async fn validate(
-    pool:  &PgPool,
+    pool: &PgPool,
     input: &ValidateCouponInput,
 ) -> Result<CouponValidated, AppError> {
     let coupon = sqlx::query_as::<_, Coupon>(
@@ -52,9 +54,9 @@ pub async fn validate(
     };
 
     Ok(CouponValidated {
-        code:        coupon.code,
+        code: coupon.code,
         coupon_type: coupon.coupon_type,
-        value:       coupon.value,
+        value: coupon.value,
         discount_amt,
     })
 }
@@ -85,7 +87,9 @@ pub async fn create(pool: &PgPool, input: &CreateCouponInput) -> Result<Coupon, 
     }
     let valid_types = ["percent", "fixed"];
     if !valid_types.contains(&input.coupon_type.as_str()) {
-        return Err(AppError::BadRequest("type must be 'percent' or 'fixed'".into()));
+        return Err(AppError::BadRequest(
+            "type must be 'percent' or 'fixed'".into(),
+        ));
     }
 
     let row = sqlx::query_as::<_, Coupon>(
@@ -108,7 +112,11 @@ pub async fn create(pool: &PgPool, input: &CreateCouponInput) -> Result<Coupon, 
 }
 
 /// Admin: update a coupon.
-pub async fn update(pool: &PgPool, id: Uuid, input: &UpdateCouponInput) -> Result<Coupon, AppError> {
+pub async fn update(
+    pool: &PgPool,
+    id: Uuid,
+    input: &UpdateCouponInput,
+) -> Result<Coupon, AppError> {
     let row = sqlx::query_as::<_, Coupon>(
         r#"
         UPDATE coupons SET

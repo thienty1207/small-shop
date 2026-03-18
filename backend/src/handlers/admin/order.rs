@@ -75,10 +75,10 @@ pub async fn update_order_status(
     // Send status-update email in a background task — do NOT block the HTTP response.
     // Clone only what the async task needs (all are cheap Arc/String clones).
     if let Some(mailer) = state.mailer.clone() {
-        let config  = state.config.clone();
+        let config = state.config.clone();
         let order_c = order.clone();
-        let status  = input.status.clone();
-        let note    = input.note.clone();
+        let status = input.status.clone();
+        let note = input.note.clone();
         tokio::spawn(async move {
             if let Err(e) = email_service::send_order_status_update(
                 &config,

@@ -52,7 +52,9 @@ pub async fn create_staff(
     }
 
     if input.password.len() < 6 {
-        return Err(AppError::BadRequest("Mật khẩu phải có ít nhất 6 ký tự".into()));
+        return Err(AppError::BadRequest(
+            "Mật khẩu phải có ít nhất 6 ký tự".into(),
+        ));
     }
 
     let hash = admin_auth_service::hash_password(&input.password)?;
@@ -84,7 +86,9 @@ pub async fn update_staff(
     let password_hash = match &input.password {
         Some(p) if !p.is_empty() => {
             if p.len() < 6 {
-                return Err(AppError::BadRequest("Mật khẩu phải có ít nhất 6 ký tự".into()));
+                return Err(AppError::BadRequest(
+                    "Mật khẩu phải có ít nhất 6 ký tự".into(),
+                ));
             }
             Some(admin_auth_service::hash_password(p)?)
         }
@@ -114,7 +118,9 @@ pub async fn delete_staff(
 
     // Prevent self-deletion
     if id == admin.id {
-        return Err(AppError::BadRequest("Không thể tự xoá tài khoản của mình".into()));
+        return Err(AppError::BadRequest(
+            "Không thể tự xoá tài khoản của mình".into(),
+        ));
     }
 
     admin_repo::delete_staff(&state.db, id).await?;

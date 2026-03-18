@@ -5,9 +5,9 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     models::product::{
-        AdminProduct, AdminProductQuery, Category, CategoryInput, CreateProductInput,
-        InventoryRow, PaginatedResponse, Product, ProductPublic, ProductQuery,
-        ProductVariant, UpdateProductInput, UpdateStockInput, VariantInput,
+        AdminProduct, AdminProductQuery, Category, CategoryInput, CreateProductInput, InventoryRow,
+        PaginatedResponse, Product, ProductPublic, ProductQuery, ProductVariant,
+        UpdateProductInput, UpdateStockInput, VariantInput,
     },
 };
 
@@ -21,10 +21,10 @@ pub async fn find_all(
     let offset = (query.page - 1) * query.limit;
 
     let order_by = match query.sort.as_deref() {
-        Some("price_asc")    => "p.price ASC,  p.created_at DESC",
-        Some("price_desc")   => "p.price DESC, p.created_at DESC",
+        Some("price_asc") => "p.price ASC,  p.created_at DESC",
+        Some("price_desc") => "p.price DESC, p.created_at DESC",
         Some("best_selling") => "COALESCE(sales.total_sold, 0) DESC, p.created_at DESC",
-        _                    => "p.created_at DESC",
+        _ => "p.created_at DESC",
     };
 
     let sql = format!(
@@ -109,7 +109,13 @@ pub async fn find_all(
         .collect();
 
     let total_pages = (total + query.limit - 1) / query.limit;
-    Ok(PaginatedResponse { items: public, total, page: query.page, limit: query.limit, total_pages })
+    Ok(PaginatedResponse {
+        items: public,
+        total,
+        page: query.page,
+        limit: query.limit,
+        total_pages,
+    })
 }
 
 /// Fetch a single product by its slug.
@@ -228,7 +234,11 @@ fn slugify(s: &str) -> String {
         .join("-")
 }
 
-async fn sync_product_images(pool: &PgPool, product_id: Uuid, images: &[String]) -> Result<(), AppError> {
+async fn sync_product_images(
+    pool: &PgPool,
+    product_id: Uuid,
+    images: &[String],
+) -> Result<(), AppError> {
     sqlx::query("DELETE FROM product_images WHERE product_id = $1")
         .bind(product_id)
         .execute(pool)
@@ -273,13 +283,11 @@ pub async fn upsert_variants(
 
     // Collect the ml sizes being submitted — delete any that are not in the list.
     let submitted_mls: Vec<i32> = variants_owned.iter().map(|v| v.ml).collect();
-    sqlx::query(
-        "DELETE FROM product_variants WHERE product_id = $1 AND ml != ALL($2)",
-    )
-    .bind(product_id)
-    .bind(&submitted_mls)
-    .execute(pool)
-    .await?;
+    sqlx::query("DELETE FROM product_variants WHERE product_id = $1 AND ml != ALL($2)")
+        .bind(product_id)
+        .bind(&submitted_mls)
+        .execute(pool)
+        .await?;
 
     // Reset all existing defaults first to avoid partial unique index conflict
     sqlx::query("UPDATE product_variants SET is_default = FALSE WHERE product_id = $1")
@@ -333,16 +341,16 @@ pub async fn update_variant_stock(
     variant_id: Uuid,
     input: &UpdateStockInput,
 ) -> Result<ProductVariant, AppError> {
-    let rows = sqlx::query(
-        "UPDATE product_variants SET stock = $2 WHERE id = $1",
-    )
-    .bind(variant_id)
-    .bind(input.stock)
-    .execute(pool)
-    .await?;
+    let rows = sqlx::query("UPDATE product_variants SET stock = $2 WHERE id = $1")
+        .bind(variant_id)
+        .bind(input.stock)
+        .execute(pool)
+        .await?;
 
     if rows.rows_affected() == 0 {
-        return Err(AppError::NotFound(format!("Variant {variant_id} not found")));
+        return Err(AppError::NotFound(format!(
+            "Variant {variant_id} not found"
+        )));
     }
 
     // Re-sync products.stock / in_stock
@@ -367,14 +375,14 @@ pub async fn update_variant_stock(
 pub async fn get_inventory_list(pool: &PgPool) -> Result<Vec<InventoryRow>, AppError> {
     #[derive(sqlx::FromRow)]
     struct Row {
-        variant_id:     Uuid,
-        product_id:     Uuid,
-        product_name:   String,
-        brand:          Option<String>,
-        ml:             i32,
-        price:          i64,
+        variant_id: Uuid,
+        product_id: Uuid,
+        product_name: String,
+        brand: Option<String>,
+        ml: i32,
+        price: i64,
         original_price: Option<i64>,
-        stock:          i32,
+        stock: i32,
     }
 
     let rows = sqlx::query_as::<_, Row>(
@@ -479,7 +487,13 @@ pub async fn find_all_admin(
     .await?;
 
     let total_pages = (total + query.limit - 1) / query.limit;
-    Ok(PaginatedResponse { items, total, page: query.page, limit: query.limit, total_pages })
+    Ok(PaginatedResponse {
+        items,
+        total,
+        page: query.page,
+        limit: query.limit,
+        total_pages,
+    })
 }
 
 /// Create a new product (and optional variants) and return the full AdminProduct.
@@ -493,12 +507,17 @@ pub async fn create_product(
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| slugify(&input.name));
     let in_stock = input.in_stock.unwrap_or(true);
-    let stock    = input.stock.unwrap_or(0);
-    let images   = input.images.clone().unwrap_or_default();
+    let stock = input.stock.unwrap_or(0);
+    let images = input.images.clone().unwrap_or_default();
 
     // If variants provided, derive price from the cheapest variant.
     let price = if !input.variants.is_empty() {
-        input.variants.iter().map(|v| v.price).min().unwrap_or(input.price.unwrap_or(0))
+        input
+            .variants
+            .iter()
+            .map(|v| v.price)
+            .min()
+            .unwrap_or(input.price.unwrap_or(0))
     } else {
         input.price.unwrap_or(0)
     };
@@ -552,7 +571,12 @@ pub async fn update_product(
 ) -> Result<AdminProduct, AppError> {
     // Derive price if variants are being submitted
     let price = if !input.variants.is_empty() {
-        input.variants.iter().map(|v| v.price).min().unwrap_or(input.price)
+        input
+            .variants
+            .iter()
+            .map(|v| v.price)
+            .min()
+            .unwrap_or(input.price)
     } else {
         input.price
     };
@@ -694,15 +718,14 @@ pub async fn update_category(
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| slugify(&input.name));
 
-    let rows = sqlx::query(
-        "UPDATE categories SET name = $2, slug = $3, image_url = $4 WHERE id = $1",
-    )
-    .bind(id)
-    .bind(&input.name)
-    .bind(&slug)
-    .bind(input.image_url.as_deref())
-    .execute(pool)
-    .await?;
+    let rows =
+        sqlx::query("UPDATE categories SET name = $2, slug = $3, image_url = $4 WHERE id = $1")
+            .bind(id)
+            .bind(&input.name)
+            .bind(&slug)
+            .bind(input.image_url.as_deref())
+            .execute(pool)
+            .await?;
 
     if rows.rows_affected() == 0 {
         return Err(AppError::NotFound(format!("Category {id} not found")));
@@ -730,7 +753,7 @@ pub async fn find_related(
     // First fetch the product so we know its id, category_id, brand
     let product = match find_by_slug(pool, slug).await? {
         Some(p) => p,
-        None    => return Ok(vec![]),
+        None => return Ok(vec![]),
     };
 
     let sql = r#"
@@ -779,28 +802,30 @@ pub async fn find_related(
     .fetch_all(pool)
     .await?;
 
-    let mut variants_map: std::collections::HashMap<Uuid, Vec<ProductVariant>> = std::collections::HashMap::new();
+    let mut variants_map: std::collections::HashMap<Uuid, Vec<ProductVariant>> =
+        std::collections::HashMap::new();
     for v in all_variants {
         variants_map.entry(v.product_id).or_default().push(v);
     }
 
-    let result = items.into_iter().map(|p| {
-        let id = p.id;
-        let mut pub_prod = ProductPublic::from(p);
-        pub_prod.variants = variants_map.remove(&id).unwrap_or_default();
-        pub_prod
-    }).collect();
+    let result = items
+        .into_iter()
+        .map(|p| {
+            let id = p.id;
+            let mut pub_prod = ProductPublic::from(p);
+            pub_prod.variants = variants_map.remove(&id).unwrap_or_default();
+            pub_prod
+        })
+        .collect();
 
     Ok(result)
 }
 
 pub async fn delete_category(pool: &PgPool, id: Uuid) -> Result<(), AppError> {
-    let count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM products WHERE category_id = $1",
-    )
-    .bind(id)
-    .fetch_one(pool)
-    .await?;
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM products WHERE category_id = $1")
+        .bind(id)
+        .fetch_one(pool)
+        .await?;
 
     if count > 0 {
         return Err(AppError::BadRequest(format!(

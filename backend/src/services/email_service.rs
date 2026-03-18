@@ -44,10 +44,7 @@ pub async fn verify_turnstile(secret_key: &str, token: &str) -> Result<bool, App
 // ─── SMTP transport ───────────────────────────────────────────────────────────
 
 pub fn build_mailer(config: &Config) -> Result<AsyncSmtpTransport<Tokio1Executor>, AppError> {
-    let creds = Credentials::new(
-        config.smtp_username.clone(),
-        config.smtp_password.clone(),
-    );
+    let creds = Credentials::new(config.smtp_username.clone(), config.smtp_password.clone());
 
     // Use STARTTLS (port 587) for Gmail. For port 465 use ::relay instead.
     let mailer = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&config.smtp_host)
@@ -73,9 +70,12 @@ pub async fn send_admin_notification(
     let phone_display = phone.unwrap_or("Not provided");
     let html = admin_notification_html(name, sender_email, phone_display, message);
 
-    let from: Mailbox = format!("{} <{}>", config.contact_from_name, config.contact_from_email)
-        .parse()
-        .map_err(|e| AppError::Email(format!("Invalid from address: {e}")))?;
+    let from: Mailbox = format!(
+        "{} <{}>",
+        config.contact_from_name, config.contact_from_email
+    )
+    .parse()
+    .map_err(|e| AppError::Email(format!("Invalid from address: {e}")))?;
 
     let to: Mailbox = config
         .contact_admin_email
@@ -120,9 +120,12 @@ pub async fn send_auto_reply(
 ) -> Result<(), AppError> {
     let html = auto_reply_html(recipient_name);
 
-    let from: Mailbox = format!("{} <{}>", config.contact_from_name, config.contact_from_email)
-        .parse()
-        .map_err(|e| AppError::Email(format!("Invalid from address: {e}")))?;
+    let from: Mailbox = format!(
+        "{} <{}>",
+        config.contact_from_name, config.contact_from_email
+    )
+    .parse()
+    .map_err(|e| AppError::Email(format!("Invalid from address: {e}")))?;
 
     let to: Mailbox = format!("{recipient_name} <{recipient_email}>")
         .parse()
@@ -161,9 +164,12 @@ pub async fn send_order_confirmation(
 ) -> Result<(), AppError> {
     let html = order_confirmation_html(order, items);
 
-    let from: Mailbox = format!("{} <{}>", config.contact_from_name, config.contact_from_email)
-        .parse()
-        .map_err(|e| AppError::Email(format!("Invalid from address: {e}")))?;
+    let from: Mailbox = format!(
+        "{} <{}>",
+        config.contact_from_name, config.contact_from_email
+    )
+    .parse()
+    .map_err(|e| AppError::Email(format!("Invalid from address: {e}")))?;
 
     let to: Mailbox = format!("{} <{}>", order.customer_name, order.customer_email)
         .parse()
@@ -522,25 +528,30 @@ pub async fn send_order_status_update(
         .map_err(|_| AppError::BadRequest("Invalid customer email".into()))?;
 
     let (subject_label, emoji) = match new_status {
-        "confirmed"  => ("Đã được xác nhận", "✅"),
-        "shipping"   => ("Đang được giao đến bạn", "🚚"),
-        "delivered"  => ("Đã giao hàng thành công", "🎉"),
-        "cancelled"  => ("Đã bị huỷ", "❌"),
-        _            => ("Đã được cập nhật", "📦"),
+        "confirmed" => ("Đã được xác nhận", "✅"),
+        "shipping" => ("Đang được giao đến bạn", "🚚"),
+        "delivered" => ("Đã giao hàng thành công", "🎉"),
+        "cancelled" => ("Đã bị huỷ", "❌"),
+        _ => ("Đã được cập nhật", "📦"),
     };
 
-    let subject = format!("[{}] Đơn hàng {} {}", emoji, order.order_code, subject_label);
-    let html    = order_status_update_html(order, new_status, subject_label, note);
+    let subject = format!(
+        "[{}] Đơn hàng {} {}",
+        emoji, order.order_code, subject_label
+    );
+    let html = order_status_update_html(order, new_status, subject_label, note);
 
     let email = Message::builder()
         .from(from)
         .to(to)
         .subject(&subject)
-        .multipart(MultiPart::alternative().singlepart(
-            SinglePart::builder()
-                .header(ContentType::TEXT_HTML)
-                .body(html),
-        ))
+        .multipart(
+            MultiPart::alternative().singlepart(
+                SinglePart::builder()
+                    .header(ContentType::TEXT_HTML)
+                    .body(html),
+            ),
+        )
         .map_err(|e| AppError::Internal(format!("Build email error: {e}")))?;
 
     mailer
@@ -559,10 +570,10 @@ fn order_status_update_html(
 ) -> String {
     let (accent_color, bg_color, status_emoji) = match status {
         "confirmed" => ("#10b981", "#f0fdf4", "✅"),
-        "shipping"  => ("#3b82f6", "#eff6ff", "🚚"),
+        "shipping" => ("#3b82f6", "#eff6ff", "🚚"),
         "delivered" => ("#e8688a", "#fdf6f8", "🎉"),
         "cancelled" => ("#ef4444", "#fef2f2", "❌"),
-        _           => ("#6b7280", "#f9fafb", "📦"),
+        _ => ("#6b7280", "#f9fafb", "📦"),
     };
 
     let note_block = if let Some(n) = note {
@@ -576,8 +587,12 @@ fn order_status_update_html(
                   </td>
                 </tr>"#
             )
-        } else { String::new() }
-    } else { String::new() };
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
 
     format!(
         r#"<!DOCTYPE html>
@@ -669,18 +684,17 @@ fn order_status_update_html(
   </table>
 </body>
 </html>"#,
-        status_emoji   = status_emoji,
-        bg_color       = bg_color,
-        accent_color   = accent_color,
-        label          = label,
-        order_code     = order.order_code,
-        customer_name  = order.customer_name,
-        address        = order.address,
-        total          = format_vnd(order.total),
-        note_block     = note_block,
+        status_emoji = status_emoji,
+        bg_color = bg_color,
+        accent_color = accent_color,
+        label = label,
+        order_code = order.order_code,
+        customer_name = order.customer_name,
+        address = order.address,
+        total = format_vnd(order.total),
+        note_block = note_block,
     )
 }
-
 
 fn auto_reply_html(name: &str) -> String {
     format!(

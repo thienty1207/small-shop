@@ -17,7 +17,10 @@ pub async fn get_all(pool: &PgPool) -> Result<HashMap<String, String>, AppError>
 }
 
 /// Fetch only the specified keys from settings. More efficient than get_all() for public API.
-pub async fn get_by_keys(pool: &PgPool, keys: &[&str]) -> Result<HashMap<String, String>, AppError> {
+pub async fn get_by_keys(
+    pool: &PgPool,
+    keys: &[&str],
+) -> Result<HashMap<String, String>, AppError> {
     let rows = sqlx::query_as::<_, ShopSetting>(
         "SELECT key, value, updated_at FROM shop_settings WHERE key = ANY($1)",
     )
@@ -37,10 +40,8 @@ pub async fn upsert_bulk(
         return Ok(());
     }
 
-    let (keys, values): (Vec<String>, Vec<String>) = settings
-        .iter()
-        .map(|(k, v)| (k.clone(), v.clone()))
-        .unzip();
+    let (keys, values): (Vec<String>, Vec<String>) =
+        settings.iter().map(|(k, v)| (k.clone(), v.clone())).unzip();
 
     sqlx::query(
         r#"

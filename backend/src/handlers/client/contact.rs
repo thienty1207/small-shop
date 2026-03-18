@@ -3,11 +3,8 @@ use serde_json::json;
 use validator::Validate;
 
 use crate::{
-    error::AppError,
-    models::contact::ContactRequest,
-    repositories::contact_repo,
-    services::email_service,
-    state::AppState,
+    error::AppError, models::contact::ContactRequest, repositories::contact_repo,
+    services::email_service, state::AppState,
 };
 
 /// POST /api/contact

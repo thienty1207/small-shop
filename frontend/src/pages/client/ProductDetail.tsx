@@ -66,7 +66,7 @@ const ProductDetail = () => {
   const related = relatedFromApi.length > 0
     ? relatedFromApi
     : fallbackProducts.filter((p) => p.id !== product?.id).slice(0, 4);
-  const { addItem } = useCart();
+  const { addItem, items } = useCart();
   const { user, isAuthenticated } = useAuth();
   const { isWishlisted, toggleWishlist } = useWishlist();
   const navigate = useNavigate();
@@ -136,8 +136,22 @@ const ProductDetail = () => {
   const activePrice    = selectedVariant?.price    ?? product?.price    ?? 0;
   const activeOriginal = selectedVariant?.originalPrice ?? product?.originalPrice;
   const activeStock    = selectedVariant?.stock    ?? product?.stock    ?? 0;
+  const selectedVariantLabel = selectedVariant ? `${selectedVariant.ml}ml` : undefined;
+  const quantityAlreadyInCart = items.find((item) =>
+    item.product.id === product.id &&
+    (item.variantLabel ?? item.variant ?? "") === (selectedVariantLabel ?? ""),
+  )?.quantity ?? 0;
+  const availableToAdd = Math.max(0, activeStock - quantityAlreadyInCart);
   const activeOutOfStock = activeStock === 0;
   const activeLowStock   = !activeOutOfStock && activeStock < 5;
+
+  useEffect(() => {
+    if (availableToAdd <= 0) {
+      setQuantity(1);
+      return;
+    }
+    setQuantity((prev) => Math.min(prev, availableToAdd));
+  }, [availableToAdd, selectedVariant?.id]);
 
   // ── Loading / error states ─────────────────────────────────────────────────
   if (isLoading) {
@@ -180,20 +194,35 @@ const ProductDetail = () => {
     ? Math.round((1 - activePrice / activeOriginal) * 100)
     : null;
 
-  const handleAddToCart = () => {
-    if (activeOutOfStock) return;
-    const variantLabel = selectedVariant ? `${selectedVariant.ml}ml` : undefined;
-    addItem(
-      { ...product, price: activePrice, originalPrice: activeOriginal },
+  const handleAddToCart = async () => {
+    if (activeOutOfStock || availableToAdd <= 0) return false;
+    const result = await addItem(
+      {
+        ...product,
+        price: activePrice,
+        originalPrice: activeOriginal,
+        stock: activeStock,
+      },
       quantity,
       selectedVariant?.id,
-      variantLabel,
+      selectedVariantLabel,
     );
+    if (!result.ok) {
+      toast.error(result.error ?? "Khong the them vao gio hang");
+      return false;
+    }
     toast.success(
       selectedVariant
         ? `Đã thêm ${product.name} (${selectedVariant.ml}ml) vào giỏ hàng!`
         : "Đã thêm vào giỏ hàng!",
     );
+    return true;
+  };
+
+  const handleBuyNow = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    const added = await handleAddToCart();
+    if (added) navigate("/cart");
   };
 
   const handleToggleWishlist = async () => {
@@ -359,6 +388,11 @@ const ProductDetail = () => {
                     <span className="font-bold">{selectedVariant.ml}ml</span>
                   )}
                 </p>
+                {selectedVariant && (
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Con {selectedVariant.stock} chai cho dung tich nay. Hien da co {quantityAlreadyInCart} chai trong gio, con them toi da {availableToAdd} chai.
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2">
                   {variants.map((v) => {
                     const isSelected = selectedVariant?.id === v.id;
@@ -385,6 +419,9 @@ const ProductDetail = () => {
                         <div className="text-sm font-bold">{v.ml}ml</div>
                         <div className="text-xs mt-0.5 opacity-80">{formatPrice(v.price)}</div>
                         <div className="text-[10px] opacity-50 mt-0.5">{pricePer10ml(v.price, v.ml)} / 10ml</div>
+                        {!outOfStock && (
+                          <div className="text-[10px] mt-0.5 opacity-70">Con {v.stock} chai</div>
+                        )}
                         {outOfStock && (
                           <div className="text-[10px] text-red-400 mt-0.5">Hết hàng</div>
                         )}
@@ -403,10 +440,15 @@ const ProductDetail = () => {
                 </div>
               ) : (
                 <>
-                  <QuantityStepper value={quantity} onChange={setQuantity} />
+                  <QuantityStepper
+                    value={quantity}
+                    max={Math.max(1, availableToAdd)}
+                    onChange={(value) => setQuantity(Math.min(value, Math.max(1, availableToAdd)))}
+                  />
                   <button
-                    onClick={handleAddToCart}
-                    className="flex-1 flex items-center justify-center gap-2 py-4 bg-foreground text-background text-sm font-semibold hover:bg-foreground/85 transition-colors tracking-wide"
+                    onClick={() => { void handleAddToCart(); }}
+                    disabled={availableToAdd <= 0}
+                    className="flex-1 flex items-center justify-center gap-2 py-4 bg-foreground text-background text-sm font-semibold hover:bg-foreground/85 transition-colors tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <ShoppingBag size={16} />
                     Thêm vào giỏ
@@ -417,8 +459,12 @@ const ProductDetail = () => {
             {!activeOutOfStock && (
               <Link
                 to="/cart"
-                onClick={handleAddToCart}
-                className="block mt-2 w-full py-4 border border-foreground text-foreground text-sm font-semibold text-center hover:bg-foreground hover:text-background transition-colors tracking-wide"
+                onClick={handleBuyNow}
+                className={`block mt-2 w-full py-4 border border-foreground text-foreground text-sm font-semibold text-center transition-colors tracking-wide ${
+                  availableToAdd <= 0
+                    ? "pointer-events-none cursor-not-allowed opacity-50"
+                    : "hover:bg-foreground hover:text-background"
+                }`}
               >
                 Mua ngay
               </Link>
@@ -615,3 +661,4 @@ const ProductDetail = () => {
 };
 
 export default ProductDetail;
+

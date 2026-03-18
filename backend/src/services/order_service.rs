@@ -13,7 +13,9 @@ pub fn validate_and_calculate(
     input: &CreateOrderInput,
 ) -> Result<(Vec<OrderItemInput>, i64, i64, i64), AppError> {
     if input.items.is_empty() {
-        return Err(AppError::BadRequest("Order must contain at least one item".into()));
+        return Err(AppError::BadRequest(
+            "Order must contain at least one item".into(),
+        ));
     }
 
     if input.customer_name.trim().is_empty() {
@@ -21,7 +23,9 @@ pub fn validate_and_calculate(
     }
 
     if input.customer_email.trim().is_empty() || !input.customer_email.contains('@') {
-        return Err(AppError::BadRequest("Valid customer email is required".into()));
+        return Err(AppError::BadRequest(
+            "Valid customer email is required".into(),
+        ));
     }
 
     if input.customer_phone.trim().is_empty() {

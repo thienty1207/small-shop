@@ -41,10 +41,7 @@ pub fn build_google_auth_url(config: &Config) -> (String, String) {
 }
 
 /// Exchange the authorization code returned by Google for an access token.
-pub async fn exchange_code_for_token(
-    config: &Config,
-    code: &str,
-) -> Result<String, AppError> {
+pub async fn exchange_code_for_token(config: &Config, code: &str) -> Result<String, AppError> {
     let client = reqwest::Client::new();
 
     let params = [
@@ -102,10 +99,7 @@ pub async fn fetch_google_user_info(access_token: &str) -> Result<GoogleUserInfo
 /// SECURITY: We intentionally do NOT merge accounts that have the same email
 /// but different google_id — to prevent account takeover via email spoofing.
 /// TODO: If same email + different google_id is detected, surface a clear error.
-pub async fn upsert_user(
-    pool: &PgPool,
-    google_info: GoogleUserInfo,
-) -> Result<User, AppError> {
+pub async fn upsert_user(pool: &PgPool, google_info: GoogleUserInfo) -> Result<User, AppError> {
     if let Some(existing) = user_repo::find_by_google_id(pool, &google_info.id).await? {
         user_repo::update_last_login(pool, existing.id).await?;
         return Ok(existing);

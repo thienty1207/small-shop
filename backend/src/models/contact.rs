@@ -6,7 +6,11 @@ use validator::Validate;
 /// Incoming request body for the contact form submission.
 #[derive(Debug, Deserialize, Validate)]
 pub struct ContactRequest {
-    #[validate(length(min = 2, max = 100, message = "Name must be between 2 and 100 characters"))]
+    #[validate(length(
+        min = 2,
+        max = 100,
+        message = "Name must be between 2 and 100 characters"
+    ))]
     pub name: String,
 
     #[validate(email(message = "Invalid email address"))]
@@ -15,7 +19,11 @@ pub struct ContactRequest {
     /// Optional phone number (no strict format enforced server-side)
     pub phone: Option<String>,
 
-    #[validate(length(min = 10, max = 2000, message = "Message must be between 10 and 2000 characters"))]
+    #[validate(length(
+        min = 10,
+        max = 2000,
+        message = "Message must be between 10 and 2000 characters"
+    ))]
     pub message: String,
 
     /// Cloudflare Turnstile challenge token — required, verified server-side

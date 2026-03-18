@@ -3,6 +3,7 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { Paintbrush, Save, AlertCircle, CheckCircle2, ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminGet, adminPut, adminUploadImage } from "@/lib/admin-api";
+import { useShopSettingsCtx } from "@/contexts/ShopSettingsContext";
 
 // ─── Google Fonts options ────────────────────────────────────────────────────
 const GOOGLE_FONTS = [
@@ -30,8 +31,15 @@ const SLIDE_KEYS = [1, 2, 3].flatMap((n) => [
 ]);
 
 const BANNER_KEYS = ["banner_image_url", "banner_link", "banner_title", "banner_subtitle"];
+const BRAND_KEYS  = [
+  "brand_section_title",
+  ...[1, 2, 3].flatMap((n) => [
+    `brand_slide_${n}_img`,
+    `brand_slide_${n}_thumbnail`,
+  ]),
+];
 const FONT_KEYS   = ["shop_font"];
-const ALL_KEYS    = [...SLIDE_KEYS, ...BANNER_KEYS, ...FONT_KEYS];
+const ALL_KEYS    = [...SLIDE_KEYS, ...BANNER_KEYS, ...BRAND_KEYS, ...FONT_KEYS];
 
 // ─── Image upload button ────────────────────────────────────────────────────
 
@@ -124,6 +132,7 @@ function ImgUpload({ value, onChange, label }: ImgUploadProps) {
 // ─── Main component ─────────────────────────────────────────────────────────
 
 export default function AdminSettingsAppearance() {
+  const { refreshSettings } = useShopSettingsCtx();
   const [values, setValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
@@ -163,7 +172,11 @@ export default function AdminSettingsAppearance() {
     setError(null);
     setSuccess(false);
     try {
-      await adminPut("/api/admin/settings", { settings: values });
+      const updated = await adminPut<Record<string, string>>("/api/admin/settings", { settings: values });
+      const filtered: Record<string, string> = {};
+      ALL_KEYS.forEach((k) => { filtered[k] = updated[k] ?? values[k] ?? ""; });
+      setValues(filtered);
+      await refreshSettings();
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (e) {
@@ -239,6 +252,32 @@ export default function AdminSettingsAppearance() {
               {textField("banner_title",    "Tiêu đề",   "VD: Miễn phí vận chuyển hôm nay")}
               {textField("banner_subtitle", "Mô tả",      "VD: Áp dụng cho đơn hàng từ 300.000đ")}
             </div>            {textField("banner_link", "Link khi click", "/products?category=...")}
+          </div>
+
+          {/* ── Brands section ───────────────────────────────────────────── */}
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-5 space-y-5">
+            <h3 className="text-sm font-semibold text-white border-b border-gray-800 pb-3">Khối thương hiệu</h3>
+            <p className="text-xs text-gray-500 -mt-2">
+              Tiêu đề có thể chỉnh sửa tại đây. Danh sách thương hiệu ở trang chủ sẽ tự lấy từ danh mục sản phẩm.
+            </p>
+
+            {textField("brand_section_title", "Tiêu đề khối", "VD: Các thương hiệu đang bán")}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="rounded-xl border border-gray-700 p-3 space-y-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Ảnh slide {n}</p>
+                  <ImgUpload
+                    label="Thumbnail"
+                    value={values[`brand_slide_${n}_img`] ?? values[`brand_slide_${n}_thumbnail`] ?? ""}
+                    onChange={(url) => {
+                      set(`brand_slide_${n}_img`, url);
+                      set(`brand_slide_${n}_thumbnail`, url);
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* ── Google Font Picker ───────────────────────────────────────── */}

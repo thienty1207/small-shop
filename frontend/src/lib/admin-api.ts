@@ -7,6 +7,7 @@
 
 const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 const TOKEN_KEY = "admin_auth_token";
+const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -46,6 +47,10 @@ export async function adminFetch<T = unknown>(
 
 /** Upload an image file to /api/admin/upload/image, returns the URL string. */
 export async function adminUploadImage(file: File): Promise<string> {
+  if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
+    throw new Error("File too large (max 10 MB)");
+  }
+
   const formData = new FormData();
   formData.append("image", file);
 

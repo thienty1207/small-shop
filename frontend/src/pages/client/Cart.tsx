@@ -7,6 +7,7 @@ import QuantityStepper from "@/components/shop/QuantityStepper";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatPrice } from "@/data/products";
+import { toast } from "sonner";
 
 const Cart = () => {
   const { items, updateQuantity, removeItem, totalAmount } = useCart();
@@ -49,16 +50,28 @@ const Cart = () => {
         <div className="grid md:grid-cols-3 gap-8">
           <div className="md:col-span-2 space-y-4">
             {items.map((item) => (
-              <div key={item.product.id} className="flex gap-4 p-4 bg-card rounded-xl border border-border">
+              <div key={`${item.product.id}-${item.variantLabel ?? item.variant ?? "default"}`} className="flex gap-4 p-4 bg-card rounded-xl border border-border">
                 <img src={item.product.image} alt={item.product.name} className="w-20 h-20 rounded-lg object-cover" />
                 <div className="flex-1">
                   <Link to={`/product/${item.product.slug}`} className="text-sm font-medium text-foreground hover:text-primary">
                     {item.product.name}
                   </Link>
                   {item.variant && <p className="text-xs text-muted-foreground mt-0.5">{item.variant}</p>}
+                  {typeof item.product.stock === "number" && (
+                    <p className="text-xs text-muted-foreground mt-0.5">Còn {item.product.stock} chai</p>
+                  )}
                   <p className="text-sm text-price font-semibold mt-1">{formatPrice(item.product.price)}</p>
                   <div className="flex items-center justify-between mt-2">
-                    <QuantityStepper value={item.quantity} onChange={(q) => updateQuantity(item.product.id, q, item.variantLabel ?? item.variant)} />
+                    <QuantityStepper
+                      value={item.quantity}
+                      max={Math.max(1, item.product.stock ?? 99)}
+                      onChange={async (q) => {
+                        const result = await updateQuantity(item.product.id, q, item.variantLabel ?? item.variant);
+                        if (!result.ok) {
+                          toast.error(result.error ?? "Không thể cập nhật số lượng");
+                        }
+                      }}
+                    />
                     <button onClick={() => removeItem(item.product.id, item.variantLabel ?? item.variant)} className="p-1 text-muted-foreground hover:text-destructive">
                       <Trash2 size={16} />
                     </button>

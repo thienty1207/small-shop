@@ -35,22 +35,46 @@ pub async fn get_stats(
     .await?;
 
     // ── Order counts by status ─────────────────────────────────────────────
-    let orders_total:     i64 = sqlx::query_scalar("SELECT COUNT(*) FROM orders").fetch_one(db).await?;
-    let orders_pending:   i64 = sqlx::query_scalar("SELECT COUNT(*) FROM orders WHERE status = 'pending'").fetch_one(db).await?;
-    let orders_confirmed: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM orders WHERE status = 'confirmed'").fetch_one(db).await?;
-    let orders_shipping:  i64 = sqlx::query_scalar("SELECT COUNT(*) FROM orders WHERE status = 'shipping'").fetch_one(db).await?;
-    let orders_delivered: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM orders WHERE status = 'delivered'").fetch_one(db).await?;
-    let orders_cancelled: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM orders WHERE status = 'cancelled'").fetch_one(db).await?;
+    let orders_total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM orders")
+        .fetch_one(db)
+        .await?;
+    let orders_pending: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM orders WHERE status = 'pending'")
+            .fetch_one(db)
+            .await?;
+    let orders_confirmed: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM orders WHERE status = 'confirmed'")
+            .fetch_one(db)
+            .await?;
+    let orders_shipping: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM orders WHERE status = 'shipping'")
+            .fetch_one(db)
+            .await?;
+    let orders_delivered: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM orders WHERE status = 'delivered'")
+            .fetch_one(db)
+            .await?;
+    let orders_cancelled: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM orders WHERE status = 'cancelled'")
+            .fetch_one(db)
+            .await?;
 
     // ── Customers & Products ───────────────────────────────────────────────
-    let customers_total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users").fetch_one(db).await?;
+    let customers_total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
+        .fetch_one(db)
+        .await?;
     let new_customers_this_month: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM users WHERE created_at >= DATE_TRUNC('month', NOW())"#,
     )
     .fetch_one(db)
     .await?;
-    let products_total:  i64 = sqlx::query_scalar("SELECT COUNT(*) FROM products").fetch_one(db).await?;
-    let products_out_of_stock: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM products WHERE in_stock = FALSE").fetch_one(db).await?;
+    let products_total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM products")
+        .fetch_one(db)
+        .await?;
+    let products_out_of_stock: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM products WHERE in_stock = FALSE")
+            .fetch_one(db)
+            .await?;
 
     let stats = DashboardStats {
         revenue_today,

@@ -23,8 +23,7 @@ pub async fn create_order(
     Json(input): Json<CreateOrderInput>,
 ) -> Result<(StatusCode, Json<OrderPublic>), AppError> {
     // 1. Validate input and calculate totals
-    let (items, subtotal, shipping_fee, mut total) =
-        order_service::validate_and_calculate(&input)?;
+    let (items, subtotal, shipping_fee, mut total) = order_service::validate_and_calculate(&input)?;
 
     // Apply coupon discount if provided
     let discount = input.discount_amt.unwrap_or(0).max(0);
@@ -69,13 +68,9 @@ pub async fn create_order(
         let order_clone = order.clone();
         let items_clone = order_items.clone();
         tokio::spawn(async move {
-            if let Err(e) = email_service::send_order_confirmation(
-                &config,
-                &mailer,
-                &order_clone,
-                &items_clone,
-            )
-            .await
+            if let Err(e) =
+                email_service::send_order_confirmation(&config, &mailer, &order_clone, &items_clone)
+                    .await
             {
                 tracing::error!("Failed to send order confirmation email: {e}");
             }

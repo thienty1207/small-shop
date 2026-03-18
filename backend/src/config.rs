@@ -67,7 +67,8 @@ impl Config {
                 .map_err(|_| "SMTP_PORT must be a valid port number")?,
             smtp_username: env_var("SMTP_USERNAME")?,
             smtp_password: env_var("SMTP_PASSWORD")?,
-            contact_from_name: env_var("CONTACT_FROM_NAME").unwrap_or_else(|_| "Handmade Haven".into()),
+            contact_from_name: env_var("CONTACT_FROM_NAME")
+                .unwrap_or_else(|_| "Handmade Haven".into()),
             contact_from_email: env_var("CONTACT_FROM_EMAIL")?,
             contact_admin_email: env_var("CONTACT_ADMIN_EMAIL")?,
             reply_logo_url: env_var("REPLY_LOGO_URL").unwrap_or_default(),
@@ -83,4 +84,3 @@ impl Config {
 fn env_var(key: &str) -> Result<String, String> {
     env::var(key).map_err(|_| format!("Missing required environment variable: {key}"))
 }
-

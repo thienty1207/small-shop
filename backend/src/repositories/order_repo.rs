@@ -3,9 +3,7 @@ use uuid::Uuid;
 
 use crate::{
     error::AppError,
-    models::order::{
-        AdminOrderListItem, AdminOrderQuery, Order, OrderItem, OrderItemInput,
-    },
+    models::order::{AdminOrderListItem, AdminOrderQuery, Order, OrderItem, OrderItemInput},
 };
 
 /// Insert a new order row and its line items in a single transaction.
@@ -57,7 +55,7 @@ pub async fn create_order(
     // Insert all line items + deduct stock atomically
     let mut order_items: Vec<OrderItem> = Vec::with_capacity(items.len());
     for item in items {
-        let variant      = item.variant.clone().unwrap_or_default();
+        let variant = item.variant.clone().unwrap_or_default();
         let item_subtotal = item.unit_price * item.quantity as i64;
 
         // Check & deduct stock (SELECT FOR UPDATE prevents race conditions)
@@ -71,7 +69,8 @@ pub async fn create_order(
         match stock_row {
             None => {
                 return Err(AppError::BadRequest(format!(
-                    "Sản phẩm không tồn tại (id: {})", item.product_id
+                    "Sản phẩm không tồn tại (id: {})",
+                    item.product_id
                 )));
             }
             Some(r) if r.stock < item.quantity => {
@@ -120,7 +119,10 @@ pub async fn create_order(
 }
 
 /// Fetch an order with its items by order ID.
-pub async fn find_by_id(pool: &PgPool, order_id: Uuid) -> Result<Option<(Order, Vec<OrderItem>)>, AppError> {
+pub async fn find_by_id(
+    pool: &PgPool,
+    order_id: Uuid,
+) -> Result<Option<(Order, Vec<OrderItem>)>, AppError> {
     let order = sqlx::query_as!(
         Order,
         r#"
@@ -154,7 +156,10 @@ pub async fn find_by_id(pool: &PgPool, order_id: Uuid) -> Result<Option<(Order, 
 }
 
 /// Fetch orders placed by a specific user, with item count per order.
-pub async fn find_by_user(pool: &PgPool, user_id: Uuid) -> Result<Vec<crate::models::order::OrderListItem>, AppError> {
+pub async fn find_by_user(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<Vec<crate::models::order::OrderListItem>, AppError> {
     let orders = sqlx::query_as!(
         crate::models::order::OrderListItem,
         r#"

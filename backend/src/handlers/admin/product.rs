@@ -16,6 +16,21 @@ use crate::{
     state::AppState,
 };
 
+fn map_multipart_error(context: &str, error: impl std::fmt::Display) -> AppError {
+    let message = error.to_string();
+    let lower = message.to_lowercase();
+
+    if lower.contains("body too large")
+        || lower.contains("length limit")
+        || lower.contains("too large")
+        || lower.contains("overflow")
+    {
+        return AppError::BadRequest("File too large (max 10 MB)".into());
+    }
+
+    AppError::BadRequest(format!("{context}: {message}"))
+}
+
 /// GET /api/admin/products  — paginated list with search & filter
 pub async fn list_products(
     State(state): State<AppState>,
@@ -36,7 +51,9 @@ pub async fn get_product(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Product {id} not found")))?;
     let variants = product_repo::find_variants_by_product(&state.db, id).await?;
-    Ok(Json(serde_json::json!({ "product": product, "variants": variants })))
+    Ok(Json(
+        serde_json::json!({ "product": product, "variants": variants }),
+    ))
 }
 
 /// POST /api/admin/products
@@ -136,13 +153,15 @@ pub async fn upload_image(
     mut multipart: Multipart,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let cloudinary = state.cloudinary.as_ref().ok_or_else(|| {
-        AppError::Internal("Cloudinary chưa được cấu hình — kiểm tra CLOUDINARY_URL trong .env".into())
+        AppError::Internal(
+            "Cloudinary chưa được cấu hình — kiểm tra CLOUDINARY_URL trong .env".into(),
+        )
     })?;
 
     while let Some(field) = multipart
         .next_field()
         .await
-        .map_err(|e| AppError::BadRequest(format!("Multipart error: {e}")))?
+        .map_err(|e| map_multipart_error("Multipart error", e))?
     {
         let raw_ct = field.content_type().unwrap_or("").to_string();
         let filename_hint = field.file_name().unwrap_or("").to_lowercase();
@@ -165,7 +184,7 @@ pub async fn upload_image(
         let data = field
             .bytes()
             .await
-            .map_err(|e| AppError::Internal(format!("Read error: {e}")))?;
+            .map_err(|e| map_multipart_error("Read error", e))?;
 
         if data.is_empty() {
             return Err(AppError::BadRequest("Empty file".into()));

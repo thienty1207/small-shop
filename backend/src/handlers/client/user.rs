@@ -44,8 +44,7 @@ pub async fn google_callback(
     //       If mismatch → return AppError::Unauthorized("CSRF state mismatch").
 
     // Exchange authorization code for Google access token
-    let access_token =
-        auth_service::exchange_code_for_token(&state.config, &params.code).await?;
+    let access_token = auth_service::exchange_code_for_token(&state.config, &params.code).await?;
 
     // Fetch user profile from Google
     let google_info = auth_service::fetch_google_user_info(&access_token).await?;
@@ -102,9 +101,10 @@ pub async fn upload_avatar(
     Extension(current_user): Extension<UserPublic>,
     mut multipart: Multipart,
 ) -> Result<Json<UserPublic>, AppError> {
-    let cloudinary = state.cloudinary.as_ref().ok_or_else(|| {
-        AppError::Internal("Cloudinary chưa được cấu hình".into())
-    })?;
+    let cloudinary = state
+        .cloudinary
+        .as_ref()
+        .ok_or_else(|| AppError::Internal("Cloudinary chưa được cấu hình".into()))?;
 
     while let Some(field) = multipart
         .next_field()

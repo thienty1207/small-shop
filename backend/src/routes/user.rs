@@ -1,4 +1,8 @@
-use axum::{middleware, routing::{get, post}, Router};
+use axum::{
+    middleware,
+    routing::{get, post},
+    Router,
+};
 
 use crate::{
     handlers::client::user::{get_me, google_callback, google_login, put_me, upload_avatar},
