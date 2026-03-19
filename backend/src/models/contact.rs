@@ -3,6 +3,10 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use validator::Validate;
 
+// ========================
+// 1) INPUT DTOs (request)
+// ========================
+
 /// Incoming request body for the contact form submission.
 #[derive(Debug, Deserialize, Validate)]
 pub struct ContactRequest {
@@ -29,6 +33,10 @@ pub struct ContactRequest {
     /// Cloudflare Turnstile challenge token — required, verified server-side
     pub cf_turnstile_response: String,
 }
+
+// =========================
+// 2) DB MODELS (sqlx rows)
+// =========================
 
 /// Database row returned after inserting a contact message.
 #[derive(Debug, Serialize, sqlx::FromRow)]

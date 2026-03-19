@@ -2,6 +2,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+// =========================
+// 1) DB MODELS (sqlx rows)
+// =========================
+
 /// Raw database row for `cart_items`.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct CartItem {
@@ -28,6 +32,10 @@ pub struct CartItemWithProduct {
     pub quantity: i32,
     pub variant: String,
 }
+
+// ========================
+// 2) INPUT DTOs (request)
+// ========================
 
 /// Request body for adding/updating a cart item.
 #[derive(Debug, Deserialize)]

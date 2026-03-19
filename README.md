@@ -56,15 +56,21 @@
 
 1. Install Rust, Bun, PostgreSQL.
 2. Configure `.env` for backend/frontend.
-3. Run migrations:
-   - `cd backend`
-   - `cargo sqlx migrate run --source ../sql`
+3. Restore the local database dump:
+   - Linux/macOS: `bash scripts/restore-small-shop.sh`
+   - Windows PowerShell: `powershell -ExecutionPolicy Bypass -File .\scripts\restore-small-shop.ps1`
 4. Start backend:
    - `cd backend`
    - `cargo run`
 5. Start frontend:
    - `cd frontend`
    - `bun dev`
+
+Notes:
+
+- The restore scripts import `small-shop.dump` into the database from `DATABASE_URL`.
+- They also sync the local `_sqlx_migrations` checksums with the current `sql/*.sql` files so the backend can start cleanly after a restore on a different machine/OS.
+- The backend already runs migrations automatically on startup, so `cargo sqlx migrate run` is not required for normal local setup.
 
 ## Build & Test
 

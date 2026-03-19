@@ -2,6 +2,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+// =========================
+// 1) DB MODELS (sqlx rows)
+// =========================
+
 /// Raw DB row for the `reviews` table.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Review {
@@ -13,6 +17,10 @@ pub struct Review {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
+
+// =========================
+// 2) OUTPUT DTOs (response)
+// =========================
 
 /// Review enriched with reviewer name + avatar (for display).
 #[derive(Debug, Serialize, sqlx::FromRow)]
@@ -27,12 +35,20 @@ pub struct ReviewPublic {
     pub created_at: DateTime<Utc>,
 }
 
+// ========================
+// 3) INPUT DTOs (request)
+// ========================
+
 /// Request body to create or update a review.
 #[derive(Debug, Deserialize)]
 pub struct CreateReviewInput {
     pub rating: i16,
     pub comment: Option<String>,
 }
+
+// =====================================
+// 4) QUERY DTOs (URL query parameters)
+// =====================================
 
 /// Query params for listing reviews.
 #[derive(Debug, Deserialize, Default)]

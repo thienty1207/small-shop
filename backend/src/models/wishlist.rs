@@ -3,6 +3,10 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
+// =========================
+// 1) DB MODELS (sqlx rows)
+// =========================
+
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct WishlistItem {
     pub user_id: Uuid,

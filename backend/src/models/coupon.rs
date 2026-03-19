@@ -2,6 +2,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+// =========================
+// 1) DB MODELS (sqlx rows)
+// =========================
+
 /// Raw DB row for the `coupons` table.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Coupon {
@@ -17,6 +21,10 @@ pub struct Coupon {
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
 }
+
+// ========================
+// 2) INPUT DTOs (request)
+// ========================
 
 /// Request body to create a coupon (admin).
 #[derive(Debug, Deserialize)]
@@ -47,6 +55,10 @@ pub struct ValidateCouponInput {
     pub code: String,
     pub order_total: i64,
 }
+
+// =========================
+// 3) OUTPUT DTOs (response)
+// =========================
 
 /// Response after validating a coupon.
 #[derive(Debug, Serialize)]

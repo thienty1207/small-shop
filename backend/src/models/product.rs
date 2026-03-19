@@ -2,6 +2,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+// =========================
+// 1) DB MODELS (sqlx rows)
+// =========================
+
 /// Raw database row for the `categories` table.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Category {
@@ -52,6 +56,10 @@ pub struct Product {
     pub concentration: Option<String>,
     pub created_at: DateTime<Utc>,
 }
+
+// =========================
+// 2) OUTPUT DTOs (response)
+// =========================
 
 /// Public-facing product response (with category included).
 #[derive(Debug, Serialize)]
@@ -108,6 +116,10 @@ impl From<Product> for ProductPublic {
         }
     }
 }
+
+// =====================================
+// 3) QUERY DTOs (URL query parameters)
+// =====================================
 
 /// Query parameters for listing products.
 #[derive(Debug, Deserialize)]
@@ -180,6 +192,10 @@ pub struct PaginatedResponse<T: Serialize> {
     pub limit: i64,
     pub total_pages: i64,
 }
+
+// ========================
+// 4) INPUT DTOs (request)
+// ========================
 
 /// Request body for creating a product (admin only).
 #[derive(Debug, Deserialize)]
@@ -258,6 +274,10 @@ fn default_page() -> i64 {
 fn default_limit() -> i64 {
     20
 }
+
+// =====================================
+// 5) QUERY DTOs (URL query parameters)
+// =====================================
 
 /// Query parameters for the admin product list.
 #[derive(Debug, Deserialize, Default)]

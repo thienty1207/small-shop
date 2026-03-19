@@ -2,6 +2,12 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+// =========================
+// 1) DB MODELS (sqlx rows)
+// =========================
+// These structs map directly to database query results.
+// They usually derive `sqlx::FromRow` (or are used with `query_as!`).
+
 /// Raw database row for `orders`.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct Order {
@@ -36,6 +42,12 @@ pub struct OrderItem {
     pub subtotal: i64,
 }
 
+// ========================
+// 2) INPUT DTOs (request)
+// ========================
+// These structs represent data coming FROM client requests.
+// They derive `Deserialize` because JSON request bodies are parsed into them.
+
 /// A single line item in a checkout request.
 #[derive(Debug, Deserialize, Clone)]
 pub struct OrderItemInput {
@@ -60,6 +72,12 @@ pub struct CreateOrderInput {
     pub coupon_code: Option<String>,
     pub discount_amt: Option<i64>,
 }
+
+// =========================
+// 3) OUTPUT DTOs (response)
+// =========================
+// These structs represent data returned TO API clients.
+// They derive `Serialize` so Axum can convert them to JSON responses.
 
 /// Full order response including items.
 #[derive(Debug, Serialize)]
@@ -108,6 +126,10 @@ pub struct AdminOrderListItem {
     pub created_at: DateTime<Utc>,
 }
 
+// =====================================
+// 4) QUERY DTOs (URL query parameters)
+// =====================================
+// Used for parsing query strings like ?status=pending&page=2&limit=20.
 /// Query params for the admin order list.
 #[derive(Debug, Deserialize, Default)]
 pub struct AdminOrderQuery {
@@ -126,6 +148,9 @@ fn default_order_limit() -> i64 {
     20
 }
 
+// =======================================
+// 5) INPUT DTOs (small update requests)
+// =======================================
 /// Request body for updating an order's status.
 #[derive(Debug, Deserialize)]
 pub struct UpdateOrderStatusInput {
