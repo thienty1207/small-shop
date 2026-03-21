@@ -213,6 +213,10 @@ export interface OrderDetail {
     status:         string;
     subtotal:       number;
     shipping_fee:   number;
+    coupon_code:    string | null;
+    coupon_type:    string | null;
+    coupon_value:   number | null;
+    discount_amt:   number;
     total:          number;
     created_at:     string;
     updated_at:     string;

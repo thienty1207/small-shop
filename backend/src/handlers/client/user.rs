@@ -8,8 +8,7 @@ use serde::Deserialize;
 use crate::{
     error::AppError,
     models::user::{UpdateProfileInput, UserPublic},
-    repositories::user_repo,
-    services::{auth_service, cloudinary as cloudinary_service},
+    services::{auth_service, user_service},
     state::AppState,
 };
 
@@ -43,28 +42,7 @@ pub async fn google_callback(
     // TODO: Validate params.state against the stored CSRF state cookie.
     //       If mismatch → return AppError::Unauthorized("CSRF state mismatch").
 
-    // Exchange authorization code for Google access token
-    let access_token = auth_service::exchange_code_for_token(&state.config, &params.code).await?;
-
-    // Fetch user profile from Google
-    let google_info = auth_service::fetch_google_user_info(&access_token).await?;
-
-    // Find or create user in our database
-    let user = auth_service::upsert_user(&state.db, google_info).await?;
-
-    // Issue our own JWT
-    let token = auth_service::generate_jwt(&state.config, &user)?;
-
-    // Redirect to frontend with token as query param
-    // The frontend /auth/callback page will pick this up, store it, then redirect to /
-    //
-    // SECURITY NOTE: Passing JWT in URL is acceptable for this OAuth redirect pattern,
-    // but the token must be consumed immediately (single use window).
-    // TODO: Consider using a short-lived one-time code instead of the full JWT in the URL.
-    let redirect_url = format!(
-        "{}/auth/callback?token={}",
-        state.config.frontend_url, token
-    );
+    let redirect_url = user_service::build_oauth_redirect_url(&state, &params.code).await?;
 
     Ok(Redirect::temporary(&redirect_url))
 }
@@ -88,8 +66,8 @@ pub async fn put_me(
     Extension(current_user): Extension<UserPublic>,
     Json(input): Json<UpdateProfileInput>,
 ) -> Result<Json<UserPublic>, AppError> {
-    let updated = user_repo::update_profile(&state.db, current_user.id, &input).await?;
-    Ok(Json(updated.into()))
+    let updated = user_service::update_profile(&state.db, current_user.id, &input).await?;
+    Ok(Json(updated))
 }
 
 // ---------------------------------------------------------------------------
@@ -101,52 +79,27 @@ pub async fn upload_avatar(
     Extension(current_user): Extension<UserPublic>,
     mut multipart: Multipart,
 ) -> Result<Json<UserPublic>, AppError> {
-    let cloudinary = state
-        .cloudinary
-        .as_ref()
-        .ok_or_else(|| AppError::Internal("Cloudinary chưa được cấu hình".into()))?;
-
     while let Some(field) = multipart
         .next_field()
         .await
         .map_err(|e| AppError::BadRequest(format!("Multipart error: {e}")))?
     {
-        let raw_ct = field.content_type().unwrap_or("").to_string();
-        let filename_hint = field.file_name().unwrap_or("").to_lowercase();
-        let content_type: String = if raw_ct.starts_with("image/") {
-            raw_ct
-        } else if filename_hint.ends_with(".png") {
-            "image/png".into()
-        } else if filename_hint.ends_with(".webp") {
-            "image/webp".into()
-        } else if filename_hint.ends_with(".gif") {
-            "image/gif".into()
-        } else {
-            "image/jpeg".into()
-        };
+        let raw_ct = field.content_type().unwrap_or("");
+        let filename_hint = field.file_name().unwrap_or("");
+        let content_type = user_service::infer_image_content_type(raw_ct, filename_hint)?;
 
         let data = field
             .bytes()
             .await
             .map_err(|e| AppError::Internal(format!("Read error: {e}")))?;
 
-        if data.is_empty() {
-            return Err(AppError::BadRequest("Empty file".into()));
-        }
-        if data.len() > 5 * 1024 * 1024 {
-            return Err(AppError::BadRequest("File too large (max 5 MB)".into()));
-        }
-
-        let url = cloudinary_service::upload_image(
-            cloudinary,
-            &state.http_client,
+        let updated = user_service::upload_avatar_from_bytes(
+            &state,
+            current_user.id,
             data.to_vec(),
             &content_type,
-            "shop/avatars",
         )
         .await?;
-
-        let updated = user_repo::update_avatar_url(&state.db, current_user.id, &url).await?;
         return Ok(Json(updated.into()));
     }
 

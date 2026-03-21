@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     models::{admin::AdminPublic, product::CategoryInput},
-    repositories::product_repo,
+    services::product_service,
     state::AppState,
 };
 
@@ -16,7 +16,7 @@ pub async fn list_categories(
     State(state): State<AppState>,
     Extension(_admin): Extension<AdminPublic>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let cats = product_repo::find_all_categories(&state.db).await?;
+    let cats = product_service::list_categories(&state).await?;
     Ok(Json(serde_json::json!(cats)))
 }
 
@@ -26,11 +26,8 @@ pub async fn create_category(
     Extension(_admin): Extension<AdminPublic>,
     Json(input): Json<CategoryInput>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    if input.name.trim().is_empty() {
-        return Err(AppError::BadRequest("Category name is required".into()));
-    }
-    let cat = product_repo::create_category(&state.db, &input).await?;
-    Ok(Json(serde_json::json!(cat)))
+    let cat = product_service::create_category(&state, &input).await?;
+    Ok(Json(cat))
 }
 
 /// PUT /api/admin/categories/:id
@@ -40,11 +37,8 @@ pub async fn update_category(
     Path(id): Path<Uuid>,
     Json(input): Json<CategoryInput>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    if input.name.trim().is_empty() {
-        return Err(AppError::BadRequest("Category name is required".into()));
-    }
-    let cat = product_repo::update_category(&state.db, id, &input).await?;
-    Ok(Json(serde_json::json!(cat)))
+    let cat = product_service::update_category(&state, id, &input).await?;
+    Ok(Json(cat))
 }
 
 /// DELETE /api/admin/categories/:id
@@ -53,6 +47,6 @@ pub async fn delete_category(
     Extension(_admin): Extension<AdminPublic>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    product_repo::delete_category(&state.db, id).await?;
+    product_service::delete_category(&state, id).await?;
     Ok(Json(serde_json::json!({ "ok": true })))
 }

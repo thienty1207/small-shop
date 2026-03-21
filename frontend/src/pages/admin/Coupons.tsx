@@ -4,6 +4,7 @@ import { Ticket, Plus, Pencil, Trash2, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { adminGet, adminPost, adminPut, adminDel } from "@/lib/admin-api";
+import { getCouponStatus, type CouponStatus } from "@/lib/coupon-status";
 
 interface Coupon {
   id:          string;
@@ -20,15 +21,36 @@ interface Coupon {
 
 const fmtVND = (n: number) => n.toLocaleString("vi-VN") + "đ";
 
-function CouponBadge({ active }: { active: boolean }) {
+function CouponBadge({ status }: { status: CouponStatus }) {
+  const statusMap: Record<CouponStatus, { label: string; className: string; positive: boolean }> = {
+    active: {
+      label: "Đang hoạt động",
+      className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+      positive: true,
+    },
+    used_up: {
+      label: "Đã dùng hết",
+      className: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+      positive: false,
+    },
+    expired: {
+      label: "Đã hết hạn",
+      className: "bg-orange-500/15 text-orange-300 border-orange-500/30",
+      positive: false,
+    },
+    inactive: {
+      label: "Đã tắt",
+      className: "bg-gray-500/15 text-gray-400 border-gray-500/30",
+      positive: false,
+    },
+  };
+
+  const { label, className, positive } = statusMap[status];
+
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
-      active
-        ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-        : "bg-gray-500/15 text-gray-400 border-gray-500/30"
-    }`}>
-      {active ? <Check size={10} /> : <X size={10} />}
-      {active ? "Đang hoạt động" : "Đã tắt"}
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${className}`}>
+      {positive ? <Check size={10} /> : <X size={10} />}
+      {label}
     </span>
   );
 }
@@ -165,36 +187,39 @@ export default function AdminCoupons() {
                 </tr>
               </thead>
               <tbody>
-                {coupons.map((c) => (
-                  <tr key={c.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
-                    <td className="px-4 py-3 font-mono font-semibold text-white">{c.code}</td>
-                    <td className="px-4 py-3 text-gray-400 capitalize">{c.coupon_type === "percent" ? "Phần trăm" : "Cố định"}</td>
-                    <td className="px-4 py-3 text-emerald-400 font-medium">
-                      {c.coupon_type === "percent" ? `${c.value}%` : fmtVND(c.value)}
-                    </td>
-                    <td className="px-4 py-3 text-gray-400">{fmtVND(c.min_order)}</td>
-                    <td className="px-4 py-3 text-gray-400">
-                      {c.used_count}{c.max_uses ? ` / ${c.max_uses}` : ""}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">
-                      {c.expires_at ? new Date(c.expires_at).toLocaleDateString("vi-VN") : "—"}
-                    </td>
-                    <td className="px-4 py-3"><CouponBadge active={c.is_active} /></td>
-                    <td className="px-4 py-3 text-right flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="sm" className="text-gray-500 hover:text-white" onClick={() => openEdit(c)}>
-                        <Pencil size={13} />
-                      </Button>
-                      <Button
-                        variant="ghost" size="sm"
-                        className="text-gray-500 hover:text-red-400 hover:bg-red-400/10"
-                        disabled={deleting === c.id}
-                        onClick={() => handleDelete(c.id)}
-                      >
-                        <Trash2 size={13} />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                {coupons.map((c) => {
+                  const status = getCouponStatus(c);
+                  return (
+                    <tr key={c.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
+                      <td className="px-4 py-3 font-mono font-semibold text-white">{c.code}</td>
+                      <td className="px-4 py-3 text-gray-400 capitalize">{c.coupon_type === "percent" ? "Phần trăm" : "Cố định"}</td>
+                      <td className="px-4 py-3 text-emerald-400 font-medium">
+                        {c.coupon_type === "percent" ? `${c.value}%` : fmtVND(c.value)}
+                      </td>
+                      <td className="px-4 py-3 text-gray-400">{fmtVND(c.min_order)}</td>
+                      <td className="px-4 py-3 text-gray-400">
+                        {c.used_count}{c.max_uses ? ` / ${c.max_uses}` : ""}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">
+                        {c.expires_at ? new Date(c.expires_at).toLocaleDateString("vi-VN") : "—"}
+                      </td>
+                      <td className="px-4 py-3"><CouponBadge status={status} /></td>
+                      <td className="px-4 py-3 text-right flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="sm" className="text-gray-500 hover:text-white" onClick={() => openEdit(c)}>
+                          <Pencil size={13} />
+                        </Button>
+                        <Button
+                          variant="ghost" size="sm"
+                          className="text-gray-500 hover:text-red-400 hover:bg-red-400/10"
+                          disabled={deleting === c.id}
+                          onClick={() => handleDelete(c.id)}
+                        >
+                          <Trash2 size={13} />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

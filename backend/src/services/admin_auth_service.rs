@@ -11,7 +11,10 @@ use sqlx::PgPool;
 use crate::{
     config::Config,
     error::AppError,
-    models::{admin::AdminUser, user::Claims},
+    models::{
+        admin::{AdminLoginResponse, AdminUser, AdminPublic},
+        user::Claims,
+    },
     repositories::admin_repo,
 };
 
@@ -37,6 +40,31 @@ pub fn verify_password(password: &str, hash: &str) -> Result<bool, AppError> {
     Ok(Argon2::default()
         .verify_password(password.as_bytes(), &parsed)
         .is_ok())
+}
+
+/// Authenticate an admin user by username/password and issue a JWT.
+pub async fn authenticate_admin(
+    state: &crate::state::AppState,
+    username: &str,
+    password: &str,
+) -> Result<AdminLoginResponse, AppError> {
+    let admin = admin_repo::find_by_username(&state.db, username)
+        .await?
+        .ok_or_else(|| AppError::Unauthorized("Invalid username or password".into()))?;
+
+    let ok = verify_password(password, &admin.password_hash)?;
+    if !ok {
+        return Err(AppError::Unauthorized(
+            "Invalid username or password".into(),
+        ));
+    }
+
+    let token = generate_admin_jwt(&state.config, &admin)?;
+
+    Ok(AdminLoginResponse {
+        token,
+        user: AdminPublic::from(admin),
+    })
 }
 
 // ---------------------------------------------------------------------------

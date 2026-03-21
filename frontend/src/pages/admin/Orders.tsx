@@ -410,6 +410,18 @@ export default function AdminOrders() {
                 </div>
 
                 <div className="border-t border-gray-800 pt-4 space-y-1.5">
+                  {detailOrder.order.coupon_code && (
+                    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs">
+                      <p className="text-emerald-300 font-medium">
+                        Mã áp dụng: <span className="font-mono">{detailOrder.order.coupon_code}</span>
+                      </p>
+                      <p className="text-emerald-200/80 mt-0.5">
+                        {detailOrder.order.coupon_type === "percent"
+                          ? `Giảm ${detailOrder.order.coupon_value ?? 0}% trên tạm tính`
+                          : `Giảm cố định ${formatVnd(detailOrder.order.coupon_value ?? 0)}`}
+                      </p>
+                    </div>
+                  )}
                   <div className="flex justify-between text-xs text-gray-400">
                     <span>Tạm tính</span>
                     <span>{formatVnd(detailOrder.order.subtotal)}</span>
@@ -418,6 +430,20 @@ export default function AdminOrders() {
                     <span>Phí giao hàng</span>
                     <span>{formatVnd(detailOrder.order.shipping_fee)}</span>
                   </div>
+                  {detailOrder.order.discount_amt > 0 && (
+                    <>
+                      <div className="flex justify-between text-xs text-emerald-300">
+                        <span>Giảm giá</span>
+                        <span>-{formatVnd(detailOrder.order.discount_amt)}</span>
+                      </div>
+                      <div className="flex justify-between text-[11px] text-gray-500">
+                        <span>Công thức</span>
+                        <span>
+                          {formatVnd(detailOrder.order.subtotal)} + {formatVnd(detailOrder.order.shipping_fee)} - {formatVnd(detailOrder.order.discount_amt)}
+                        </span>
+                      </div>
+                    </>
+                  )}
                   <div className="flex justify-between font-semibold text-white">
                     <span>Tổng cộng</span>
                     <span className="text-rose-400">{formatVnd(detailOrder.order.total)}</span>

@@ -11,8 +11,7 @@ use crate::{
         order::{CreateOrderInput, OrderPublic},
         user::UserPublic,
     },
-    repositories::{cart_repo, coupon_repo, order_repo},
-    services::{email_service, order_service},
+    services::order_service,
     state::AppState,
 };
 
@@ -22,79 +21,7 @@ pub async fn create_order(
     Extension(user): Extension<UserPublic>,
     Json(input): Json<CreateOrderInput>,
 ) -> Result<(StatusCode, Json<OrderPublic>), AppError> {
-    // 1. Validate input and calculate totals
-    let (items, subtotal, shipping_fee, mut total) = order_service::validate_and_calculate(&input)?;
-
-    // Apply coupon discount if provided
-    let discount = input.discount_amt.unwrap_or(0).max(0);
-    if discount > 0 {
-        total = (total - discount).max(0);
-    }
-
-    // 2. Generate unique order code
-    let order_code = order_service::generate_order_code();
-
-    // 3. Persist order + items in one transaction (returns both — no extra round-trip)
-    let (order, order_items) = order_repo::create_order(
-        &state.db,
-        Some(user.id),
-        &order_code,
-        &input.customer_name,
-        &input.customer_email,
-        &input.customer_phone,
-        &input.address,
-        input.note.as_deref(),
-        &input.payment_method,
-        subtotal,
-        shipping_fee,
-        total,
-        &items,
-    )
-    .await?;
-
-    // 4. Clear DB cart after successful order
-    let _ = cart_repo::clear_cart(&state.db, user.id).await;
-
-    // 5. Increment coupon used_count if a coupon was applied
-    if let Some(ref code) = input.coupon_code {
-        if !code.is_empty() {
-            let _ = coupon_repo::increment_used(&state.db, code).await;
-        }
-    }
-
-    // 6. Fire-and-forget: send confirmation email in background (don't block response)
-    if let Some(mailer) = state.mailer.clone() {
-        let config = state.config.clone();
-        let order_clone = order.clone();
-        let items_clone = order_items.clone();
-        tokio::spawn(async move {
-            if let Err(e) =
-                email_service::send_order_confirmation(&config, &mailer, &order_clone, &items_clone)
-                    .await
-            {
-                tracing::error!("Failed to send order confirmation email: {e}");
-            }
-        });
-    }
-
-    // 7. Return order details immediately (email sends in background)
-    let response = OrderPublic {
-        id: order.id,
-        order_code: order.order_code,
-        customer_name: order.customer_name,
-        customer_email: order.customer_email,
-        customer_phone: order.customer_phone,
-        address: order.address,
-        note: order.note,
-        payment_method: order.payment_method,
-        status: order.status,
-        subtotal: order.subtotal,
-        shipping_fee: order.shipping_fee,
-        total: order.total,
-        items: order_items,
-        created_at: order.created_at,
-    };
-
+    let response = order_service::create_order_for_user(&state, user.id, &input).await?;
     Ok((StatusCode::CREATED, Json(response)))
 }
 
@@ -104,31 +31,8 @@ pub async fn get_order(
     Extension(user): Extension<UserPublic>,
     Path(order_id): Path<Uuid>,
 ) -> Result<Json<OrderPublic>, AppError> {
-    let (order, items) = order_repo::find_by_id(&state.db, order_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Order not found".into()))?;
-
-    // Security: only the owner can see their order
-    if order.user_id != Some(user.id) {
-        return Err(AppError::Unauthorized("Access denied".into()));
-    }
-
-    Ok(Json(OrderPublic {
-        id: order.id,
-        order_code: order.order_code,
-        customer_name: order.customer_name,
-        customer_email: order.customer_email,
-        customer_phone: order.customer_phone,
-        address: order.address,
-        note: order.note,
-        payment_method: order.payment_method,
-        status: order.status,
-        subtotal: order.subtotal,
-        shipping_fee: order.shipping_fee,
-        total: order.total,
-        items,
-        created_at: order.created_at,
-    }))
+    let order = order_service::get_user_order(&state, user.id, order_id).await?;
+    Ok(Json(order))
 }
 
 /// GET /api/orders — list orders for the current user
@@ -136,6 +40,6 @@ pub async fn list_orders(
     State(state): State<AppState>,
     Extension(user): Extension<UserPublic>,
 ) -> Result<Json<Vec<crate::models::order::OrderListItem>>, AppError> {
-    let orders = order_repo::find_by_user(&state.db, user.id).await?;
+    let orders = order_service::list_user_orders(&state, user.id).await?;
     Ok(Json(orders))
 }

@@ -36,6 +36,16 @@ vi.mock("../../frontend/src/contexts/CartContext", () => ({
   useCart: () => ({ items: [] }),
 }));
 
+vi.mock("../../frontend/src/contexts/WishlistContext", () => ({
+  useWishlist: () => ({
+    wishlistIds: [],
+    isLoading: false,
+    isWishlisted: () => false,
+    toggleWishlist: vi.fn(),
+    fetchWishlistProducts: vi.fn(),
+  }),
+}));
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -72,8 +82,7 @@ describe("Header", () => {
 
   it("shows login icon when unauthenticated", () => {
     renderHeader();
-    // Link to /login should exist; no dropdown trigger
-    expect(screen.getByRole("link", { name: /login/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /đăng nhập/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /test user/i })).toBeNull();
   });
 
@@ -160,9 +169,8 @@ describe("Header", () => {
       useCart: () => ({ items: [{ quantity: 3 }, { quantity: 2 }] }),
     }));
 
-    renderHeader();
-    // Badge should render; actual value depends on mock being picked up
-    // Just ensure cart link exists
-    expect(screen.getByRole("link", { name: /cart/i })).toBeInTheDocument();
+    const { container } = renderHeader();
+    const cartLink = container.querySelector('a[href="/cart"]');
+    expect(cartLink).toBeInTheDocument();
   });
 });

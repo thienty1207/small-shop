@@ -203,6 +203,7 @@ const Header = ({ transparent = false }: HeaderProps) => {
           ) : (
             <button
               onClick={handleLoginClick}
+              aria-label="Đăng nhập"
               className={`p-2 rounded-lg transition-colors ${
                 isSolid ? "text-muted-foreground hover:text-foreground hover:bg-muted" : "text-white/80 hover:text-white hover:bg-white/10"
               }`}

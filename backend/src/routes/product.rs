@@ -6,7 +6,6 @@ use axum::{
 
 use crate::{
     handlers::{
-        admin::settings,
         client::{product, review},
     },
     middleware::auth::jwt_auth,
@@ -38,6 +37,5 @@ pub fn routes(state: AppState) -> Router<AppState> {
             "/api/products/:product_id/reviews",
             get(review::list_reviews),
         )
-        .route("/api/settings", get(settings::get_public_settings))
         .merge(protected_reviews)
 }

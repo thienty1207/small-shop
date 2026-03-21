@@ -145,15 +145,15 @@ describe("Account page", () => {
 
   it("opens orders tab when ?tab=orders is in URL", () => {
     renderAccount("?tab=orders");
-    // Orders tab content should show mock orders
-    expect(screen.getByText("#HMH001")).toBeInTheDocument();
+    expect(screen.getByText("Bạn chưa có đơn hàng nào.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Mua sắm ngay" })).toHaveAttribute("href", "/products");
   });
 
   it("switches to orders tab on click", async () => {
     renderAccount();
     await userEvent.click(screen.getByText("Đơn hàng"));
     await waitFor(() =>
-      expect(screen.getByText("#HMH001")).toBeInTheDocument(),
+      expect(screen.getByText("Bạn chưa có đơn hàng nào.")).toBeInTheDocument(),
     );
   });
 });

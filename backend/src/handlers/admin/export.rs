@@ -7,7 +7,12 @@ use axum::{
 };
 use std::collections::HashMap;
 
-use crate::{error::AppError, models::admin::AdminPublic, state::AppState};
+use crate::{
+    error::AppError,
+    models::admin::AdminPublic,
+    services::export_service,
+    state::AppState,
+};
 
 fn csv_response(filename: &str, body: String) -> Response<Body> {
     Response::builder()
@@ -66,26 +71,12 @@ pub async fn export_orders(
     let from_filter = params.get("from").cloned();
     let to_filter = params.get("to").cloned();
 
-    let rows = sqlx::query!(
-        r#"
-        SELECT o.order_code, o.customer_name, o.customer_email, o.customer_phone,
-               o.address, o.payment_method, o.status, o.subtotal, o.shipping_fee,
-               o.total, o.created_at
-        FROM orders o
-        WHERE ($1::TEXT IS NULL OR o.status = $1)
-          AND ($2::TIMESTAMPTZ IS NULL OR o.created_at >= $2::TIMESTAMPTZ)
-          AND ($3::TIMESTAMPTZ IS NULL OR o.created_at <= $3::TIMESTAMPTZ)
-        ORDER BY o.created_at DESC
-        "#,
+    let rows = export_service::fetch_orders(
+        &state,
         status_filter.as_deref(),
-        from_filter
-            .as_deref()
-            .and_then(|s| s.parse::<chrono::DateTime<chrono::Utc>>().ok()),
-        to_filter
-            .as_deref()
-            .and_then(|s| s.parse::<chrono::DateTime<chrono::Utc>>().ok()),
+        from_filter.as_deref(),
+        to_filter.as_deref(),
     )
-    .fetch_all(&state.db)
     .await?;
 
     match format.as_str() {
@@ -149,26 +140,7 @@ pub async fn export_products(
     let from_filter = params.get("from").cloned();
     let to_filter = params.get("to").cloned();
 
-    let rows = sqlx::query!(
-        r#"
-        SELECT p.name, p.slug, COALESCE(c.name, '') AS "category!", p.price, p.original_price,
-               p.stock, p.badge, p.brand, p.rating::FLOAT8 AS "rating!", p.review_count, p.in_stock,
-               p.created_at
-        FROM products p
-        LEFT JOIN categories c ON c.id = p.category_id
-        WHERE ($1::TIMESTAMPTZ IS NULL OR p.created_at >= $1::TIMESTAMPTZ)
-          AND ($2::TIMESTAMPTZ IS NULL OR p.created_at <= $2::TIMESTAMPTZ)
-        ORDER BY p.created_at DESC
-        "#,
-        from_filter
-            .as_deref()
-            .and_then(|s| s.parse::<chrono::DateTime<chrono::Utc>>().ok()),
-        to_filter
-            .as_deref()
-            .and_then(|s| s.parse::<chrono::DateTime<chrono::Utc>>().ok()),
-    )
-    .fetch_all(&state.db)
-    .await?;
+    let rows = export_service::fetch_products(&state, from_filter.as_deref(), to_filter.as_deref()).await?;
 
     match format.as_str() {
         "excel" | "xls" | "xlsx" => {

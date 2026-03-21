@@ -46,6 +46,9 @@ mod tests {
             id: uuid::Uuid::new_v4(),
             username: "hothienty".into(),
             password_hash: "$argon2id$fake".into(),
+            full_name: "Ho Thien Ty".into(),
+            role: "super_admin".into(),
+            is_active: true,
             created_at: chrono::Utc::now(),
         }
     }

@@ -10,7 +10,7 @@ use crate::{
         admin::AdminPublic,
         coupon::{CreateCouponInput, UpdateCouponInput, ValidateCouponInput},
     },
-    repositories::coupon_repo,
+    services::coupon_service,
     state::AppState,
 };
 
@@ -19,8 +19,8 @@ pub async fn validate_coupon(
     State(state): State<AppState>,
     Json(input): Json<ValidateCouponInput>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let validated = coupon_repo::validate(&state.db, &input).await?;
-    Ok(Json(serde_json::json!(validated)))
+    let validated = coupon_service::validate_coupon(&state, &input).await?;
+    Ok(Json(validated))
 }
 
 /// GET /api/admin/coupons
@@ -28,8 +28,8 @@ pub async fn list_coupons(
     State(state): State<AppState>,
     Extension(_admin): Extension<AdminPublic>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let coupons = coupon_repo::find_all(&state.db).await?;
-    Ok(Json(serde_json::json!(coupons)))
+    let coupons = coupon_service::list_coupons(&state).await?;
+    Ok(Json(coupons))
 }
 
 /// POST /api/admin/coupons
@@ -38,8 +38,8 @@ pub async fn create_coupon(
     Extension(_admin): Extension<AdminPublic>,
     Json(input): Json<CreateCouponInput>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let coupon = coupon_repo::create(&state.db, &input).await?;
-    Ok(Json(serde_json::json!(coupon)))
+    let coupon = coupon_service::create_coupon(&state, &input).await?;
+    Ok(Json(coupon))
 }
 
 /// PUT /api/admin/coupons/:id
@@ -49,8 +49,8 @@ pub async fn update_coupon(
     Path(id): Path<Uuid>,
     Json(input): Json<UpdateCouponInput>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let coupon = coupon_repo::update(&state.db, id, &input).await?;
-    Ok(Json(serde_json::json!(coupon)))
+    let coupon = coupon_service::update_coupon(&state, id, &input).await?;
+    Ok(Json(coupon))
 }
 
 /// DELETE /api/admin/coupons/:id
@@ -59,6 +59,6 @@ pub async fn delete_coupon(
     Extension(_admin): Extension<AdminPublic>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    coupon_repo::delete(&state.db, id).await?;
+    coupon_service::delete_coupon(&state, id).await?;
     Ok(Json(serde_json::json!({ "ok": true })))
 }

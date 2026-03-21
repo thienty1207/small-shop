@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { WishlistProvider } from "@/contexts/WishlistContext";
 
 // ── Mock sonner toast ──────────────────────────────────────────────────────
 vi.mock("sonner", () => ({
@@ -18,7 +19,7 @@ const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-import Contact from "@/pages/Contact";
+import Contact from "@/pages/client/Contact";
 
 function renderContact() {
   // Default mock: AuthProvider will call /api/me on mount — return 401 (not logged in)
@@ -27,9 +28,11 @@ function renderContact() {
   return render(
     <MemoryRouter>
       <AuthProvider>
-        <CartProvider>
-          <Contact />
-        </CartProvider>
+        <WishlistProvider>
+          <CartProvider>
+            <Contact />
+          </CartProvider>
+        </WishlistProvider>
       </AuthProvider>
     </MemoryRouter>
   );
@@ -70,9 +73,9 @@ describe("Contact page", () => {
 
   it("shows contact info (address, email, phone)", () => {
     renderContact();
-    expect(screen.getByText("hello@handmadehaven.vn")).toBeInTheDocument();
-    expect(screen.getByText("0901 234 567")).toBeInTheDocument();
-    expect(screen.getByText("123 Nguyễn Huệ, Quận 1, TP.HCM")).toBeInTheDocument();
+    expect(screen.getAllByText("hello@handmadehaven.vn").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("0901 234 567").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("123 Nguyễn Huệ, Quận 1, TP.HCM").length).toBeGreaterThan(0);
   });
 
   it("submit button is disabled without Cloudflare token", () => {

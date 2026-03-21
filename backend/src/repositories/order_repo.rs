@@ -20,35 +20,44 @@ pub async fn create_order(
     payment_method: &str,
     subtotal: i64,
     shipping_fee: i64,
+    coupon_code: Option<&str>,
+    coupon_type: Option<&str>,
+    coupon_value: Option<i64>,
+    discount_amt: i64,
     total: i64,
     items: &[OrderItemInput],
 ) -> Result<(Order, Vec<OrderItem>), AppError> {
     let mut tx = pool.begin().await?;
 
     // Insert the order
-    let order = sqlx::query_as!(
-        Order,
+    let order = sqlx::query_as::<_, Order>(
         r#"
         INSERT INTO orders
             (order_code, user_id, customer_name, customer_email, customer_phone,
-             address, note, payment_method, subtotal, shipping_fee, total)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+               address, note, payment_method, subtotal, shipping_fee,
+               coupon_code, coupon_type, coupon_value, discount_amt, total)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING id, order_code, user_id, customer_name, customer_email,
                   customer_phone, address, note, payment_method, status,
-                  subtotal, shipping_fee, total, created_at, updated_at
+                   subtotal, shipping_fee, coupon_code, coupon_type, coupon_value,
+                   discount_amt, total, created_at, updated_at
         "#,
-        order_code,
-        user_id,
-        customer_name,
-        customer_email,
-        customer_phone,
-        address,
-        note,
-        payment_method,
-        subtotal,
-        shipping_fee,
-        total,
     )
+    .bind(order_code)
+    .bind(user_id)
+    .bind(customer_name)
+    .bind(customer_email)
+    .bind(customer_phone)
+    .bind(address)
+    .bind(note)
+    .bind(payment_method)
+    .bind(subtotal)
+    .bind(shipping_fee)
+    .bind(coupon_code)
+    .bind(coupon_type)
+    .bind(coupon_value)
+    .bind(discount_amt)
+    .bind(total)
     .fetch_one(&mut *tx)
     .await?;
 
@@ -123,16 +132,16 @@ pub async fn find_by_id(
     pool: &PgPool,
     order_id: Uuid,
 ) -> Result<Option<(Order, Vec<OrderItem>)>, AppError> {
-    let order = sqlx::query_as!(
-        Order,
+    let order = sqlx::query_as::<_, Order>(
         r#"
         SELECT id, order_code, user_id, customer_name, customer_email, customer_phone,
-               address, note, payment_method, status, subtotal, shipping_fee, total,
-               created_at, updated_at
+             address, note, payment_method, status, subtotal, shipping_fee,
+             coupon_code, coupon_type, coupon_value, discount_amt, total,
+             created_at, updated_at
         FROM orders WHERE id = $1
         "#,
-        order_id,
     )
+    .bind(order_id)
     .fetch_optional(pool)
     .await?;
 
@@ -237,19 +246,19 @@ pub async fn update_order_status(
     order_id: Uuid,
     status: &str,
 ) -> Result<Order, AppError> {
-    let order = sqlx::query_as!(
-        Order,
+    let order = sqlx::query_as::<_, Order>(
         r#"
         UPDATE orders
         SET status = $2, updated_at = NOW()
         WHERE id = $1
         RETURNING id, order_code, user_id, customer_name, customer_email,
                   customer_phone, address, note, payment_method, status,
-                  subtotal, shipping_fee, total, created_at, updated_at
+                  subtotal, shipping_fee, coupon_code, coupon_type, coupon_value,
+                  discount_amt, total, created_at, updated_at
         "#,
-        order_id,
-        status,
     )
+    .bind(order_id)
+    .bind(status)
     .fetch_optional(pool)
     .await?
     .ok_or_else(|| AppError::NotFound(format!("Order {order_id} not found")))?;

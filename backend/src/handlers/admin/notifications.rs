@@ -8,7 +8,11 @@ use std::convert::Infallible;
 use tokio::time::{interval, Duration};
 use tokio_stream::wrappers::IntervalStream;
 
-use crate::{models::admin::AdminPublic, state::AppState};
+use crate::{
+    models::admin::AdminPublic,
+    services::notification_service,
+    state::AppState,
+};
 
 /// GET /api/admin/notifications/stream
 ///
@@ -21,19 +25,16 @@ pub async fn notification_stream(
     State(state): State<AppState>,
     Extension(_admin): Extension<AdminPublic>,
 ) -> Sse<impl futures::Stream<Item = Result<Event, Infallible>>> {
-    let db = state.db.clone();
+    let app_state = state.clone();
 
     let tick = IntervalStream::new(interval(Duration::from_secs(10)));
 
     let stream = tick.then(move |_| {
-        let pool = db.clone();
+        let state = app_state.clone();
         async move {
-            let count: i64 = sqlx::query_scalar(
-                "SELECT COUNT(*) FROM orders WHERE status = 'pending' AND created_at > NOW() - INTERVAL '1 hour'",
-            )
-            .fetch_one(&pool)
-            .await
-            .unwrap_or(0);
+            let count = notification_service::count_recent_pending_orders(&state)
+                .await
+                .unwrap_or(0);
 
             Ok::<Event, Infallible>(
                 Event::default()

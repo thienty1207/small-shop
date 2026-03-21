@@ -7,6 +7,7 @@ pub mod contact;
 pub mod coupon;
 pub mod order;
 pub mod product;
+pub mod settings;
 pub mod user;
 
 use axum::Router;
@@ -20,6 +21,7 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         .merge(user::routes(state.clone()))
         .merge(contact::routes(state.clone()))
         .merge(product::routes(state.clone()))
+        .merge(settings::routes(state.clone()))
         .merge(cart::routes(state.clone()))
         .merge(order::routes(state.clone()))
         .merge(coupon::routes())

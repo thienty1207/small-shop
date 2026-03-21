@@ -31,3 +31,23 @@ Object.defineProperty(window, "localStorage", {
   value: localStorageMock,
   writable: true,
 });
+
+class MockIntersectionObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() { return []; }
+  root = null;
+  rootMargin = "0px";
+  thresholds = [0];
+}
+
+Object.defineProperty(window, "IntersectionObserver", {
+  value: MockIntersectionObserver,
+  writable: true,
+});
+
+Object.defineProperty(globalThis, "IntersectionObserver", {
+  value: MockIntersectionObserver,
+  writable: true,
+});

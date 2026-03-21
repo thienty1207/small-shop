@@ -10,7 +10,7 @@ use crate::{
         review::{CreateReviewInput, ReviewQuery},
         user::UserPublic,
     },
-    repositories::review_repo,
+    services::review_service,
     state::AppState,
 };
 
@@ -20,15 +20,8 @@ pub async fn list_reviews(
     Path(product_id): Path<Uuid>,
     Query(query): Query<ReviewQuery>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let (items, total) = review_repo::find_by_product(&state.db, product_id, &query).await?;
-    let total_pages = (total + query.limit - 1) / query.limit;
-    Ok(Json(serde_json::json!({
-        "items":       items,
-        "total":       total,
-        "page":        query.page,
-        "limit":       query.limit,
-        "total_pages": total_pages,
-    })))
+    let payload = review_service::list_reviews(&state, product_id, &query).await?;
+    Ok(Json(payload))
 }
 
 /// POST /api/products/:product_id/reviews  (requires auth)
@@ -38,7 +31,7 @@ pub async fn create_review(
     Path(product_id): Path<Uuid>,
     Json(input): Json<CreateReviewInput>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let review = review_repo::upsert(&state.db, user.id, product_id, &input).await?;
+    let review = review_service::create_review(&state, user.id, product_id, &input).await?;
     Ok(Json(serde_json::json!(review)))
 }
 
@@ -48,6 +41,6 @@ pub async fn get_my_review(
     Extension(user): Extension<UserPublic>,
     Path(product_id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let review = review_repo::find_by_user_product(&state.db, user.id, product_id).await?;
-    Ok(Json(serde_json::json!(review)))
+    let review = review_service::get_my_review(&state, user.id, product_id).await?;
+    Ok(Json(review))
 }

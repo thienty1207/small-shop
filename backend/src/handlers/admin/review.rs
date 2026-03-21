@@ -5,7 +5,10 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    error::AppError, models::admin::AdminPublic, repositories::review_repo, state::AppState,
+    error::AppError,
+    models::admin::AdminPublic,
+    services::review_service,
+    state::AppState,
 };
 
 /// GET /api/admin/reviews
@@ -22,12 +25,8 @@ pub async fn list_reviews(
         .get("limit")
         .and_then(|v| v.parse::<i64>().ok())
         .unwrap_or(20);
-    let (items, total) = review_repo::find_all_admin(&state.db, page, limit).await?;
-    let total_pages = (total + limit - 1) / limit;
-    Ok(Json(serde_json::json!({
-        "items": items, "total": total, "page": page,
-        "limit": limit, "total_pages": total_pages,
-    })))
+    let payload = review_service::list_reviews_admin(&state, page, limit).await?;
+    Ok(Json(payload))
 }
 
 /// DELETE /api/admin/reviews/:id
@@ -36,6 +35,6 @@ pub async fn delete_review(
     Extension(_admin): Extension<AdminPublic>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    review_repo::delete(&state.db, id).await?;
+    review_service::delete_review(&state, id).await?;
     Ok(Json(serde_json::json!({ "ok": true })))
 }

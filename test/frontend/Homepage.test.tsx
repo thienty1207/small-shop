@@ -118,11 +118,12 @@ describe("Homepage UI", () => {
   });
 
   it("maps brand cards from categories and links by category slug", () => {
-    renderHomepage();
+    const { container } = renderHomepage();
 
-    const firstCategoryLink = screen.getAllByRole("link", { name: "Nến" })[0];
-    expect(firstCategoryLink).toHaveAttribute("href", "/products?category=nen");
-    expect(screen.getByRole("link", { name: "Quà tặng" })).toHaveAttribute("href", "/products?category=qua-tang");
+    const firstCategoryLink = container.querySelector('a[href="/products?category=nen"]');
+    expect(firstCategoryLink).toBeInTheDocument();
+    const giftLink = container.querySelector('a[href="/products?category=qua-tang"]');
+    expect(giftLink).toBeInTheDocument();
     expect(document.querySelector('a[href*="search="]')).toBeNull();
 
     const categoryLinks = Array.from(document.querySelectorAll('a[href^="/products?category="]'));

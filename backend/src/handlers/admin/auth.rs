@@ -3,7 +3,6 @@ use axum::{extract::State, Extension, Json};
 use crate::{
     error::AppError,
     models::admin::{AdminLoginInput, AdminLoginResponse, AdminPublic},
-    repositories::admin_repo,
     services::admin_auth_service,
     state::AppState,
 };
@@ -19,28 +18,9 @@ pub async fn login(
     State(state): State<AppState>,
     Json(input): Json<AdminLoginInput>,
 ) -> Result<Json<AdminLoginResponse>, AppError> {
-    // 1. Look up admin by username
-    let admin = admin_repo::find_by_username(&state.db, &input.username)
-        .await?
-        .ok_or_else(|| AppError::Unauthorized("Invalid username or password".into()))?;
-
-    // 2. Verify password against Argon2id hash
-    let ok = admin_auth_service::verify_password(&input.password, &admin.password_hash)?;
-    if !ok {
-        return Err(AppError::Unauthorized(
-            "Invalid username or password".into(),
-        ));
-    }
-
-    // 3. Issue JWT with role = "admin"
-    let token = admin_auth_service::generate_admin_jwt(&state.config, &admin)?;
-
-    tracing::info!("Admin '{}' logged in", admin.username);
-
-    Ok(Json(AdminLoginResponse {
-        token,
-        user: AdminPublic::from(admin),
-    }))
+    let response = admin_auth_service::authenticate_admin(&state, &input.username, &input.password).await?;
+    tracing::info!("Admin '{}' logged in", response.user.username);
+    Ok(Json(response))
 }
 
 /// GET /api/admin/me

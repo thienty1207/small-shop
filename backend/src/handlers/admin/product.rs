@@ -11,8 +11,7 @@ use crate::{
         admin::AdminPublic,
         product::{AdminProductQuery, CreateProductInput, UpdateProductInput, UpdateStockInput},
     },
-    repositories::product_repo,
-    services::cloudinary as cloudinary_service,
+    services::{product_service, user_service},
     state::AppState,
 };
 
@@ -37,8 +36,8 @@ pub async fn list_products(
     Extension(_admin): Extension<AdminPublic>,
     Query(query): Query<AdminProductQuery>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let page = product_repo::find_all_admin(&state.db, &query).await?;
-    Ok(Json(serde_json::json!(page)))
+    let page = product_service::list_products_admin(&state, &query).await?;
+    Ok(Json(page))
 }
 
 /// GET /api/admin/products/:id
@@ -47,13 +46,8 @@ pub async fn get_product(
     Extension(_admin): Extension<AdminPublic>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let product = product_repo::find_admin_by_id(&state.db, id)
-        .await?
-        .ok_or_else(|| AppError::NotFound(format!("Product {id} not found")))?;
-    let variants = product_repo::find_variants_by_product(&state.db, id).await?;
-    Ok(Json(
-        serde_json::json!({ "product": product, "variants": variants }),
-    ))
+    let payload = product_service::get_product_admin(&state, id).await?;
+    Ok(Json(payload))
 }
 
 /// POST /api/admin/products
@@ -62,11 +56,8 @@ pub async fn create_product(
     Extension(_admin): Extension<AdminPublic>,
     Json(input): Json<CreateProductInput>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    if input.name.trim().is_empty() {
-        return Err(AppError::BadRequest("Product name is required".into()));
-    }
-    let product = product_repo::create_product(&state.db, &input).await?;
-    Ok(Json(serde_json::json!(product)))
+    let product = product_service::create_product(&state, &input).await?;
+    Ok(Json(product))
 }
 
 /// PUT /api/admin/products/:id
@@ -76,11 +67,8 @@ pub async fn update_product(
     Path(id): Path<Uuid>,
     Json(input): Json<UpdateProductInput>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    if input.name.trim().is_empty() {
-        return Err(AppError::BadRequest("Product name is required".into()));
-    }
-    let product = product_repo::update_product(&state.db, id, &input).await?;
-    Ok(Json(serde_json::json!(product)))
+    let product = product_service::update_product(&state, id, &input).await?;
+    Ok(Json(product))
 }
 
 #[derive(Debug, Deserialize)]
@@ -95,18 +83,8 @@ pub async fn reorder_product_images(
     Path(id): Path<Uuid>,
     Json(input): Json<ReorderImagesInput>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    if input.images.len() > 3 {
-        return Err(AppError::BadRequest("Tối đa 3 ảnh gallery".into()));
-    }
-
-    let clean_images: Vec<String> = input
-        .images
-        .into_iter()
-        .filter(|u| !u.trim().is_empty())
-        .collect();
-
-    let product = product_repo::reorder_product_images(&state.db, id, &clean_images).await?;
-    Ok(Json(serde_json::json!(product)))
+    let product = product_service::reorder_product_images(&state, id, input.images).await?;
+    Ok(Json(product))
 }
 
 /// DELETE /api/admin/products/:id
@@ -115,7 +93,7 @@ pub async fn delete_product(
     Extension(_admin): Extension<AdminPublic>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    product_repo::delete_product(&state.db, id).await?;
+    product_service::delete_product(&state, id).await?;
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
@@ -126,8 +104,8 @@ pub async fn list_inventory(
     State(state): State<AppState>,
     Extension(_admin): Extension<AdminPublic>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let rows = product_repo::get_inventory_list(&state.db).await?;
-    Ok(Json(serde_json::json!(rows)))
+    let rows = product_service::list_inventory(&state).await?;
+    Ok(Json(rows))
 }
 
 /// PATCH /api/admin/inventory/variants/:id/stock
@@ -137,11 +115,8 @@ pub async fn update_variant_stock(
     Path(variant_id): Path<Uuid>,
     Json(input): Json<UpdateStockInput>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    if input.stock < 0 {
-        return Err(AppError::BadRequest("Stock cannot be negative".into()));
-    }
-    let variant = product_repo::update_variant_stock(&state.db, variant_id, &input).await?;
-    Ok(Json(serde_json::json!(variant)))
+    let variant = product_service::update_variant_stock(&state, variant_id, &input).await?;
+    Ok(Json(variant))
 }
 
 // ─── Image Upload ─────────────────────────────────────────────────────────────
@@ -163,23 +138,9 @@ pub async fn upload_image(
         .await
         .map_err(|e| map_multipart_error("Multipart error", e))?
     {
-        let raw_ct = field.content_type().unwrap_or("").to_string();
-        let filename_hint = field.file_name().unwrap_or("").to_lowercase();
-        let content_type: String = if raw_ct.starts_with("image/") {
-            raw_ct
-        } else if filename_hint.ends_with(".png") {
-            "image/png".into()
-        } else if filename_hint.ends_with(".webp") {
-            "image/webp".into()
-        } else if filename_hint.ends_with(".gif") {
-            "image/gif".into()
-        } else if filename_hint.ends_with(".jpg") || filename_hint.ends_with(".jpeg") {
-            "image/jpeg".into()
-        } else if !raw_ct.is_empty() && !raw_ct.starts_with("image/") {
-            return Err(AppError::BadRequest("Only image files are allowed".into()));
-        } else {
-            "image/jpeg".into()
-        };
+        let raw_ct = field.content_type().unwrap_or("");
+        let filename_hint = field.file_name().unwrap_or("");
+        let content_type = user_service::infer_image_content_type(raw_ct, filename_hint)?;
 
         let data = field
             .bytes()
@@ -193,7 +154,7 @@ pub async fn upload_image(
             return Err(AppError::BadRequest("File too large (max 10 MB)".into()));
         }
 
-        let url = cloudinary_service::upload_image(
+        let url = crate::services::cloudinary::upload_image(
             cloudinary,
             &state.http_client,
             data.to_vec(),

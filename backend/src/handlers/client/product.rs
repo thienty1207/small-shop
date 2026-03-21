@@ -7,7 +7,7 @@ use axum::{
 use crate::{
     error::AppError,
     models::product::{PaginatedResponse, ProductPublic, ProductQuery},
-    repositories::product_repo,
+    services::product_service,
     state::AppState,
 };
 
@@ -16,7 +16,7 @@ pub async fn list_products(
     State(state): State<AppState>,
     Query(query): Query<ProductQuery>,
 ) -> Result<Json<PaginatedResponse<ProductPublic>>, AppError> {
-    let paginated = product_repo::find_all(&state.db, &query).await?;
+    let paginated = product_service::list_products(&state, &query).await?;
     Ok(Json(paginated))
 }
 
@@ -26,15 +26,7 @@ pub async fn get_product(
     State(state): State<AppState>,
     Path(slug): Path<String>,
 ) -> Result<(StatusCode, Json<ProductPublic>), AppError> {
-    let product = product_repo::find_by_slug(&state.db, &slug)
-        .await?
-        .ok_or_else(|| AppError::NotFound(format!("Product '{}' not found", slug)))?;
-
-    let product_id = product.id;
-    let mut public = ProductPublic::from(product);
-    // Attach all variants so the client can render the size selector.
-    public.variants = product_repo::find_variants_by_product(&state.db, product_id).await?;
-
+    let public = product_service::get_product(&state, &slug).await?;
     Ok((StatusCode::OK, Json(public)))
 }
 
@@ -50,7 +42,7 @@ pub async fn get_related_products(
         .and_then(|v| v.parse::<i64>().ok())
         .unwrap_or(4)
         .min(12);
-    let related = product_repo::find_related(&state.db, &slug, limit).await?;
+    let related = product_service::get_related_products(&state, &slug, limit).await?;
     Ok(Json(related))
 }
 
@@ -58,6 +50,6 @@ pub async fn get_related_products(
 pub async fn list_categories(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<crate::models::product::Category>>, AppError> {
-    let categories = product_repo::find_all_categories(&state.db).await?;
+    let categories = product_service::list_categories(&state).await?;
     Ok(Json(categories))
 }

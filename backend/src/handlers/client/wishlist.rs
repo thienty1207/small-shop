@@ -7,7 +7,7 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    error::AppError, models::user::UserPublic, repositories::wishlist_repo, state::AppState,
+    error::AppError, models::user::UserPublic, services::wishlist_service, state::AppState,
 };
 
 pub async fn toggle_wishlist(
@@ -15,9 +15,7 @@ pub async fn toggle_wishlist(
     Extension(user): Extension<UserPublic>,
     Path(product_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, AppError> {
-    let result = wishlist_repo::toggle_wishlist(&state.db, user.id, product_id)
-        .await
-        .map_err(AppError::from)?;
+    let result = wishlist_service::toggle_wishlist(&state, user.id, product_id).await?;
 
     Ok(Json(json!({
         "status": "success",
@@ -31,9 +29,7 @@ pub async fn get_wishlist(
     State(state): State<AppState>,
     Extension(user): Extension<UserPublic>,
 ) -> Result<impl IntoResponse, AppError> {
-    let products = wishlist_repo::get_wishlist(&state.db, user.id)
-        .await
-        .map_err(AppError::from)?;
+    let products = wishlist_service::get_wishlist(&state, user.id).await?;
 
     Ok(Json(json!({
         "status": "success",
@@ -45,9 +41,7 @@ pub async fn get_wishlist_ids(
     State(state): State<AppState>,
     Extension(user): Extension<UserPublic>,
 ) -> Result<impl IntoResponse, AppError> {
-    let ids = wishlist_repo::get_wishlist_ids(&state.db, user.id)
-        .await
-        .map_err(AppError::from)?;
+    let ids = wishlist_service::get_wishlist_ids(&state, user.id).await?;
 
     Ok(Json(json!({
         "status": "success",
