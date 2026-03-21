@@ -72,6 +72,7 @@ pub async fn update_product(
 }
 
 #[derive(Debug, Deserialize)]
+/// Payload for reordering product gallery images.
 pub struct ReorderImagesInput {
     pub images: Vec<String>,
 }

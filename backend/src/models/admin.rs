@@ -7,6 +7,7 @@ use uuid::Uuid;
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, sqlx::FromRow)]
+/// Internal admin entity mapped directly from the `admin_users` table.
 pub struct AdminUser {
     pub id: Uuid,
     pub username: String,
@@ -22,6 +23,7 @@ pub struct AdminUser {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize)]
+/// API-safe admin representation (without `password_hash`).
 pub struct AdminPublic {
     pub id: Uuid,
     pub username: String,
@@ -45,12 +47,14 @@ impl From<AdminUser> for AdminPublic {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Deserialize)]
+/// Admin login payload from client.
 pub struct AdminLoginInput {
     pub username: String,
     pub password: String,
 }
 
 #[derive(Debug, Serialize)]
+/// Admin login response containing JWT token and public user data.
 pub struct AdminLoginResponse {
     pub token: String,
     pub user: AdminPublic,
@@ -95,6 +99,7 @@ pub struct UpdateStaffInput {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Serialize)]
+/// Aggregated KPI fields for admin dashboard.
 pub struct DashboardStats {
     pub revenue_today: i64,
     pub revenue_this_month: i64,
@@ -111,12 +116,14 @@ pub struct DashboardStats {
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
+/// A monthly revenue data point for charts.
 pub struct RevenuePoint {
     pub month: String,
     pub revenue: i64,
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
+/// Top-selling product row for dashboard view.
 pub struct TopProduct {
     pub id: Uuid,
     pub name: String,

@@ -718,6 +718,9 @@ pub async fn delete_product(pool: &PgPool, id: Uuid) -> Result<(), AppError> {
 
 // ─── Category admin CRUD ─────────────────────────────────────────────────────
 
+/// Create a new category.
+///
+/// If `slug` is missing or empty, it is auto-generated from `name` via `slugify`.
 pub async fn create_category(pool: &PgPool, input: &CategoryInput) -> Result<Category, AppError> {
     let slug = input
         .slug
@@ -742,6 +745,9 @@ pub async fn create_category(pool: &PgPool, input: &CategoryInput) -> Result<Cat
     Ok(cat)
 }
 
+/// Update category fields by `id` and return the updated row.
+///
+/// Returns `NotFound` when the category does not exist.
 pub async fn update_category(
     pool: &PgPool,
     id: Uuid,
@@ -856,6 +862,9 @@ pub async fn find_related(
     Ok(result)
 }
 
+/// Delete a category by `id`.
+///
+/// Deletion is blocked while products still belong to this category.
 pub async fn delete_category(pool: &PgPool, id: Uuid) -> Result<(), AppError> {
     let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM products WHERE category_id = $1")
         .bind(id)

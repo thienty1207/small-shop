@@ -8,6 +8,7 @@ use uuid::Uuid;
 // =========================
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
+/// Wishlist entity in DB representing a favorited user-product relation.
 pub struct WishlistItem {
     pub user_id: Uuid,
     pub product_id: Uuid,

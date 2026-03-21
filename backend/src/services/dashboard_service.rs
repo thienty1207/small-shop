@@ -8,6 +8,13 @@ use crate::{
     state::AppState,
 };
 
+/// Build dashboard payload for the admin panel.
+///
+/// Includes:
+/// - `stats`: top-level KPIs (revenue/orders/customers/products)
+/// - `recent_orders`: 10 most recent orders
+/// - `revenue_chart`: revenue trend for the last 6 months
+/// - `top_products`: top products by units sold and revenue
 pub async fn get_dashboard_payload(state: &AppState) -> Result<serde_json::Value, AppError> {
     let db = &state.db;
 

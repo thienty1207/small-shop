@@ -87,6 +87,13 @@ pub fn generate_order_code() -> String {
     format!("HS-{date}-{suffix}")
 }
 
+/// Create an order for an authenticated user.
+///
+/// Main flow:
+/// 1. Validate input and calculate subtotal/shipping/total.
+/// 2. Validate coupon (if provided) and apply discount.
+/// 3. Create order + order_items via repository.
+/// 4. Clear cart, increment coupon `used_count`, send confirmation email (best-effort).
 pub async fn create_order_for_user(
     state: &AppState,
     user_id: Uuid,
@@ -179,6 +186,9 @@ pub async fn create_order_for_user(
     })
 }
 
+/// Get details for an order that belongs to the current user.
+///
+/// Returns `Unauthorized` if the order does not belong to this user.
 pub async fn get_user_order(
     state: &AppState,
     user_id: Uuid,
@@ -214,10 +224,12 @@ pub async fn get_user_order(
     })
 }
 
+/// List orders for a given `user_id`.
 pub async fn list_user_orders(state: &AppState, user_id: Uuid) -> Result<Vec<OrderListItem>, AppError> {
     order_repo::find_by_user(&state.db, user_id).await
 }
 
+/// List orders for admin with pagination/filtering via `AdminOrderQuery`.
 pub async fn list_admin_orders(
     state: &AppState,
     query: &AdminOrderQuery,
@@ -233,6 +245,7 @@ pub async fn list_admin_orders(
     }))
 }
 
+/// Get admin order details (`order` + `items`).
 pub async fn get_admin_order(state: &AppState, id: Uuid) -> Result<serde_json::Value, AppError> {
     let (order, items) = order_repo::find_by_id(&state.db, id)
         .await?
@@ -240,6 +253,11 @@ pub async fn get_admin_order(state: &AppState, id: Uuid) -> Result<serde_json::V
     Ok(serde_json::json!({ "order": order, "items": items }))
 }
 
+/// Update order status from admin actions.
+///
+/// - Accepts only whitelisted statuses.
+/// - When moving to `cancelled` from another status, restores stock automatically.
+/// - Sends customer status email as best-effort.
 pub async fn update_admin_order_status(
     state: &AppState,
     id: Uuid,

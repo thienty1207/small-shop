@@ -7,6 +7,7 @@ use crate::{
     state::AppState,
 };
 
+/// List reviews for a `product_id` with pagination.
 pub async fn list_reviews(
     state: &AppState,
     product_id: Uuid,
@@ -24,6 +25,7 @@ pub async fn list_reviews(
     }))
 }
 
+/// Create or update the current user's review for a product (upsert).
 pub async fn create_review(
     state: &AppState,
     user_id: Uuid,
@@ -34,6 +36,7 @@ pub async fn create_review(
     Ok(serde_json::json!(review))
 }
 
+/// Get the current user's own review for a product.
 pub async fn get_my_review(
     state: &AppState,
     user_id: Uuid,
@@ -43,6 +46,7 @@ pub async fn get_my_review(
     Ok(serde_json::json!(review))
 }
 
+/// List reviews for admin by page and limit.
 pub async fn list_reviews_admin(
     state: &AppState,
     page: i64,
@@ -59,6 +63,7 @@ pub async fn list_reviews_admin(
     }))
 }
 
+/// Delete a review by `id` (admin moderation action).
 pub async fn delete_review(state: &AppState, id: Uuid) -> Result<(), AppError> {
     review_repo::delete(&state.db, id).await
 }

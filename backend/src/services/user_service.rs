@@ -9,6 +9,7 @@ use crate::{
     state::AppState,
 };
 
+/// Handle OAuth callback exchange and build frontend redirect URL with JWT token.
 pub async fn build_oauth_redirect_url(state: &AppState, code: &str) -> Result<String, AppError> {
     let access_token = auth_service::exchange_code_for_token(&state.config, code).await?;
     let google_info = auth_service::fetch_google_user_info(&access_token).await?;
@@ -21,6 +22,7 @@ pub async fn build_oauth_redirect_url(state: &AppState, code: &str) -> Result<St
     ))
 }
 
+/// Update editable user profile fields (for example phone/address).
 pub async fn update_profile(
     db: &PgPool,
     user_id: Uuid,
@@ -30,6 +32,9 @@ pub async fn update_profile(
     Ok(updated.into())
 }
 
+/// Infer upload image MIME type.
+///
+/// Prefers request `content-type`; falls back to filename extension when needed.
 pub fn infer_image_content_type(raw_ct: &str, filename_hint: &str) -> Result<String, AppError> {
     let filename_hint = filename_hint.to_lowercase();
     if raw_ct.starts_with("image/") {
@@ -49,6 +54,11 @@ pub fn infer_image_content_type(raw_ct: &str, filename_hint: &str) -> Result<Str
     }
 }
 
+/// Upload avatar from raw bytes to Cloudinary and update user's `avatar_url`.
+///
+/// Current constraints:
+/// - File must not be empty.
+/// - Maximum size is 5 MB.
 pub async fn upload_avatar_from_bytes(
     state: &AppState,
     user_id: Uuid,

@@ -14,6 +14,11 @@ use crate::{
     state::AppState,
 };
 
+/// Build an HTTP response for downloadable CSV content.
+///
+/// - Sets UTF-8 CSV `Content-Type`.
+/// - Sets `Content-Disposition` with attachment filename.
+/// - Prefixes UTF-8 BOM for better Excel compatibility with non-ASCII text.
 fn csv_response(filename: &str, body: String) -> Response<Body> {
     Response::builder()
         .header(header::CONTENT_TYPE, "text/csv; charset=utf-8")
@@ -25,10 +30,14 @@ fn csv_response(filename: &str, body: String) -> Response<Body> {
         .unwrap()
 }
 
+/// Prefix UTF-8 BOM so spreadsheet applications detect encoding correctly.
 fn with_utf8_bom(body: String) -> String {
     format!("\u{FEFF}{body}")
 }
 
+/// Escape a CSV cell using common RFC-compatible rules:
+/// - If value contains comma, quote, or newline -> wrap with `"`.
+/// - Inner quotes are doubled (`""`).
 fn csv_escape(value: impl ToString) -> String {
     let s = value.to_string();
     if s.contains(',') || s.contains('"') || s.contains('\n') || s.contains('\r') {
@@ -43,6 +52,8 @@ fn as_text_cell(value: &str) -> String {
     format!("\t{value}")
 }
 
+/// Build TSV response while using `application/vnd.ms-excel` MIME
+/// so spreadsheet apps open it directly.
 fn excel_response(filename: &str, body: String) -> Response<Body> {
     Response::builder()
         .header(
@@ -57,7 +68,15 @@ fn excel_response(filename: &str, body: String) -> Response<Body> {
         .unwrap()
 }
 
-/// GET /api/admin/orders/export?from=&to=&status=
+/// GET `/api/admin/orders/export?from=&to=&status=&format=`
+///
+/// Export order list using query filters.
+///
+/// - `format`: `csv` (default) or `excel|xls|xlsx`
+/// - `status`: filter by order status
+/// - `from`, `to`: filter by order creation timestamp range
+///
+/// Returns a downloadable file (`text/csv` or `application/vnd.ms-excel`).
 pub async fn export_orders(
     State(state): State<AppState>,
     Extension(_admin): Extension<AdminPublic>,
@@ -127,7 +146,12 @@ pub async fn export_orders(
     }
 }
 
-/// GET /api/admin/products/export?format=csv|excel&from=&to=
+/// GET `/api/admin/products/export?format=csv|excel&from=&to=`
+///
+/// Export product list by created-at date range.
+///
+/// - CSV: comma-separated with safe field escaping.
+/// - Excel: TSV body + Excel MIME for quick spreadsheet opening.
 pub async fn export_products(
     State(state): State<AppState>,
     Extension(_admin): Extension<AdminPublic>,

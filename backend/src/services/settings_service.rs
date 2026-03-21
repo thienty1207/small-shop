@@ -5,11 +5,13 @@ use crate::{
     state::AppState,
 };
 
+/// Read all shop settings from DB and serialize as JSON API output.
 pub async fn get_settings(state: &AppState) -> Result<serde_json::Value, AppError> {
     let settings = settings_repo::get_all(&state.db).await?;
     serde_json::to_value(settings).map_err(|e| AppError::Internal(format!("Serialization error: {e}")))
 }
 
+/// Bulk-upsert settings, then reload and return the latest state.
 pub async fn update_settings(
     state: &AppState,
     input: &UpdateSettingsInput,
@@ -18,6 +20,9 @@ pub async fn update_settings(
     get_settings(state).await
 }
 
+/// Return a frontend-safe subset of public settings.
+///
+/// Only exposes keys from the `public_keys` allow-list.
 pub async fn get_public_settings(
     state: &AppState,
 ) -> Result<serde_json::Value, AppError> {

@@ -7,6 +7,7 @@ use uuid::Uuid;
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+/// Internal user entity mapped directly from the `users` table.
 pub struct User {
     pub id: Uuid,
     pub google_id: String,
@@ -29,6 +30,7 @@ pub struct User {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Deserialize)]
+/// User profile payload returned by Google userinfo API.
 pub struct GoogleUserInfo {
     pub id: String,
     pub email: String,
@@ -41,6 +43,7 @@ pub struct GoogleUserInfo {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+/// Claims embedded in JWT tokens issued by backend.
 pub struct Claims {
     /// Subject: user UUID
     pub sub: String,
@@ -58,6 +61,7 @@ pub struct Claims {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Serialize)]
+/// Response payload returned after successful login.
 pub struct AuthResponse {
     pub token: String,
     pub user: UserPublic,
@@ -100,6 +104,7 @@ pub struct UpdateProfileInput {
 // Input for inserting a new user
 // ---------------------------------------------------------------------------
 
+/// Internal payload used to insert a new user in DB.
 pub struct NewUser {
     pub google_id: String,
     pub email: String,

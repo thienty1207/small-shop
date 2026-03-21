@@ -10,6 +10,7 @@ use crate::{
     state::AppState,
 };
 
+/// List public products using `ProductQuery` filters and pagination.
 pub async fn list_products(
     state: &AppState,
     query: &ProductQuery,
@@ -17,6 +18,7 @@ pub async fn list_products(
     product_repo::find_all(&state.db, query).await
 }
 
+/// Get product details by `slug`, including variant list.
 pub async fn get_product(state: &AppState, slug: &str) -> Result<ProductPublic, AppError> {
     let product = product_repo::find_by_slug(&state.db, slug)
         .await?
@@ -28,6 +30,9 @@ pub async fn get_product(state: &AppState, slug: &str) -> Result<ProductPublic, 
     Ok(public)
 }
 
+/// Get related products for the current `slug`.
+///
+/// Hard-caps result size to 12 to avoid oversized responses.
 pub async fn get_related_products(
     state: &AppState,
     slug: &str,
@@ -36,10 +41,12 @@ pub async fn get_related_products(
     product_repo::find_related(&state.db, slug, limit.min(12)).await
 }
 
+/// Get all product categories.
 pub async fn list_categories(state: &AppState) -> Result<Vec<Category>, AppError> {
     product_repo::find_all_categories(&state.db).await
 }
 
+/// List products for admin panel (includes pagination metadata).
 pub async fn list_products_admin(
     state: &AppState,
     query: &AdminProductQuery,
@@ -48,6 +55,7 @@ pub async fn list_products_admin(
     Ok(serde_json::json!(page))
 }
 
+/// Get admin product details by `id`, including variants.
 pub async fn get_product_admin(state: &AppState, id: Uuid) -> Result<serde_json::Value, AppError> {
     let product = product_repo::find_admin_by_id(&state.db, id)
         .await?
@@ -56,6 +64,7 @@ pub async fn get_product_admin(state: &AppState, id: Uuid) -> Result<serde_json:
     Ok(serde_json::json!({ "product": product, "variants": variants }))
 }
 
+/// Create a new product after validating required fields.
 pub async fn create_product(
     state: &AppState,
     input: &CreateProductInput,
@@ -67,6 +76,7 @@ pub async fn create_product(
     Ok(serde_json::json!(product))
 }
 
+/// Update a product by `id` after input validation.
 pub async fn update_product(
     state: &AppState,
     id: Uuid,
@@ -79,6 +89,9 @@ pub async fn update_product(
     Ok(serde_json::json!(product))
 }
 
+/// Reorder product gallery images.
+///
+/// Allows up to 3 images and removes empty URLs before persisting.
 pub async fn reorder_product_images(
     state: &AppState,
     id: Uuid,
@@ -93,15 +106,20 @@ pub async fn reorder_product_images(
     Ok(serde_json::json!(product))
 }
 
+/// Delete a product by `id`.
 pub async fn delete_product(state: &AppState, id: Uuid) -> Result<(), AppError> {
     product_repo::delete_product(&state.db, id).await
 }
 
+/// Get variant inventory rows for the admin inventory screen.
 pub async fn list_inventory(state: &AppState) -> Result<serde_json::Value, AppError> {
     let rows = product_repo::get_inventory_list(&state.db).await?;
     Ok(serde_json::json!(rows))
 }
 
+/// Update stock for a specific variant.
+///
+/// Negative stock is not allowed.
 pub async fn update_variant_stock(
     state: &AppState,
     variant_id: Uuid,
@@ -115,6 +133,7 @@ pub async fn update_variant_stock(
     Ok(serde_json::json!(variant))
 }
 
+/// Create a new category from admin input.
 pub async fn create_category(
     state: &AppState,
     input: &CategoryInput,
@@ -126,6 +145,7 @@ pub async fn create_category(
     Ok(serde_json::json!(cat))
 }
 
+/// Update a category by `id`.
 pub async fn update_category(
     state: &AppState,
     id: Uuid,
@@ -138,6 +158,7 @@ pub async fn update_category(
     Ok(serde_json::json!(cat))
 }
 
+/// Delete a category by `id`.
 pub async fn delete_category(state: &AppState, id: Uuid) -> Result<(), AppError> {
     product_repo::delete_category(&state.db, id).await
 }

@@ -4,6 +4,7 @@ use axum::{
     Router,
 };
 
+/// Register client wishlist routes and apply JWT middleware to the whole branch.
 pub fn client_wishlist_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/ids", get(wishlist::get_wishlist_ids))

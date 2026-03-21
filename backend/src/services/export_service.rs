@@ -3,6 +3,9 @@ use serde::Serialize;
 
 use crate::{error::AppError, state::AppState};
 
+/// Export row model for orders.
+///
+/// Mapped directly from `fetch_orders` query output for CSV/Excel rendering in handlers.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct ExportOrderRow {
     pub order_code: String,
@@ -18,6 +21,9 @@ pub struct ExportOrderRow {
     pub created_at: DateTime<Utc>,
 }
 
+/// Export row model for products.
+///
+/// Used by admin product reports, including pricing/stock/rating/created-at fields.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize)]
 pub struct ExportProductRow {
     pub name: String,
@@ -34,10 +40,14 @@ pub struct ExportProductRow {
     pub created_at: DateTime<Utc>,
 }
 
+/// Parse a datetime query parameter into `DateTime<Utc>`.
+///
+/// Returns `None` if input is empty or invalid, so date filters remain optional.
 fn parse_dt(value: Option<&str>) -> Option<DateTime<Utc>> {
     value.and_then(|s| s.parse::<DateTime<Utc>>().ok())
 }
 
+/// Fetch order rows for export using `status`/`from`/`to` filters.
 pub async fn fetch_orders(
     state: &AppState,
     status_filter: Option<&str>,
@@ -68,6 +78,7 @@ pub async fn fetch_orders(
     Ok(rows)
 }
 
+/// Fetch product rows for export using created-at date range filters.
 pub async fn fetch_products(
     state: &AppState,
     from_filter: Option<&str>,

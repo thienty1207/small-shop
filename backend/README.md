@@ -2,6 +2,8 @@
 
 Tài liệu này giúp team nhìn nhanh luồng xử lý backend và ranh giới trách nhiệm giữa `routes` / `handlers` / `services` / `repositories`.
 
+> Ghi chú mục đích theo từng file xem tại **`backend/CODE_NOTES.md`**.
+
 ## 1) Mục tiêu kiến trúc
 
 - Dễ đọc, dễ onboard junior.

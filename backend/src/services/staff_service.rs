@@ -8,6 +8,7 @@ use crate::{
     state::AppState,
 };
 
+/// Ensure the current account has `super_admin` role before staff operations.
 pub fn require_super_admin(admin: &AdminPublic) -> Result<(), AppError> {
     if admin.role != "super_admin" {
         return Err(AppError::Forbidden(
@@ -17,10 +18,12 @@ pub fn require_super_admin(admin: &AdminPublic) -> Result<(), AppError> {
     Ok(())
 }
 
+/// List all admin/staff accounts.
 pub async fn list_staff(state: &AppState) -> Result<Vec<StaffListItem>, AppError> {
     admin_repo::list_staff(&state.db).await
 }
 
+/// Create a new staff account after role/username/password validation.
 pub async fn create_staff(
     state: &AppState,
     input: &CreateStaffInput,
@@ -52,6 +55,7 @@ pub async fn create_staff(
     .await
 }
 
+/// Update staff profile and optionally reset password.
 pub async fn update_staff(
     state: &AppState,
     id: Uuid,
@@ -84,6 +88,7 @@ pub async fn update_staff(
     .await
 }
 
+/// Delete a staff account by `id`.
 pub async fn delete_staff(state: &AppState, id: Uuid) -> Result<(), AppError> {
     admin_repo::delete_staff(&state.db, id).await
 }

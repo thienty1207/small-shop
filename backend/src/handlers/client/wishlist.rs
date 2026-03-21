@@ -10,6 +10,7 @@ use crate::{
     error::AppError, models::user::UserPublic, services::wishlist_service, state::AppState,
 };
 
+/// Toggle favorite state of a product for the current user.
 pub async fn toggle_wishlist(
     State(state): State<AppState>,
     Extension(user): Extension<UserPublic>,
@@ -25,6 +26,7 @@ pub async fn toggle_wishlist(
     })))
 }
 
+/// Get all products wishlisted by the current user.
 pub async fn get_wishlist(
     State(state): State<AppState>,
     Extension(user): Extension<UserPublic>,
@@ -37,6 +39,7 @@ pub async fn get_wishlist(
     })))
 }
 
+/// Get wishlisted product IDs (useful for quick frontend state marking).
 pub async fn get_wishlist_ids(
     State(state): State<AppState>,
     Extension(user): Extension<UserPublic>,

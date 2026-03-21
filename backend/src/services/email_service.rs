@@ -43,6 +43,10 @@ pub async fn verify_turnstile(secret_key: &str, token: &str) -> Result<bool, App
 
 // ─── SMTP transport ───────────────────────────────────────────────────────────
 
+/// Build an async SMTP mailer from runtime configuration.
+///
+/// Uses STARTTLS by default (typically port 587). If your infrastructure uses SMTPS 465,
+/// initialize the transport with the appropriate strategy.
 pub fn build_mailer(config: &Config) -> Result<AsyncSmtpTransport<Tokio1Executor>, AppError> {
     let creds = Credentials::new(config.smtp_username.clone(), config.smtp_password.clone());
 

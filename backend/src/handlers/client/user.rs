@@ -16,6 +16,7 @@ use crate::{
 // Google OAuth — Step 1: redirect user to Google consent page
 // ---------------------------------------------------------------------------
 
+/// Redirect the user to Google's consent page to start OAuth flow.
 pub async fn google_login(State(state): State<AppState>) -> impl IntoResponse {
     let (url, _csrf_state) = auth_service::build_google_auth_url(&state.config);
 
@@ -30,11 +31,15 @@ pub async fn google_login(State(state): State<AppState>) -> impl IntoResponse {
 // ---------------------------------------------------------------------------
 
 #[derive(Deserialize)]
+/// Query params returned from Google OAuth callback.
+///
+/// `state` is kept for CSRF validation (TODO).
 pub struct CallbackParams {
     pub code: String,
     pub state: Option<String>,
 }
 
+/// Handle Google OAuth callback and redirect to frontend with login token.
 pub async fn google_callback(
     State(state): State<AppState>,
     Query(params): Query<CallbackParams>,
@@ -51,6 +56,7 @@ pub async fn google_callback(
 // Protected: GET /api/me — return current user from JWT
 // ---------------------------------------------------------------------------
 
+/// Return current user information injected by auth middleware into `Extension`.
 pub async fn get_me(
     Extension(current_user): Extension<UserPublic>,
 ) -> Result<Json<UserPublic>, AppError> {
@@ -61,6 +67,7 @@ pub async fn get_me(
 // Protected: PUT /api/me — update editable profile fields
 // ---------------------------------------------------------------------------
 
+/// Update basic profile fields of the current user.
 pub async fn put_me(
     State(state): State<AppState>,
     Extension(current_user): Extension<UserPublic>,
@@ -74,6 +81,7 @@ pub async fn put_me(
 // Protected: POST /api/me/avatar — upload & update avatar via Cloudinary
 // ---------------------------------------------------------------------------
 
+/// Receive avatar multipart upload, upload to Cloudinary, and update user `avatar_url`.
 pub async fn upload_avatar(
     State(state): State<AppState>,
     Extension(current_user): Extension<UserPublic>,

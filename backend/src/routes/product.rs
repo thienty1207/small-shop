@@ -12,6 +12,7 @@ use crate::{
     state::AppState,
 };
 
+/// Register public product/category/review routes and merge protected review routes.
 pub fn routes(state: AppState) -> Router<AppState> {
     // Protected review routes
     let protected_reviews = Router::new()

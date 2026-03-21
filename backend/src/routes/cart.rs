@@ -6,6 +6,7 @@ use axum::{
 
 use crate::{handlers::client::cart, middleware::auth::jwt_auth, state::AppState};
 
+/// Register all cart routes and apply JWT middleware to the `/api/cart` branch.
 pub fn routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/api/cart", get(cart::get_cart).delete(cart::clear_cart))

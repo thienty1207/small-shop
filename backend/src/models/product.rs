@@ -128,7 +128,7 @@ pub struct ProductQuery {
     pub search: Option<String>,
     /// Allowed: newest (default), price_asc, price_desc, best_selling
     pub sort: Option<String>,
-    /// Filter by badge value (e.g. "Mới", "Nổi Bật", "Giảm Giá")
+    /// Filter by badge value (e.g. "New", "Featured", "On Sale")
     pub badge: Option<String>,
     #[serde(default = "default_client_page")]
     pub page: i64,

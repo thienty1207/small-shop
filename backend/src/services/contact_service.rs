@@ -8,6 +8,13 @@ use crate::{
     state::AppState,
 };
 
+/// Process the full client contact-form flow.
+///
+/// Steps:
+/// 1. Validate payload using `validator` rules.
+/// 2. Verify the Cloudflare Turnstile token.
+/// 3. Persist the message in the database.
+/// 4. Send admin notification + auto-reply emails in background (non-blocking).
 pub async fn process_contact(state: &AppState, payload: ContactRequest) -> Result<(), AppError> {
     payload
         .validate()
