@@ -137,10 +137,12 @@ const ProductDetail = () => {
   const activeOriginal = selectedVariant?.originalPrice ?? product?.originalPrice;
   const activeStock    = selectedVariant?.stock    ?? product?.stock    ?? 0;
   const selectedVariantLabel = selectedVariant ? `${selectedVariant.ml}ml` : undefined;
-  const quantityAlreadyInCart = items.find((item) =>
-    item.product.id === product.id &&
-    (item.variantLabel ?? item.variant ?? "") === (selectedVariantLabel ?? ""),
-  )?.quantity ?? 0;
+  const quantityAlreadyInCart = product
+    ? items.find((item) =>
+        item.product.id === product.id &&
+        (item.variantLabel ?? item.variant ?? "") === (selectedVariantLabel ?? ""),
+      )?.quantity ?? 0
+    : 0;
   const availableToAdd = Math.max(0, activeStock - quantityAlreadyInCart);
   const activeOutOfStock = activeStock === 0;
   const activeLowStock   = !activeOutOfStock && activeStock < 5;

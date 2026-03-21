@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ChevronRight, ChevronLeft, ChevronRight as ChevronRightIcon, SlidersHorizontal } from "lucide-react";
+import { ChevronRight, ChevronLeft, ChevronRight as ChevronRightIcon, SlidersHorizontal, Filter } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/shop/ProductCard";
 import { useProducts, useCategories } from "@/hooks/useProducts";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 const SORT_OPTIONS = [
   { value: "newest",      label: "Mới nhất" },
@@ -13,10 +14,13 @@ const SORT_OPTIONS = [
   { value: "best_selling", label: "Bán chạy nhất" },
 ];
 
-const LIMIT = 12;
+const LIMIT = 20;
 
 const Products = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [showAllBrands, setShowAllBrands] = useState(false);
+
   const selectedCategory = searchParams.get("category") ?? "";
   const sort = searchParams.get("sort") ?? "newest";
   const page = parseInt(searchParams.get("page") ?? "1", 10);
@@ -30,6 +34,7 @@ const Products = () => {
     limit: LIMIT,
   });
   const { categories } = useCategories();
+  const brandList = showAllBrands ? categories : categories.slice(0, 5);
 
   // Reset to page 1 when filter/sort/search changes
   const setCategory = (slug: string) => {
@@ -48,6 +53,16 @@ const Products = () => {
       next.delete("page");
       return next;
     });
+  };
+
+  const clearFilters = () => {
+    setSearchParams((p) => {
+      const next = new URLSearchParams(p);
+      next.delete("category");
+      next.delete("page");
+      return next;
+    });
+    setShowAllBrands(false);
   };
 
   const setPage = (n: number) => {
@@ -84,7 +99,7 @@ const Products = () => {
       <div className="flex-1 container mx-auto px-4 md:px-8 pb-16">
         <div className="flex flex-col md:flex-row gap-8">
           {/* Sidebar Filter */}
-          <aside className="w-full md:w-56 shrink-0">
+          <aside className="hidden md:block w-56 shrink-0">
             <div className="sticky top-20">
               <h3 className="font-display text-base font-bold text-foreground mb-3">Danh mục</h3>
               <div className="space-y-1.5">
@@ -123,7 +138,8 @@ const Products = () => {
                 {isLoading ? "Đang tải..." : `${total} sản phẩm`}
                 {search ? <span className="ml-1 text-foreground font-medium"> — "{search}"</span> : null}
               </p>
-              <div className="flex items-center gap-2">
+
+              <div className="hidden md:flex items-center gap-2">
                 <SlidersHorizontal size={14} className="text-muted-foreground" />
                 <select
                   value={sort}
@@ -137,8 +153,89 @@ const Products = () => {
               </div>
             </div>
 
+            <div className="md:hidden mb-5 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setMobileFilterOpen(true)}
+                className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground bg-background"
+              >
+                <Filter size={16} /> Bộ lọc
+              </button>
+
+              <div className="flex-1 flex items-center gap-2">
+                <SlidersHorizontal size={14} className="text-muted-foreground" />
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value)}
+                  className="h-9 w-full pl-3 pr-8 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer"
+                >
+                  {SORT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <Sheet open={mobileFilterOpen} onOpenChange={setMobileFilterOpen}>
+              <SheetContent side="bottom" className="md:hidden rounded-t-2xl max-h-[80vh] overflow-y-auto">
+                <SheetHeader className="mb-4">
+                  <SheetTitle>Bộ lọc</SheetTitle>
+                </SheetHeader>
+
+                <section>
+                  <h4 className="text-lg font-semibold text-foreground mb-3">Thương hiệu</h4>
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-2.5 text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={selectedCategory === ""}
+                        onChange={() => setCategory("")}
+                        className="h-5 w-5 rounded border-border"
+                      />
+                      Tất cả
+                    </label>
+
+                    {brandList.map((cat) => {
+                      const checked = selectedCategory === cat.slug;
+                      return (
+                        <label key={cat.id} className="flex items-center gap-2.5 text-foreground">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => setCategory(checked ? "" : cat.slug)}
+                            className="h-5 w-5 rounded border-border"
+                          />
+                          {cat.name}
+                        </label>
+                      );
+                    })}
+
+                    {categories.length > 5 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllBrands((v) => !v)}
+                        className="text-sm text-foreground"
+                      >
+                        {showAllBrands ? "Thu gọn" : "Xem thêm"}
+                      </button>
+                    )}
+                  </div>
+                </section>
+
+                {selectedCategory && (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="mt-5 text-sm text-primary font-medium"
+                  >
+                    Xóa bộ lọc
+                  </button>
+                )}
+              </SheetContent>
+            </Sheet>
+
             {isLoading ? (
-              <div className="grid grid-cols-3 md:grid-cols-4 gap-4 md:gap-5">
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-4 md:gap-5 md:max-w-[980px] md:mx-auto">
                 {Array.from({ length: LIMIT }).map((_, i) => (
                   <div key={i} className="rounded-xl bg-card border border-border overflow-hidden animate-pulse">
                     <div className="aspect-square bg-muted" />
@@ -154,7 +251,7 @@ const Products = () => {
                 <p className="text-muted-foreground">Không tìm thấy sản phẩm nào.</p>
                 {(search || selectedCategory) && (
                   <button
-                    onClick={() => setSearchParams({})}
+                    onClick={clearFilters}
                     className="mt-4 text-sm text-primary hover:underline"
                   >
                     Xoá bộ lọc
@@ -162,9 +259,9 @@ const Products = () => {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-3 md:grid-cols-5 gap-4 md:gap-5">
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-4 md:gap-5 md:max-w-[980px] md:mx-auto">
                 {products.map((product) => (
-                  <ProductCard key={product.id} product={product} showActions />
+                  <ProductCard key={product.id} product={product} compact showActions />
                 ))}
               </div>
             )}

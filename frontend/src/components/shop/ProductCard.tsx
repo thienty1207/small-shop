@@ -41,7 +41,6 @@ const ProductCard = ({ product, compact = false }: ProductCardProps) => {
   const { isWishlisted, toggleWishlist } = useWishlist();
   const wishlisted = isWishlisted(product.id);
   const outOfStock = product.inStock === false;
-  const lowStock = !outOfStock && product.stock !== undefined && product.stock > 0 && product.stock < 5;
   const { price, originalPrice } = getDisplayPrice(product);
 
   // Find the best variant (100ml or closest) to pass to the cart
@@ -104,11 +103,12 @@ const ProductCard = ({ product, compact = false }: ProductCardProps) => {
       <button
         type="button"
         onClick={handleToggleWishlist}
-        className="absolute top-2 right-2 z-20 w-8 h-8 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow hover:bg-white transition-colors"
+        className="hidden md:flex absolute top-2 right-2 z-20 w-8 h-8 rounded-full bg-white/90 backdrop-blur items-center justify-center shadow hover:bg-white transition-colors"
         aria-label={wishlisted ? "Bỏ khỏi yêu thích" : "Thêm vào yêu thích"}
       >
         <Heart size={15} className={wishlisted ? "fill-rose-500 text-rose-500" : "text-foreground/70"} />
       </button>
+
       <Link to={`/product/${product.slug}`} className="block">
         {/* Image container */}
         <div className={`relative overflow-hidden rounded-xl bg-muted ${compact ? "aspect-[3/4]" : "aspect-[4/5]"}`}>
@@ -129,16 +129,9 @@ const ProductCard = ({ product, compact = false }: ProductCardProps) => {
             </div>
           )}
 
-          {/* Low stock badge */}
-          {lowStock && (
-            <span className="absolute top-2 right-2 text-[11px] font-medium text-orange-700 bg-orange-50/90 px-2 py-0.5 rounded-full shadow-sm">
-              Còn {product.stock}
-            </span>
-          )}
-
           {/* Action buttons */}
           {!outOfStock && (
-            <div className="absolute bottom-3 left-3 right-3 flex gap-2 translate-y-3 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+            <div className="hidden md:flex absolute bottom-3 left-3 right-3 gap-2 translate-y-3 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
               <button
                 onClick={handleAddToCart}
                 className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg bg-white text-foreground text-xs font-semibold shadow-lg hover:bg-primary hover:text-white transition-colors"
@@ -156,19 +149,19 @@ const ProductCard = ({ product, compact = false }: ProductCardProps) => {
             </div>
           )}
         </div>
-      </Link>
 
-      {/* Info */}
-      <div className={`mt-2.5 px-0.5 ${compact ? "space-y-0.5" : "mt-3"}`}>
-        <span>
-          <h3 className={`font-medium text-foreground line-clamp-2 hover:text-primary transition-colors leading-snug ${compact ? "text-xs" : "text-sm"}`}>
-            {product.name}
-          </h3>
-        </span>
-        <div className={compact ? "mt-1" : "mt-1.5"}>
-          <PriceDisplay price={price} originalPrice={originalPrice} compact={compact} />
+        {/* Info */}
+        <div className={`mt-2.5 px-0.5 ${compact ? "space-y-0.5" : "mt-3"}`}>
+          <span>
+            <h3 className={`font-medium text-foreground line-clamp-2 hover:text-primary transition-colors leading-snug ${compact ? "text-xs" : "text-sm"}`}>
+              {product.name}
+            </h3>
+          </span>
+          <div className={compact ? "mt-1" : "mt-1.5"}>
+            <PriceDisplay price={price} originalPrice={originalPrice} compact={compact} />
+          </div>
         </div>
-      </div>
+      </Link>
     </div>
   );
 };

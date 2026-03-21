@@ -56,10 +56,13 @@ pub async fn get_public_settings(
         "brand_section_title",
         "brand_slide_1_img",
         "brand_slide_1_thumbnail",
+        "brand_slide_1_href",
         "brand_slide_2_img",
         "brand_slide_2_thumbnail",
+        "brand_slide_2_href",
         "brand_slide_3_img",
         "brand_slide_3_thumbnail",
+        "brand_slide_3_href",
         "shop_font",
     ];
 

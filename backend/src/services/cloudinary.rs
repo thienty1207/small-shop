@@ -24,6 +24,7 @@ impl CloudinaryConfig {
         let (api_key, api_secret) = creds
             .split_once(':')
             .ok_or("Invalid CLOUDINARY_URL: missing ':' in credentials")?;
+
         Ok(Self {
             cloud_name: cloud_name.to_string(),
             api_key: api_key.to_string(),
@@ -47,11 +48,78 @@ pub async fn upload_image(
     content_type: &str,
     folder: &str,
 ) -> Result<String, crate::error::AppError> {
-    let timestamp = SystemTime::now()
+    let local_timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
 
+    let first_resp = upload_with_timestamp(
+        config,
+        client,
+        data.clone(),
+        content_type,
+        folder,
+        local_timestamp,
+    )
+    .await;
+
+    let resp = match first_resp {
+        Ok(resp) => resp,
+        Err((message, date_header)) => {
+            if !message.contains("Stale request") {
+                return Err(crate::error::AppError::Internal(format!(
+                    "Cloudinary upload failed: {message}"
+                )));
+            }
+
+            let date_header = date_header.ok_or_else(|| {
+                crate::error::AppError::Internal(format!(
+                    "Cloudinary upload failed (stale request, missing date header): {message}"
+                ))
+            })?;
+
+            let server_timestamp = chrono::DateTime::parse_from_rfc2822(&date_header)
+                .map_err(|e| {
+                    crate::error::AppError::Internal(format!(
+                        "Cloudinary date header parse error: {e}"
+                    ))
+                })?
+                .with_timezone(&chrono::Utc)
+                .timestamp() as u64;
+
+            upload_with_timestamp(
+                config,
+                client,
+                data,
+                content_type,
+                folder,
+                server_timestamp,
+            )
+            .await
+            .map_err(|(retry_message, _)| {
+                crate::error::AppError::Internal(format!(
+                    "Cloudinary upload failed after retry: {retry_message}"
+                ))
+            })?
+        }
+    };
+
+    let body: UploadResponse = resp
+        .json()
+        .await
+        .map_err(|e| crate::error::AppError::Internal(format!("Cloudinary parse error: {e}")))?;
+
+    Ok(body.secure_url)
+}
+
+async fn upload_with_timestamp(
+    config: &CloudinaryConfig,
+    client: &reqwest::Client,
+    data: Vec<u8>,
+    content_type: &str,
+    folder: &str,
+    timestamp: u64,
+) -> Result<reqwest::Response, (String, Option<String>)> {
     // Cloudinary signature: SHA1("folder={f}&timestamp={t}{api_secret}")
     // Parameters must be sorted alphabetically; api_key / file / resource_type excluded.
     let params_str = format!("folder={folder}&timestamp={timestamp}");
@@ -73,7 +141,7 @@ pub async fn upload_image(
     let part = multipart::Part::bytes(data)
         .file_name(filename)
         .mime_str(content_type)
-        .map_err(|e| crate::error::AppError::Internal(format!("MIME type error: {e}")))?;
+        .map_err(|e| (format!("MIME type error: {e}"), None))?;
 
     let form = multipart::Form::new()
         .part("file", part)
@@ -92,19 +160,18 @@ pub async fn upload_image(
         .multipart(form)
         .send()
         .await
-        .map_err(|e| crate::error::AppError::Internal(format!("Cloudinary request error: {e}")))?;
+        .map_err(|e| (format!("Cloudinary request error: {e}"), None))?;
 
     if !resp.status().is_success() {
+        let date_header = resp
+            .headers()
+            .get("date")
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_string());
+
         let msg = resp.text().await.unwrap_or_default();
-        return Err(crate::error::AppError::Internal(format!(
-            "Cloudinary upload failed: {msg}"
-        )));
+        return Err((msg, date_header));
     }
 
-    let body: UploadResponse = resp
-        .json()
-        .await
-        .map_err(|e| crate::error::AppError::Internal(format!("Cloudinary parse error: {e}")))?;
-
-    Ok(body.secure_url)
+    Ok(resp)
 }

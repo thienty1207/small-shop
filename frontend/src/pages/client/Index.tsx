@@ -85,6 +85,7 @@ interface BrandItem {
 
 interface BrandSlide {
   thumbnail: string;
+  href: string;
   brands: Array<BrandItem | null>;
 }
 
@@ -95,9 +96,17 @@ const fallbackBrandItems: BrandItem[] = [
   { name: "Trang sức", slug: "trang-suc", image: jewelryCat },
 ];
 
-function buildBrandSlides(brands: BrandItem[], thumbs: string[]): BrandSlide[] {
+interface BrandSlideAsset {
+  thumbnail: string;
+  href: string;
+}
+
+function buildBrandSlides(brands: BrandItem[], assets: BrandSlideAsset[]): BrandSlide[] {
   const safeBrands = brands.length > 0 ? brands : fallbackBrandItems;
-  const slideCount = Math.max(1, thumbs.length, Math.ceil(safeBrands.length / 12));
+  const safeAssets = assets.length > 0
+    ? assets
+    : [{ thumbnail: heroBanner, href: "/products" }];
+  const slideCount = Math.max(1, safeAssets.length, Math.ceil(safeBrands.length / 12));
 
   return Array.from({ length: slideCount }, (_, slideIdx) => {
     const start = slideIdx * 12;
@@ -109,7 +118,8 @@ function buildBrandSlides(brands: BrandItem[], thumbs: string[]): BrandSlide[] {
     }
 
     return {
-      thumbnail: thumbs[slideIdx % thumbs.length] ?? heroBanner,
+      thumbnail: safeAssets[slideIdx % safeAssets.length]?.thumbnail ?? heroBanner,
+      href: safeAssets[slideIdx % safeAssets.length]?.href || "/products",
       brands: paddedChunk,
     };
   });
@@ -140,9 +150,9 @@ const Index = () => {
   const { categories } = useCategories();
 
   // Fetch products for each badge-driven section
-  const { products: featuredBadge }         = useProducts({ badge: "Nổi Bật", limit: 4 });
-  const { products: dealBadge }             = useProducts({ badge: "Giảm Giá", limit: 4 });
-  const { products: newBadge }              = useProducts({ badge: "Mới", limit: 4 });
+  const { products: featuredBadge }         = useProducts({ badge: "featured", limit: 12 });
+  const { products: dealBadge }             = useProducts({ badge: "sale", limit: 12 });
+  const { products: newBadge }              = useProducts({ badge: "new", limit: 12 });
 
   // Strictly badge-driven sections:
   // - product badge = "Mặc định" (empty/no badge) => does NOT appear in these sections
@@ -171,18 +181,26 @@ const Index = () => {
 
   const brandThumbnails = (() => {
     const fromSettings = [1, 2, 3]
-      .map((n) =>
-        resolveMediaUrl(
+      .map((n) => {
+        const thumbnail = resolveMediaUrl(
           settings[`brand_slide_${n}_thumbnail`]
           || settings[`brand_slide_${n}_img`]
           || ""
-        )
-      )
-      .filter((url) => url.length > 0);
+        );
+        const href = (settings[`brand_slide_${n}_href`] ?? "").trim() || "/products";
+
+        if (!thumbnail) return null;
+        return { thumbnail, href };
+      })
+      .filter((item): item is { thumbnail: string; href: string } => item !== null);
 
     return fromSettings.length > 0
       ? fromSettings
-      : [heroBanner, candlesCat, cardsCat];
+      : [
+          { thumbnail: heroBanner, href: "/products" },
+          { thumbnail: candlesCat, href: "/products" },
+          { thumbnail: cardsCat, href: "/products" },
+        ];
   })();
 
   const brandSlides = buildBrandSlides(brandItems, brandThumbnails);
@@ -238,7 +256,7 @@ const Index = () => {
 
   const slide = heroSlides[Math.min(slideIdx, heroSlides.length - 1)];
   const activeBrandSlide = brandSlides[Math.min(brandSlideIdx, brandSlides.length - 1)]
-    ?? { thumbnail: heroBanner, brands: [...fallbackBrandItems.slice(0, 12)] };
+    ?? { thumbnail: heroBanner, href: "/products", brands: [...fallbackBrandItems.slice(0, 12)] };
   const brandSectionTitle = settings["brand_section_title"]?.trim() || "Các thương hiệu đang bán";
 
   return (
@@ -400,14 +418,17 @@ const Index = () => {
             key={brandAnimKey}
             className="animate-fade-up grid grid-cols-1 gap-4 md:grid-cols-[1.15fr_1fr] md:gap-5"
           >
-            <div className="relative min-h-[250px] overflow-hidden border border-black/12 bg-black/5 md:min-h-[430px]">
+            <Link
+              to={activeBrandSlide.href || "/products"}
+              className="group relative block min-h-[250px] overflow-hidden border border-black/12 bg-black/5 md:min-h-[430px]"
+            >
               <img
                 src={activeBrandSlide.thumbnail}
                 alt="Brand thumbnail"
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
-            </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent transition-opacity group-hover:opacity-90" />
+            </Link>
 
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 md:gap-3">
               {activeBrandSlide.brands.map((brand, idx) => (
@@ -468,7 +489,7 @@ const Index = () => {
                 Xem tất cả <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
-            <div className="stagger grid grid-cols-3 gap-3 md:grid-cols-6 md:gap-4">
+            <div className="stagger mx-auto grid max-w-[1080px] grid-cols-3 gap-3 md:grid-cols-6 md:gap-4">
               {featuredProducts.map((product) => (
                 <div key={product.id} className="animate-fade-up">
                   <ProductCard product={product} compact />
@@ -502,7 +523,7 @@ const Index = () => {
                   Xem tất cả <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
-              <div className="stagger grid grid-cols-3 gap-3 md:grid-cols-6 md:gap-4">
+              <div className="stagger mx-auto grid max-w-[1080px] grid-cols-3 gap-3 md:grid-cols-6 md:gap-4">
                 {dealProducts.map((product) => (
                   <div key={product.id} className="animate-fade-up">
                     <ProductCard product={product} compact />
@@ -531,7 +552,7 @@ const Index = () => {
                 Xem tất cả <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
-            <div className="stagger grid grid-cols-3 gap-3 md:grid-cols-6 md:gap-4">
+            <div className="stagger mx-auto grid max-w-[1080px] grid-cols-3 gap-3 md:grid-cols-6 md:gap-4">
               {newProducts.map((product) => (
                 <div key={product.id} className="animate-fade-up">
                   <ProductCard product={product} compact />

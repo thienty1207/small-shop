@@ -11,6 +11,27 @@ use crate::{
     },
 };
 
+fn normalize_badge_filters(raw: Option<&str>) -> Option<Vec<String>> {
+    let value = raw?.trim();
+    if value.is_empty() {
+        return None;
+    }
+
+    let normalized = value.to_lowercase();
+    let filters = match normalized.as_str() {
+        "featured" | "noi-bat" | "noi bat" | "nổi bật" => {
+            vec!["nổi bật".to_string(), "featured".to_string()]
+        }
+        "sale" | "giam-gia" | "giam gia" | "giảm giá" => {
+            vec!["giảm giá".to_string(), "sale".to_string()]
+        }
+        "new" | "moi" | "mới" => vec!["mới".to_string(), "new".to_string()],
+        _ => vec![normalized],
+    };
+
+    Some(filters)
+}
+
 // ─── Public client queries ────────────────────────────────────────────────────
 
 /// Fetch products with optional category/search filter, sort, and pagination.
@@ -19,10 +40,11 @@ pub async fn find_all(
     query: &ProductQuery,
 ) -> Result<PaginatedResponse<ProductPublic>, AppError> {
     let offset = (query.page - 1) * query.limit;
+    let badge_filters = normalize_badge_filters(query.badge.as_deref());
 
     let order_by = match query.sort.as_deref() {
-        Some("price_asc") => "p.price ASC,  p.created_at DESC",
-        Some("price_desc") => "p.price DESC, p.created_at DESC",
+        Some("price_asc") => "COALESCE(display_variant.display_price, p.price) ASC,  p.created_at DESC",
+        Some("price_desc") => "COALESCE(display_variant.display_price, p.price) DESC, p.created_at DESC",
         Some("best_selling") => "COALESCE(sales.total_sold, 0) DESC, p.created_at DESC",
         _ => "p.created_at DESC",
     };
@@ -43,10 +65,23 @@ pub async fn find_all(
         FROM products p
         JOIN categories c ON c.id = p.category_id
         LEFT JOIN sales ON sales.product_id = p.id
+        LEFT JOIN LATERAL (
+            SELECT pv.price AS display_price
+            FROM product_variants pv
+            WHERE pv.product_id = p.id
+            ORDER BY
+                CASE
+                    WHEN pv.ml = 100 THEN 0
+                    ELSE 1
+                END,
+                ABS(pv.ml - 100),
+                pv.ml
+            LIMIT 1
+        ) AS display_variant ON TRUE
         WHERE
             ($1::TEXT IS NULL OR c.slug = $1)
             AND ($2::TEXT IS NULL OR p.name ILIKE '%' || $2 || '%')
-            AND ($3::TEXT IS NULL OR p.badge = $3)
+            AND ($3::TEXT[] IS NULL OR LOWER(TRIM(COALESCE(p.badge, ''))) = ANY($3::TEXT[]))
         ORDER BY {order_by}
         LIMIT $4 OFFSET $5
         "#
@@ -55,7 +90,7 @@ pub async fn find_all(
     let items = sqlx::query_as::<_, Product>(&sql)
         .bind(query.category.as_deref())
         .bind(query.search.as_deref())
-        .bind(query.badge.as_deref())
+        .bind(badge_filters.as_ref())
         .bind(query.limit)
         .bind(offset)
         .fetch_all(pool)
@@ -68,12 +103,12 @@ pub async fn find_all(
         WHERE
             ($1::TEXT IS NULL OR c.slug = $1)
             AND ($2::TEXT IS NULL OR p.name ILIKE '%' || $2 || '%')
-            AND ($3::TEXT IS NULL OR p.badge = $3)
+            AND ($3::TEXT[] IS NULL OR LOWER(TRIM(COALESCE(p.badge, ''))) = ANY($3::TEXT[]))
         "#,
     )
     .bind(query.category.as_deref())
     .bind(query.search.as_deref())
-    .bind(query.badge.as_deref())
+    .bind(badge_filters.as_ref())
     .fetch_one(pool)
     .await?;
 

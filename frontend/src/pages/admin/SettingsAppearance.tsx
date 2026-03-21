@@ -36,10 +36,16 @@ const BRAND_KEYS  = [
   ...[1, 2, 3].flatMap((n) => [
     `brand_slide_${n}_img`,
     `brand_slide_${n}_thumbnail`,
+    `brand_slide_${n}_href`,
   ]),
 ];
 const FONT_KEYS   = ["shop_font"];
 const ALL_KEYS    = [...SLIDE_KEYS, ...BANNER_KEYS, ...BRAND_KEYS, ...FONT_KEYS];
+
+function buildGoogleFontHref(fontFamily: string): string {
+  const encoded = fontFamily.replace(/ /g, "+");
+  return `https://fonts.googleapis.com/css2?family=${encoded}:wght@400;600;700&display=swap`;
+}
 
 // ─── Image upload button ────────────────────────────────────────────────────
 
@@ -77,7 +83,14 @@ function ImgUpload({ value, onChange, label }: ImgUploadProps) {
       <div className="relative w-full rounded-lg overflow-hidden border border-gray-700 bg-gray-800">
         {value ? (
           <>
-            <img src={value} alt="preview" className="w-full h-32 object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
+            <img
+              src={value}
+              alt="preview"
+              loading="lazy"
+              decoding="async"
+              className="w-full h-32 object-cover"
+              onError={(e) => (e.currentTarget.style.display = "none")}
+            />
             <button
               type="button"
               onClick={() => onChange("")}
@@ -151,19 +164,23 @@ export default function AdminSettingsAppearance() {
   }, []);
 
   // Inject Google Fonts link for font picker previews (browser-only, idempotent)
+  const selectedFont = values["shop_font"] || "Inter";
+
   useEffect(() => {
-    const href =
-      "https://fonts.googleapis.com/css2?family=" +
-      GOOGLE_FONTS.map((f) => f.value.replace(/ /g, "+") + ":wght@400;600;700").join("&family=") +
-      "&display=swap";
-    if (!document.querySelector(`link[data-settings-fonts]`)) {
-      const link = document.createElement("link");
-      link.rel  = "stylesheet";
-      link.href = href;
-      link.dataset.settingsFonts = "1";
+    const href = buildGoogleFontHref(selectedFont);
+
+    let link = document.querySelector("link[data-settings-selected-font]") as HTMLLinkElement | null;
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.dataset.settingsSelectedFont = "1";
       document.head.appendChild(link);
     }
-  }, []);
+
+    if (link.href !== href) {
+      link.href = href;
+    }
+  }, [selectedFont]);
 
   const set = (key: string, val: string) => setValues((v) => ({ ...v, [key]: val }));
 
@@ -257,11 +274,6 @@ export default function AdminSettingsAppearance() {
           {/* ── Brands section ───────────────────────────────────────────── */}
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-5 space-y-5">
             <h3 className="text-sm font-semibold text-white border-b border-gray-800 pb-3">Khối thương hiệu</h3>
-            <p className="text-xs text-gray-500 -mt-2">
-              Tiêu đề có thể chỉnh sửa tại đây. Danh sách thương hiệu ở trang chủ sẽ tự lấy từ danh mục sản phẩm.
-            </p>
-
-            {textField("brand_section_title", "Tiêu đề khối", "VD: Các thương hiệu đang bán")}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {[1, 2, 3].map((n) => (
@@ -275,6 +287,7 @@ export default function AdminSettingsAppearance() {
                       set(`brand_slide_${n}_thumbnail`, url);
                     }}
                   />
+                  {textField(`brand_slide_${n}_href`, "Link khi click", "/products")}
                 </div>
               ))}
             </div>
@@ -302,7 +315,6 @@ export default function AdminSettingsAppearance() {
                   >
                     <span
                       className="text-base text-white leading-none"
-                      style={{ fontFamily: `'${font.value}', sans-serif` }}
                     >
                       Aa
                     </span>
