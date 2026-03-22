@@ -4,11 +4,65 @@ use crate::{
     error::AppError,
     models::product::{
         AdminProductQuery, Category, CategoryInput, CreateProductInput, PaginatedResponse,
-        ProductPublic, ProductQuery, UpdateProductInput, UpdateStockInput,
+        ProductFiltersResponse, ProductPublic, ProductQuery, UpdateProductInput, UpdateStockInput,
     },
     repositories::product_repo,
     state::AppState,
 };
+
+const ALLOWED_FRAGRANCE_GENDERS: &[&str] = &["male", "female", "unisex"];
+const ALLOWED_FRAGRANCE_LINES: &[&str] = &["designer", "niche", "clone"];
+
+fn validate_badge(badge: Option<&str>) -> Result<(), AppError> {
+    let Some(value) = badge.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(());
+    };
+
+    let normalized = value.to_lowercase();
+    if matches!(normalized.as_str(), "sale" | "giam gia" | "giam-gia" | "giảm giá") {
+        return Err(AppError::BadRequest(
+            "Sale badge has been removed from the storefront".into(),
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_product_metadata(
+    name: &str,
+    fragrance_gender: &str,
+    homepage_section: Option<&str>,
+    fragrance_line: &str,
+) -> Result<(), AppError> {
+    if name.trim().is_empty() {
+        return Err(AppError::BadRequest("Product name is required".into()));
+    }
+
+    let normalized_gender = fragrance_gender.trim().to_lowercase();
+    if !ALLOWED_FRAGRANCE_GENDERS.contains(&normalized_gender.as_str()) {
+        return Err(AppError::BadRequest(
+            "Fragrance gender must be one of: male, female, unisex".into(),
+        ));
+    }
+
+    if let Some(value) = homepage_section.map(str::trim).filter(|value| !value.is_empty()) {
+        let normalized_homepage_section = value.to_lowercase();
+        if !ALLOWED_FRAGRANCE_GENDERS.contains(&normalized_homepage_section.as_str()) {
+            return Err(AppError::BadRequest(
+                "Homepage section must be one of: male, female, unisex".into(),
+            ));
+        }
+    }
+
+    let normalized_line = fragrance_line.trim().to_lowercase();
+    if !ALLOWED_FRAGRANCE_LINES.contains(&normalized_line.as_str()) {
+        return Err(AppError::BadRequest(
+            "Fragrance line must be one of: designer, niche, clone".into(),
+        ));
+    }
+
+    Ok(())
+}
 
 /// List public products using `ProductQuery` filters and pagination.
 pub async fn list_products(
@@ -16,6 +70,13 @@ pub async fn list_products(
     query: &ProductQuery,
 ) -> Result<PaginatedResponse<ProductPublic>, AppError> {
     product_repo::find_all(&state.db, query).await
+}
+
+pub async fn list_product_filters(
+    state: &AppState,
+    query: &ProductQuery,
+) -> Result<ProductFiltersResponse, AppError> {
+    product_repo::find_filters(&state.db, query).await
 }
 
 /// Get product details by `slug`, including variant list.
@@ -69,9 +130,13 @@ pub async fn create_product(
     state: &AppState,
     input: &CreateProductInput,
 ) -> Result<serde_json::Value, AppError> {
-    if input.name.trim().is_empty() {
-        return Err(AppError::BadRequest("Product name is required".into()));
-    }
+    validate_badge(input.badge.as_deref())?;
+    validate_product_metadata(
+        &input.name,
+        &input.fragrance_gender,
+        input.homepage_section.as_deref(),
+        &input.fragrance_line,
+    )?;
     let product = product_repo::create_product(&state.db, input).await?;
     Ok(serde_json::json!(product))
 }
@@ -82,9 +147,13 @@ pub async fn update_product(
     id: Uuid,
     input: &UpdateProductInput,
 ) -> Result<serde_json::Value, AppError> {
-    if input.name.trim().is_empty() {
-        return Err(AppError::BadRequest("Product name is required".into()));
-    }
+    validate_badge(input.badge.as_deref())?;
+    validate_product_metadata(
+        &input.name,
+        &input.fragrance_gender,
+        input.homepage_section.as_deref(),
+        &input.fragrance_line,
+    )?;
     let product = product_repo::update_product(&state.db, id, input).await?;
     Ok(serde_json::json!(product))
 }

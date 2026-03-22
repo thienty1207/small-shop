@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Category, Product } from "@/data/products";
+import type { FragranceGender, FragranceLine, HomepageSection } from "@/lib/fragrance";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
@@ -48,6 +49,9 @@ interface ApiProduct {
   stock: number;
   brand?: string;
   concentration?: string;
+  fragrance_gender?: FragranceGender;
+  homepage_section?: HomepageSection;
+  fragrance_line?: FragranceLine;
   variants?: ApiProductVariant[];
 }
 
@@ -64,6 +68,17 @@ interface PaginatedResponse<T> {
   page: number;
   limit: number;
   total_pages: number;
+}
+
+interface ApiProductFilterOption {
+  value: string;
+  count: number;
+}
+
+interface ApiProductFilters {
+  brands: ApiProductFilterOption[];
+  volumes: ApiProductFilterOption[];
+  genders: ApiProductFilterOption[];
 }
 
 // ---------------------------------------------------------------------------
@@ -104,6 +119,9 @@ function mapProduct(p: ApiProduct): Product {
     stock: p.stock,
     brand: p.brand,
     concentration: p.concentration,
+    fragranceGender: p.fragrance_gender,
+    homepageSection: p.homepage_section,
+    fragranceLine: p.fragrance_line,
     variants: p.variants?.map(mapVariant) ?? [],
   };
 }
@@ -134,8 +152,35 @@ export interface UseProductsOpts {
   search?: string;
   sort?: string;
   badge?: string;
+  brands?: string[];
+  volumes?: number[];
+  fragranceGender?: FragranceGender | FragranceGender[];
+  homepageSection?: HomepageSection | HomepageSection[];
   page?: number;
   limit?: number;
+}
+
+export interface ProductFilterOption {
+  value: string;
+  count: number;
+}
+
+export interface ProductFiltersResult {
+  brands: ProductFilterOption[];
+  volumes: ProductFilterOption[];
+  genders: ProductFilterOption[];
+  isLoading: boolean;
+  error: string | null;
+}
+
+function normalizeStringArray(values?: string[]): string[] {
+  if (!values) return [];
+  return values.map((value) => value.trim()).filter((value) => value.length > 0);
+}
+
+function normalizeNumberArray(values?: number[]): number[] {
+  if (!values) return [];
+  return values.filter((value) => Number.isFinite(value) && value > 0);
 }
 
 /** Fetch paginated products with optional filter/sort. */
@@ -150,6 +195,18 @@ export function useProducts(opts: UseProductsOpts = {}): UseProductsResult {
   const search   = opts.search   ?? "";
   const sort     = opts.sort     ?? "";
   const badge    = opts.badge    ?? "";
+  const brands   = normalizeStringArray(opts.brands);
+  const volumes  = normalizeNumberArray(opts.volumes);
+  const fragranceGender = Array.isArray(opts.fragranceGender)
+    ? normalizeStringArray(opts.fragranceGender)
+    : opts.fragranceGender
+      ? [opts.fragranceGender]
+      : [];
+  const homepageSection = Array.isArray(opts.homepageSection)
+    ? normalizeStringArray(opts.homepageSection)
+    : opts.homepageSection
+      ? [opts.homepageSection]
+      : [];
   const page     = opts.page     ?? 1;
   const limit    = opts.limit    ?? 12;
 
@@ -159,6 +216,10 @@ export function useProducts(opts: UseProductsOpts = {}): UseProductsResult {
     if (search)   params.set("search", search);
     if (sort)     params.set("sort", sort);
     if (badge)    params.set("badge", badge);
+    if (brands.length > 0) params.set("brand", brands.join(","));
+    if (volumes.length > 0) params.set("volume", volumes.join(","));
+    if (fragranceGender.length > 0) params.set("fragrance_gender", fragranceGender.join(","));
+    if (homepageSection.length > 0) params.set("homepage_section", homepageSection.join(","));
     params.set("page",  String(page));
     params.set("limit", String(limit));
 
@@ -177,9 +238,43 @@ export function useProducts(opts: UseProductsOpts = {}): UseProductsResult {
       .catch((e: Error) => setError(e.message))
       .finally(() => setIsLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category, search, sort, badge, page, limit]);
+  }, [category, search, sort, badge, brands.join(","), volumes.join(","), fragranceGender.join(","), homepageSection.join(","), page, limit]);
 
   return { products, total, totalPages, isLoading, error };
+}
+
+export function useProductFilters(opts: Pick<UseProductsOpts, "category" | "search"> = {}): ProductFiltersResult {
+  const [brands, setBrands] = useState<ProductFilterOption[]>([]);
+  const [volumes, setVolumes] = useState<ProductFilterOption[]>([]);
+  const [genders, setGenders] = useState<ProductFilterOption[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const category = opts.category ?? "";
+  const search = opts.search ?? "";
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (category) params.set("category", category);
+    if (search) params.set("search", search);
+
+    setIsLoading(true);
+    fetch(`${API_URL}/api/products/filters?${params.toString()}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch product filters");
+        return res.json() as Promise<ApiProductFilters>;
+      })
+      .then((data) => {
+        setBrands(data.brands);
+        setVolumes(data.volumes);
+        setGenders(data.genders);
+        setError(null);
+      })
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setIsLoading(false));
+  }, [category, search]);
+
+  return { brands, volumes, genders, isLoading, error };
 }
 
 interface UseProductResult {

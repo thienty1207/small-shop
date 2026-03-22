@@ -151,6 +151,9 @@ export interface AdminProduct {
   stock:          number;
   brand:          string | null;
   concentration:  string | null;
+  fragrance_gender: string | null;
+  homepage_section: string | null;
+  fragrance_line: string | null;
   created_at:     string;
 }
 

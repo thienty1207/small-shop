@@ -6,7 +6,7 @@ use axum::{
 
 use crate::{
     error::AppError,
-    models::product::{PaginatedResponse, ProductPublic, ProductQuery},
+    models::product::{PaginatedResponse, ProductFiltersResponse, ProductPublic, ProductQuery},
     services::product_service,
     state::AppState,
 };
@@ -18,6 +18,15 @@ pub async fn list_products(
 ) -> Result<Json<PaginatedResponse<ProductPublic>>, AppError> {
     let paginated = product_service::list_products(&state, &query).await?;
     Ok(Json(paginated))
+}
+
+/// GET /api/products/filters
+pub async fn list_product_filters(
+    State(state): State<AppState>,
+    Query(query): Query<ProductQuery>,
+) -> Result<Json<ProductFiltersResponse>, AppError> {
+    let filters = product_service::list_product_filters(&state, &query).await?;
+    Ok(Json(filters))
 }
 
 /// GET /api/products/:slug

@@ -3,8 +3,23 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import { Building2, Save, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminGet, adminPut } from "@/lib/admin-api";
+import {
+  FOOTER_INFO_LINK_FIELDS,
+  FOOTER_KEYS,
+  FOOTER_SHOP_LINK_FIELDS,
+  getSettingsWithFooterDefaults,
+} from "@/lib/footer-settings";
 
-const KEYS = ["store_name", "store_email", "store_phone", "store_address", "social_facebook", "social_instagram", "social_tiktok"];
+const KEYS = [
+  "store_name",
+  "store_email",
+  "store_phone",
+  "store_address",
+  "social_facebook",
+  "social_instagram",
+  "social_tiktok",
+  ...FOOTER_KEYS,
+];
 
 export default function AdminSettingsStore() {
   const [values, setValues] = useState<Record<string, string>>({});
@@ -16,8 +31,8 @@ export default function AdminSettingsStore() {
   useEffect(() => {
     adminGet<Record<string, string>>("/api/admin/settings")
       .then((data) => {
-        const filtered: Record<string, string> = {};
-        KEYS.forEach((k) => { filtered[k] = data[k] ?? ""; });
+        const filtered = getSettingsWithFooterDefaults({});
+        KEYS.forEach((k) => { filtered[k] = data[k] ?? filtered[k] ?? ""; });
         setValues(filtered);
       })
       .catch((e) => setError((e as Error).message))
@@ -41,14 +56,51 @@ export default function AdminSettingsStore() {
 
   const field = (key: string, label: string, placeholder?: string, type = "text") => (
     <div>
-      <label className="block text-xs font-medium text-gray-400 mb-1.5">{label}</label>
+      <label htmlFor={key} className="block text-xs font-medium text-gray-400 mb-1.5">{label}</label>
       <input
+        id={key}
         type={type}
         value={values[key] ?? ""}
         onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
         placeholder={placeholder}
         className="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-rose-500"
       />
+    </div>
+  );
+
+  const textareaField = (key: string, label: string, placeholder?: string, rows = 3) => (
+    <div>
+      <label htmlFor={key} className="block text-xs font-medium text-gray-400 mb-1.5">{label}</label>
+      <textarea
+        id={key}
+        value={values[key] ?? ""}
+        onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
+        placeholder={placeholder}
+        rows={rows}
+        className="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-rose-500 resize-y"
+      />
+    </div>
+  );
+
+  const footerLinkFields = (
+    title: string,
+    fields: Array<{ labelKey: string; hrefKey: string }>,
+  ) => (
+    <div className="space-y-4">
+      <div>
+        <h4 className="text-sm font-medium text-white">{title}</h4>
+        <p className="mt-1 text-xs text-gray-500">
+          Để trống cả nhãn và đường dẫn nếu muốn ẩn mục này khỏi footer.
+        </p>
+      </div>
+      <div className="space-y-4">
+        {fields.map(({ labelKey, hrefKey }, index) => (
+          <div key={labelKey} className="grid gap-3 md:grid-cols-2">
+            {field(labelKey, `${title} ${index + 1} - Nhãn`, "Ví dụ: Giới thiệu")}
+            {field(hrefKey, `${title} ${index + 1} - Đường dẫn`, "Ví dụ: /about")}
+          </div>
+        ))}
+      </div>
     </div>
   );
 
@@ -76,6 +128,44 @@ export default function AdminSettingsStore() {
             {field("social_facebook",  "Facebook URL",  "https://facebook.com/...")}
             {field("social_instagram", "Instagram URL", "https://instagram.com/...")}
             {field("social_tiktok",    "TikTok URL",    "https://tiktok.com/@...")}
+          </div>
+
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-5 space-y-5">
+            <div className="border-b border-gray-800 pb-3">
+              <h3 className="text-sm font-semibold text-white">Footer storefront</h3>
+              <p className="mt-1 text-xs text-gray-500">
+                Chỉnh trực tiếp toàn bộ phần mô tả và liên kết đang hiển thị ở footer ngoài trang khách hàng.
+              </p>
+            </div>
+
+            {textareaField(
+              "footer_description",
+              "Mô tả thương hiệu",
+              "Đoạn mô tả ngắn nằm dưới tên cửa hàng trong footer.",
+              4,
+            )}
+
+            <div className="grid gap-4 md:grid-cols-3">
+              {field("footer_shop_title", "Tiêu đề cột sản phẩm", "Cửa hàng")}
+              {field("footer_info_title", "Tiêu đề cột thông tin", "Thông tin")}
+              {field("footer_contact_title", "Tiêu đề cột liên hệ", "Liên hệ")}
+            </div>
+
+            {footerLinkFields("Cột sản phẩm", FOOTER_SHOP_LINK_FIELDS)}
+            {footerLinkFields("Cột thông tin", FOOTER_INFO_LINK_FIELDS)}
+
+            <div className="grid gap-4 md:grid-cols-2">
+              {field(
+                "footer_bottom_left",
+                "Dòng cuối bên trái",
+                "Ví dụ: Tất cả quyền được bảo lưu.",
+              )}
+              {field(
+                "footer_bottom_right",
+                "Dòng cuối bên phải",
+                "Ví dụ: Thiết kế với tình yêu tại Việt Nam",
+              )}
+            </div>
           </div>
 
           {error && (

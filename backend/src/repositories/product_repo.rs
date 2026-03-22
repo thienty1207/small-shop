@@ -6,30 +6,78 @@ use crate::{
     error::AppError,
     models::product::{
         AdminProduct, AdminProductQuery, Category, CategoryInput, CreateProductInput, InventoryRow,
-        PaginatedResponse, Product, ProductPublic, ProductQuery, ProductVariant,
+        PaginatedResponse, Product, ProductFilterOption, ProductFiltersResponse, ProductPublic,
+        ProductQuery, ProductVariant,
         UpdateProductInput, UpdateStockInput, VariantInput,
     },
 };
 
-fn normalize_badge_filters(raw: Option<&str>) -> Option<Vec<String>> {
-    let value = raw?.trim();
-    if value.is_empty() {
-        return None;
+fn parse_csv_strings(raw: Option<&str>) -> Option<Vec<String>> {
+    let values: Vec<String> = raw
+        .unwrap_or_default()
+        .split(',')
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_string())
+        .collect();
+
+    if values.is_empty() {
+        None
+    } else {
+        Some(values)
     }
+}
 
-    let normalized = value.to_lowercase();
-    let filters = match normalized.as_str() {
-        "featured" | "noi-bat" | "noi bat" | "nổi bật" => {
-            vec!["nổi bật".to_string(), "featured".to_string()]
-        }
-        "sale" | "giam-gia" | "giam gia" | "giảm giá" => {
-            vec!["giảm giá".to_string(), "sale".to_string()]
-        }
-        "new" | "moi" | "mới" => vec!["mới".to_string(), "new".to_string()],
-        _ => vec![normalized],
-    };
+fn normalize_badge_filters(raw: Option<&str>) -> Option<Vec<String>> {
+    parse_csv_strings(raw).map(|values| {
+        values
+            .into_iter()
+            .flat_map(|value| {
+                let normalized = value.to_lowercase();
+                match normalized.as_str() {
+                    "featured" | "noi-bat" | "noi bat" | "nổi bật" => {
+                        vec!["nổi bật".to_string(), "featured".to_string()]
+                    }
+                    "new" | "moi" | "mới" => vec!["mới".to_string(), "new".to_string()],
+                    _ => vec![normalized],
+                }
+            })
+            .collect()
+    })
+}
 
-    Some(filters)
+fn normalize_fragrance_gender_filters(raw: Option<&str>) -> Option<Vec<String>> {
+    parse_csv_strings(raw).map(|values| {
+        values
+            .into_iter()
+            .filter_map(|value| match value.to_lowercase().as_str() {
+                "male" | "nam" => Some("male".to_string()),
+                "female" | "nu" | "nữ" => Some("female".to_string()),
+                "unisex" => Some("unisex".to_string()),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    })
+    .filter(|values| !values.is_empty())
+}
+
+fn normalize_homepage_section_filters(raw: Option<&str>) -> Option<Vec<String>> {
+    normalize_fragrance_gender_filters(raw)
+}
+
+fn normalize_brand_filters(raw: Option<&str>) -> Option<Vec<String>> {
+    parse_csv_strings(raw).map(|values| values.into_iter().map(|value| value.to_lowercase()).collect())
+}
+
+fn normalize_volume_filters(raw: Option<&str>) -> Option<Vec<i32>> {
+    parse_csv_strings(raw).map(|values| {
+        values
+            .into_iter()
+            .filter_map(|value| value.parse::<i32>().ok())
+            .filter(|value| *value > 0)
+            .collect::<Vec<_>>()
+    })
+    .filter(|values| !values.is_empty())
 }
 
 // ─── Public client queries ────────────────────────────────────────────────────
@@ -41,6 +89,12 @@ pub async fn find_all(
 ) -> Result<PaginatedResponse<ProductPublic>, AppError> {
     let offset = (query.page - 1) * query.limit;
     let badge_filters = normalize_badge_filters(query.badge.as_deref());
+    let fragrance_gender_filters =
+        normalize_fragrance_gender_filters(query.fragrance_gender.as_deref());
+    let homepage_section_filters =
+        normalize_homepage_section_filters(query.homepage_section.as_deref());
+    let brand_filters = normalize_brand_filters(query.brand.as_deref());
+    let volume_filters = normalize_volume_filters(query.volume.as_deref());
 
     let order_by = match query.sort.as_deref() {
         Some("price_asc") => "COALESCE(display_variant.display_price, p.price) ASC,  p.created_at DESC",
@@ -60,7 +114,7 @@ pub async fn find_all(
             p.image_url, p.images, p.badge, p.description, p.top_note, p.mid_note, p.base_note, p.care,
             p.rating::float8 AS rating,
             p.review_count, p.in_stock, p.stock,
-            p.brand, p.concentration,
+            p.brand, p.concentration, p.fragrance_gender, p.homepage_section, p.fragrance_line,
             p.created_at
         FROM products p
         JOIN categories c ON c.id = p.category_id
@@ -82,8 +136,20 @@ pub async fn find_all(
             ($1::TEXT IS NULL OR c.slug = $1)
             AND ($2::TEXT IS NULL OR p.name ILIKE '%' || $2 || '%')
             AND ($3::TEXT[] IS NULL OR LOWER(TRIM(COALESCE(p.badge, ''))) = ANY($3::TEXT[]))
+            AND ($4::TEXT[] IS NULL OR LOWER(TRIM(p.fragrance_gender)) = ANY($4::TEXT[]))
+            AND ($5::TEXT[] IS NULL OR LOWER(TRIM(COALESCE(p.homepage_section, ''))) = ANY($5::TEXT[]))
+            AND ($6::TEXT[] IS NULL OR LOWER(TRIM(COALESCE(p.brand, ''))) = ANY($6::TEXT[]))
+            AND (
+                $7::INT[] IS NULL
+                OR EXISTS (
+                    SELECT 1
+                    FROM product_variants pv_filter
+                    WHERE pv_filter.product_id = p.id
+                      AND pv_filter.ml = ANY($7::INT[])
+                )
+            )
         ORDER BY {order_by}
-        LIMIT $4 OFFSET $5
+        LIMIT $8 OFFSET $9
         "#
     );
 
@@ -91,6 +157,10 @@ pub async fn find_all(
         .bind(query.category.as_deref())
         .bind(query.search.as_deref())
         .bind(badge_filters.as_ref())
+        .bind(fragrance_gender_filters.as_ref())
+        .bind(homepage_section_filters.as_ref())
+        .bind(brand_filters.as_ref())
+        .bind(volume_filters.as_ref())
         .bind(query.limit)
         .bind(offset)
         .fetch_all(pool)
@@ -104,11 +174,27 @@ pub async fn find_all(
             ($1::TEXT IS NULL OR c.slug = $1)
             AND ($2::TEXT IS NULL OR p.name ILIKE '%' || $2 || '%')
             AND ($3::TEXT[] IS NULL OR LOWER(TRIM(COALESCE(p.badge, ''))) = ANY($3::TEXT[]))
+            AND ($4::TEXT[] IS NULL OR LOWER(TRIM(p.fragrance_gender)) = ANY($4::TEXT[]))
+            AND ($5::TEXT[] IS NULL OR LOWER(TRIM(COALESCE(p.homepage_section, ''))) = ANY($5::TEXT[]))
+            AND ($6::TEXT[] IS NULL OR LOWER(TRIM(COALESCE(p.brand, ''))) = ANY($6::TEXT[]))
+            AND (
+                $7::INT[] IS NULL
+                OR EXISTS (
+                    SELECT 1
+                    FROM product_variants pv_filter
+                    WHERE pv_filter.product_id = p.id
+                      AND pv_filter.ml = ANY($7::INT[])
+                )
+            )
         "#,
     )
     .bind(query.category.as_deref())
     .bind(query.search.as_deref())
     .bind(badge_filters.as_ref())
+    .bind(fragrance_gender_filters.as_ref())
+    .bind(homepage_section_filters.as_ref())
+    .bind(brand_filters.as_ref())
+    .bind(volume_filters.as_ref())
     .fetch_one(pool)
     .await?;
 
@@ -153,6 +239,83 @@ pub async fn find_all(
     })
 }
 
+pub async fn find_filters(
+    pool: &PgPool,
+    query: &ProductQuery,
+) -> Result<ProductFiltersResponse, AppError> {
+    let brands = sqlx::query_as::<_, ProductFilterOption>(
+        r#"
+        SELECT
+            TRIM(p.brand) AS value,
+            COUNT(*)::BIGINT AS count
+        FROM products p
+        JOIN categories c ON c.id = p.category_id
+        WHERE
+            NULLIF(TRIM(COALESCE(p.brand, '')), '') IS NOT NULL
+            AND ($1::TEXT IS NULL OR c.slug = $1)
+            AND ($2::TEXT IS NULL OR p.name ILIKE '%' || $2 || '%')
+        GROUP BY TRIM(p.brand)
+        ORDER BY COUNT(*) DESC, TRIM(p.brand) ASC
+        "#,
+    )
+    .bind(query.category.as_deref())
+    .bind(query.search.as_deref())
+    .fetch_all(pool)
+    .await?;
+
+    let volumes = sqlx::query_as::<_, ProductFilterOption>(
+        r#"
+        SELECT
+            pv.ml::TEXT AS value,
+            COUNT(DISTINCT pv.product_id)::BIGINT AS count
+        FROM product_variants pv
+        JOIN products p ON p.id = pv.product_id
+        JOIN categories c ON c.id = p.category_id
+        WHERE
+            ($1::TEXT IS NULL OR c.slug = $1)
+            AND ($2::TEXT IS NULL OR p.name ILIKE '%' || $2 || '%')
+        GROUP BY pv.ml
+        ORDER BY pv.ml ASC
+        "#,
+    )
+    .bind(query.category.as_deref())
+    .bind(query.search.as_deref())
+    .fetch_all(pool)
+    .await?;
+
+    let genders = sqlx::query_as::<_, ProductFilterOption>(
+        r#"
+        SELECT
+            LOWER(TRIM(p.fragrance_gender)) AS value,
+            COUNT(*)::BIGINT AS count
+        FROM products p
+        JOIN categories c ON c.id = p.category_id
+        WHERE
+            ($1::TEXT IS NULL OR c.slug = $1)
+            AND ($2::TEXT IS NULL OR p.name ILIKE '%' || $2 || '%')
+        GROUP BY LOWER(TRIM(p.fragrance_gender))
+        ORDER BY
+            CASE LOWER(TRIM(p.fragrance_gender))
+                WHEN 'male' THEN 0
+                WHEN 'female' THEN 1
+                WHEN 'unisex' THEN 2
+                ELSE 3
+            END,
+            LOWER(TRIM(p.fragrance_gender))
+        "#,
+    )
+    .bind(query.category.as_deref())
+    .bind(query.search.as_deref())
+    .fetch_all(pool)
+    .await?;
+
+    Ok(ProductFiltersResponse {
+        brands,
+        volumes,
+        genders,
+    })
+}
+
 /// Fetch a single product by its slug.
 pub async fn find_by_slug(pool: &PgPool, slug: &str) -> Result<Option<Product>, AppError> {
     let product = sqlx::query_as::<_, Product>(
@@ -161,7 +324,7 @@ pub async fn find_by_slug(pool: &PgPool, slug: &str) -> Result<Option<Product>, 
                image_url, images, badge, description, top_note, mid_note, base_note, care,
                rating::float8 AS rating,
                review_count, in_stock, stock,
-               brand, concentration,
+               brand, concentration, fragrance_gender, homepage_section, fragrance_line,
                created_at
         FROM products
         WHERE slug = $1
@@ -212,7 +375,7 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<Product>, AppE
                image_url, images, badge, description, top_note, mid_note, base_note, care,
                rating::float8 AS rating,
                review_count, in_stock, stock,
-               brand, concentration,
+               brand, concentration, fragrance_gender, homepage_section, fragrance_line,
                created_at
         FROM products
         WHERE id = $1
@@ -462,7 +625,7 @@ pub async fn find_admin_by_id(pool: &PgPool, id: Uuid) -> Result<Option<AdminPro
                p.price, p.original_price, p.image_url, p.images, p.badge, p.description,
                p.top_note, p.mid_note, p.base_note, p.care,
                p.in_stock, p.stock,
-               p.brand, p.concentration,
+               p.brand, p.concentration, p.fragrance_gender, p.homepage_section, p.fragrance_line,
                p.created_at
         FROM products p
         JOIN categories c ON c.id = p.category_id
@@ -488,7 +651,7 @@ pub async fn find_all_admin(
                p.price, p.original_price, p.image_url, p.images, p.badge, p.description,
                p.top_note, p.mid_note, p.base_note, p.care,
                p.in_stock, p.stock,
-               p.brand, p.concentration,
+               p.brand, p.concentration, p.fragrance_gender, p.homepage_section, p.fragrance_line,
                p.created_at
         FROM products p
         JOIN categories c ON c.id = p.category_id
@@ -562,8 +725,8 @@ pub async fn create_product(
         INSERT INTO products
             (category_id, name, slug, price, original_price, image_url, images,
              badge, description, top_note, mid_note, base_note, care, in_stock, stock,
-             brand, concentration)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+             brand, concentration, fragrance_gender, homepage_section, fragrance_line)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
         RETURNING id
         "#,
     )
@@ -584,6 +747,9 @@ pub async fn create_product(
     .bind(stock)
     .bind(&input.brand)
     .bind(&input.concentration)
+    .bind(&input.fragrance_gender)
+    .bind(&input.homepage_section)
+    .bind(&input.fragrance_line)
     .fetch_one(pool)
     .await?;
 
@@ -635,7 +801,10 @@ pub async fn update_product(
             in_stock       = $15,
             stock          = $16,
             brand          = $17,
-            concentration  = $18
+            concentration  = $18,
+            fragrance_gender = $19,
+            homepage_section = $20,
+            fragrance_line   = $21
         WHERE id = $1
         "#,
     )
@@ -657,6 +826,9 @@ pub async fn update_product(
     .bind(input.stock)
     .bind(&input.brand)
     .bind(&input.concentration)
+    .bind(&input.fragrance_gender)
+    .bind(&input.homepage_section)
+    .bind(&input.fragrance_line)
     .execute(pool)
     .await?;
 
@@ -808,7 +980,7 @@ pub async fn find_related(
             p.top_note, p.mid_note, p.base_note, p.care,
             p.rating::float8 AS rating,
             p.review_count, p.in_stock, p.stock,
-            p.brand, p.concentration, p.created_at
+            p.brand, p.concentration, p.fragrance_gender, p.homepage_section, p.fragrance_line, p.created_at
         FROM products p
         LEFT JOIN sales ON sales.product_id = p.id
         WHERE p.id <> $1

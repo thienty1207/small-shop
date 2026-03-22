@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import React from "react";
@@ -30,17 +30,28 @@ vi.mock("@/components/shop/ProductCard", () => ({
     React.createElement("article", { "data-testid": "product-card" }, product.name),
 }));
 
-const featuredProducts = [
-  { id: "f-1", name: "Nến biển", slug: "nen-bien" },
-  { id: "f-2", name: "Thiệp hoa", slug: "thiep-hoa" },
+const featuredProducts = Array.from({ length: 8 }, (_, index) => ({
+  id: `f-${index + 1}`,
+  name: `Featured ${index + 1}`,
+  slug: `featured-${index + 1}`,
+}));
+
+const newProducts = Array.from({ length: 8 }, (_, index) => ({
+  id: `n-${index + 1}`,
+  name: `New ${index + 1}`,
+  slug: `new-${index + 1}`,
+}));
+
+const maleProducts = [
+  { id: "m-1", name: "Mens Pick", slug: "mens-pick", fragranceGender: "male", homepageSection: "male" },
 ];
 
-const dealProducts = [
-  { id: "d-1", name: "Túi ưu đãi", slug: "tui-uu-dai" },
+const femaleProducts = [
+  { id: "w-1", name: "Womens Pick", slug: "womens-pick", fragranceGender: "female", homepageSection: "female" },
 ];
 
-const newProducts = [
-  { id: "n-1", name: "Vòng mới", slug: "vong-moi" },
+const unisexProducts = [
+  { id: "u-1", name: "Unisex Pick", slug: "unisex-pick", fragranceGender: "unisex", homepageSection: "unisex" },
 ];
 
 function renderHomepage() {
@@ -48,9 +59,13 @@ function renderHomepage() {
     React.createElement(
       MemoryRouter,
       null,
-      React.createElement(Index, null)
-    )
+      React.createElement(Index, null),
+    ),
   );
+}
+
+function expectBefore(first: HTMLElement, second: HTMLElement) {
+  expect(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 }
 
 describe("Homepage UI", () => {
@@ -61,72 +76,131 @@ describe("Homepage UI", () => {
       brand_slide_1_img: "https://example.com/brand-slide.jpg",
     };
 
-    mockUseProducts.mockImplementation((opts?: { badge?: string }) => {
-      if (opts?.badge === "Nổi Bật") {
-        return { products: featuredProducts, total: 2, totalPages: 1, isLoading: false, error: null };
-      }
+    mockUseProducts.mockImplementation(
+      (opts?: { badge?: string; homepageSection?: string }) => {
+        if (opts?.badge === "featured") {
+          return { products: featuredProducts, total: 8, totalPages: 1, isLoading: false, error: null };
+        }
 
-      if (opts?.badge === "Giảm Giá") {
-        return { products: dealProducts, total: 1, totalPages: 1, isLoading: false, error: null };
-      }
+        if (opts?.badge === "new") {
+          return { products: newProducts, total: 8, totalPages: 1, isLoading: false, error: null };
+        }
 
-      if (opts?.badge === "Mới") {
-        return { products: newProducts, total: 1, totalPages: 1, isLoading: false, error: null };
-      }
+        if (opts?.homepageSection === "male") {
+          return { products: maleProducts, total: 1, totalPages: 1, isLoading: false, error: null };
+        }
 
-      return { products: [], total: 0, totalPages: 1, isLoading: false, error: null };
-    });
+        if (opts?.homepageSection === "female") {
+          return { products: femaleProducts, total: 1, totalPages: 1, isLoading: false, error: null };
+        }
+
+        if (opts?.homepageSection === "unisex") {
+          return { products: unisexProducts, total: 1, totalPages: 1, isLoading: false, error: null };
+        }
+
+        return { products: [], total: 0, totalPages: 1, isLoading: false, error: null };
+      },
+    );
 
     mockUseCategories.mockReturnValue({
       categories: [
-        { id: "c-1", name: "Nến", slug: "nen", image: "" },
-        { id: "c-2", name: "Thiệp", slug: "thiep", image: "" },
-        { id: "c-3", name: "Túi", slug: "tui", image: "" },
-        { id: "c-4", name: "Trang sức", slug: "trang-suc", image: "" },
-        { id: "c-5", name: "Quà tặng", slug: "qua-tang", image: "" },
+        { id: "c-1", name: "Azzaro", slug: "azzaro", image: "" },
+        { id: "c-2", name: "Dior", slug: "dior", image: "" },
+        { id: "c-3", name: "Gucci", slug: "gucci", image: "" },
+        { id: "c-4", name: "LV", slug: "lv", image: "" },
+        { id: "c-5", name: "Prada", slug: "prada", image: "" },
       ],
       isLoading: false,
       error: null,
     });
   });
 
-  it("renders homepage sections and keeps main flow intact", () => {
+  it("renders the homepage in the requested order and keeps deal/testimonials removed", () => {
     renderHomepage();
 
     expect(screen.getByTestId("homepage-header")).toBeInTheDocument();
     expect(screen.getByTestId("homepage-footer")).toBeInTheDocument();
 
-    expect(screen.getByRole("heading", { name: /quà tặng/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /thương hiệu nổi bật/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /sản phẩm nổi bật/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /deal hời/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /dòng sản phẩm mới/i })).toBeInTheDocument();
+    const featuredHeading = screen.getByRole("heading", { name: /sản phẩm nổi bật/i });
+    const brandHeading = screen.getByRole("heading", { name: /thương hiệu nổi bật/i });
+    const newHeading = screen.getByRole("heading", { name: /dòng sản phẩm mới/i });
+    const maleHeading = screen.getByRole("heading", { name: /nước hoa nam/i });
+    const femaleHeading = screen.getByRole("heading", { name: /nước hoa nữ/i });
+    const unisexHeading = screen.getByRole("heading", { name: /unisex/i });
 
-    expect(screen.getByText("Nến biển")).toBeInTheDocument();
-    expect(screen.getByText("Túi ưu đãi")).toBeInTheDocument();
-    expect(screen.getByText("Vòng mới")).toBeInTheDocument();
+    expectBefore(featuredHeading, brandHeading);
+    expectBefore(brandHeading, newHeading);
+    expectBefore(newHeading, maleHeading);
+    expectBefore(maleHeading, femaleHeading);
+    expectBefore(femaleHeading, unisexHeading);
 
-    expect(screen.getByRole("link", { name: /khám phá ngay/i })).toHaveAttribute("href", "/products");
+    expect(screen.getByText("Featured 1")).toBeInTheDocument();
+    expect(screen.getByText("New 1")).toBeInTheDocument();
+    expect(screen.getByText("Mens Pick")).toBeInTheDocument();
+    expect(screen.getByText("Womens Pick")).toBeInTheDocument();
+    expect(screen.getByText("Unisex Pick")).toBeInTheDocument();
+
+    expect(screen.queryByRole("heading", { name: /deal hời/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /phản hồi thực tế/i })).not.toBeInTheDocument();
   });
 
-  it("requests products by the same badge-driven API filters", () => {
+  it("requests homepage gender sections from the dedicated homepage field", () => {
     renderHomepage();
 
-    expect(mockUseProducts).toHaveBeenCalledWith({ badge: "Nổi Bật", limit: 4 });
-    expect(mockUseProducts).toHaveBeenCalledWith({ badge: "Giảm Giá", limit: 4 });
-    expect(mockUseProducts).toHaveBeenCalledWith({ badge: "Mới", limit: 4 });
+    expect(mockUseProducts).toHaveBeenCalledWith({ badge: "featured", limit: 1000 });
+    expect(mockUseProducts).toHaveBeenCalledWith({ badge: "new", limit: 1000 });
+    expect(mockUseProducts).toHaveBeenCalledWith({ homepageSection: "male", limit: 1000 });
+    expect(mockUseProducts).toHaveBeenCalledWith({ homepageSection: "female", limit: 1000 });
+    expect(mockUseProducts).toHaveBeenCalledWith({ homepageSection: "unisex", limit: 1000 });
+
+    expect(screen.queryByLabelText(/slide sau/i)).not.toBeInTheDocument();
   });
 
-  it("maps brand cards from categories and links by category slug", () => {
+  it("does not render products in the female section when homepage section is missing or mismatched", () => {
+    mockUseProducts.mockImplementation(
+      (opts?: { badge?: string; homepageSection?: string }) => {
+        if (opts?.badge === "featured") {
+          return { products: featuredProducts, total: 8, totalPages: 1, isLoading: false, error: null };
+        }
+
+        if (opts?.badge === "new") {
+          return { products: newProducts, total: 8, totalPages: 1, isLoading: false, error: null };
+        }
+
+        if (opts?.homepageSection === "male") {
+          return { products: maleProducts, total: 1, totalPages: 1, isLoading: false, error: null };
+        }
+
+        if (opts?.homepageSection === "female") {
+          return {
+            products: [
+              { id: "bad-1", name: "Wrong Product", slug: "wrong", fragranceGender: "male", homepageSection: "male" },
+            ],
+            total: 1,
+            totalPages: 1,
+            isLoading: false,
+            error: null,
+          };
+        }
+
+        if (opts?.homepageSection === "unisex") {
+          return { products: [], total: 0, totalPages: 1, isLoading: false, error: null };
+        }
+
+        return { products: [], total: 0, totalPages: 1, isLoading: false, error: null };
+      },
+    );
+
+    renderHomepage();
+
+    expect(screen.queryByRole("heading", { name: /nước hoa nữ/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("Wrong Product")).not.toBeInTheDocument();
+  });
+
+  it("still maps brand cards from categories", () => {
     const { container } = renderHomepage();
 
-    const firstCategoryLink = container.querySelector('a[href="/products?category=nen"]');
-    expect(firstCategoryLink).toBeInTheDocument();
-    const giftLink = container.querySelector('a[href="/products?category=qua-tang"]');
-    expect(giftLink).toBeInTheDocument();
-    expect(document.querySelector('a[href*="search="]')).toBeNull();
-
-    const categoryLinks = Array.from(document.querySelectorAll('a[href^="/products?category="]'));
-    expect(categoryLinks).toHaveLength(5);
+    expect(container.querySelector('a[href="/products?category=azzaro"]')).toBeInTheDocument();
+    expect(container.querySelector('a[href="/products?category=prada"]')).toBeInTheDocument();
   });
 });

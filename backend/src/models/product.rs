@@ -54,6 +54,9 @@ pub struct Product {
     // Perfume-specific
     pub brand: Option<String>,
     pub concentration: Option<String>,
+    pub fragrance_gender: String,
+    pub homepage_section: Option<String>,
+    pub fragrance_line: String,
     pub created_at: DateTime<Utc>,
 }
 
@@ -84,6 +87,9 @@ pub struct ProductPublic {
     pub stock: i32,
     pub brand: Option<String>,
     pub concentration: Option<String>,
+    pub fragrance_gender: String,
+    pub homepage_section: Option<String>,
+    pub fragrance_line: String,
     /// All ML variants sorted ascending by ml.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub variants: Vec<ProductVariant>,
@@ -112,6 +118,9 @@ impl From<Product> for ProductPublic {
             stock: p.stock,
             brand: p.brand,
             concentration: p.concentration,
+            fragrance_gender: p.fragrance_gender,
+            homepage_section: p.homepage_section,
+            fragrance_line: p.fragrance_line,
             variants: vec![], // populated by handler when fetching single product
         }
     }
@@ -128,8 +137,16 @@ pub struct ProductQuery {
     pub search: Option<String>,
     /// Allowed: newest (default), price_asc, price_desc, best_selling
     pub sort: Option<String>,
-    /// Filter by badge value (e.g. "New", "Featured", "On Sale")
+    /// Filter by badge value (e.g. "New", "Featured")
     pub badge: Option<String>,
+    /// Comma-separated fragrance gender filters (male, female, unisex).
+    pub fragrance_gender: Option<String>,
+    /// Comma-separated homepage section filters (male, female, unisex).
+    pub homepage_section: Option<String>,
+    /// Comma-separated brand filters.
+    pub brand: Option<String>,
+    /// Comma-separated volume filters in ml.
+    pub volume: Option<String>,
     #[serde(default = "default_client_page")]
     pub page: i64,
     #[serde(default = "default_client_limit")]
@@ -167,6 +184,9 @@ pub struct AdminProduct {
     pub stock: i32,
     pub brand: Option<String>,
     pub concentration: Option<String>,
+    pub fragrance_gender: String,
+    pub homepage_section: Option<String>,
+    pub fragrance_line: String,
     pub created_at: DateTime<Utc>,
 }
 
@@ -191,6 +211,19 @@ pub struct PaginatedResponse<T: Serialize> {
     pub page: i64,
     pub limit: i64,
     pub total_pages: i64,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct ProductFilterOption {
+    pub value: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ProductFiltersResponse {
+    pub brands: Vec<ProductFilterOption>,
+    pub volumes: Vec<ProductFilterOption>,
+    pub genders: Vec<ProductFilterOption>,
 }
 
 // ========================
@@ -220,6 +253,9 @@ pub struct CreateProductInput {
     pub stock: Option<i32>,
     pub brand: Option<String>,
     pub concentration: Option<String>,
+    pub fragrance_gender: String,
+    pub homepage_section: Option<String>,
+    pub fragrance_line: String,
     /// ML variants. If provided, product.price is set to min(variant prices).
     #[serde(default)]
     pub variants: Vec<VariantInput>,
@@ -247,6 +283,9 @@ pub struct UpdateProductInput {
     pub stock: i32,
     pub brand: Option<String>,
     pub concentration: Option<String>,
+    pub fragrance_gender: String,
+    pub homepage_section: Option<String>,
+    pub fragrance_line: String,
     #[serde(default)]
     pub variants: Vec<VariantInput>,
 }

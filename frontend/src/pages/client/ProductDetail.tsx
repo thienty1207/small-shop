@@ -14,6 +14,10 @@ import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { formatPrice } from "@/data/products";
+import {
+  getFragranceGenderLabel,
+  getFragranceLineLabel,
+} from "@/lib/fragrance";
 import { toast } from "sonner";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
@@ -192,6 +196,38 @@ const ProductDetail = () => {
     ...(product.images?.filter((img) => img && img.length > 0).map(resolveImg) ?? []),
   ];
 
+  const fragranceBadges = [
+    product.fragranceLine
+      ? {
+          key: "line",
+          value: getFragranceLineLabel(product.fragranceLine),
+          tone:
+            product.fragranceLine === "niche"
+              ? "border-amber-200 bg-amber-50 text-amber-800"
+              : product.fragranceLine === "clone"
+                ? "border-orange-200 bg-orange-50 text-orange-800"
+                : "border-stone-200 bg-stone-100 text-stone-700",
+        }
+      : null,
+    product.fragranceGender
+      ? {
+          key: "gender",
+          value:
+            product.fragranceGender === "male"
+              ? "Nam"
+              : product.fragranceGender === "female"
+                ? "Nữ"
+                : "Unisex",
+          tone:
+            product.fragranceGender === "male"
+              ? "border-sky-200 bg-sky-50 text-sky-800"
+              : product.fragranceGender === "female"
+                ? "border-rose-200 bg-rose-50 text-rose-800"
+                : "border-emerald-200 bg-emerald-50 text-emerald-800",
+        }
+      : null,
+  ].filter((item): item is { key: string; value: string; tone: string } => Boolean(item));
+
   const discountPct = activeOriginal && activeOriginal > activePrice
     ? Math.round((1 - activePrice / activeOriginal) * 100)
     : null;
@@ -319,6 +355,18 @@ const ProductDetail = () => {
             </h1>
             {product.concentration && (
               <p className="mt-1 text-sm text-muted-foreground font-medium">{product.concentration}</p>
+            )}
+            {fragranceBadges.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2.5">
+                {fragranceBadges.map((spec) => (
+                  <span
+                    key={spec.key}
+                    className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold tracking-[0.08em] ${spec.tone}`}
+                  >
+                    {spec.value}
+                  </span>
+                ))}
+              </div>
             )}
 
             {/* Rating */}
@@ -663,4 +711,3 @@ const ProductDetail = () => {
 };
 
 export default ProductDetail;
-

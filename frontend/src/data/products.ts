@@ -3,6 +3,7 @@
 // See frontend/src/hooks/useProducts.ts for API hooks.
 
 import type { ProductVariant } from "@/hooks/useProducts";
+import type { FragranceGender, FragranceLine, HomepageSection } from "@/lib/fragrance";
 
 export interface Product {
   id: string;
@@ -26,6 +27,9 @@ export interface Product {
   stock?: number;
   brand?: string;
   concentration?: string;
+  fragranceGender?: FragranceGender;
+  homepageSection?: HomepageSection;
+  fragranceLine?: FragranceLine;
   variants?: ProductVariant[];
 }
 

@@ -16,6 +16,11 @@ import {
   type Category,
   type PaginatedResponse,
 } from "@/lib/admin-api";
+import {
+  FRAGRANCE_GENDER_OPTIONS,
+  HOMEPAGE_SECTION_OPTIONS,
+  FRAGRANCE_LINE_OPTIONS,
+} from "@/lib/fragrance";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
@@ -30,6 +35,7 @@ const EMPTY_FORM = {
   image_url_3:    "",
   image_url_4:    "",
   badge:          "",
+  homepage_section: "",
   description:    "",
   top_note:       "",
   mid_note:       "",
@@ -39,6 +45,8 @@ const EMPTY_FORM = {
   stock:          "0",
   brand:          "",
   concentration:  "",
+  fragrance_gender: "",
+  fragrance_line: "",
 };
 
 type FormState = typeof EMPTY_FORM;
@@ -124,6 +132,14 @@ function slugify(s: string) {
     .replace(/đ/g, "d")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function sanitizeBadgeValue(value: string | null | undefined): string {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (normalized === "sale" || normalized === "giảm giá" || normalized === "giam gia" || normalized === "giam-gia") {
+    return "";
+  }
+  return value ?? "";
 }
 
 export default function AdminProducts() {
@@ -213,7 +229,8 @@ export default function AdminProducts() {
       image_url_2:    imgs[0] ?? "",
       image_url_3:    imgs[1] ?? "",
       image_url_4:    imgs[2] ?? "",
-      badge:          p.badge ?? "",
+      badge:          sanitizeBadgeValue(p.badge),
+      homepage_section: p.homepage_section ?? "",
       description:    p.description ?? "",
       top_note:       p.top_note ?? "",
       mid_note:       p.mid_note ?? "",
@@ -223,6 +240,8 @@ export default function AdminProducts() {
       stock:          String(p.stock),
       brand:          p.brand ?? "",
       concentration:  p.concentration ?? "",
+      fragrance_gender: p.fragrance_gender ?? "",
+      fragrance_line: p.fragrance_line ?? "",
     });
     // Load existing variants from the server
     setVariants([]);
@@ -368,6 +387,8 @@ export default function AdminProducts() {
   };
 
   const handleSave = async () => {
+    if (!form.fragrance_gender) { setFormError("Vui lòng chọn đối tượng hương"); return; }
+    if (!form.fragrance_line)   { setFormError("Vui lòng chọn dòng nước hoa"); return; }
     if (!form.name.trim())      { setFormError("Tên sản phẩm là bắt buộc"); return; }
     if (!form.category_id)      { setFormError("Vui lòng chọn danh mục"); return; }
     if (!form.image_url)        { setFormError("Vui lòng thêm ảnh sản phẩm"); return; }
@@ -397,7 +418,8 @@ export default function AdminProducts() {
         original_price: form.original_price ? Number(form.original_price) : null,
         image_url:      form.image_url,
         images:         [form.image_url_2, form.image_url_3, form.image_url_4].filter((u) => u.trim() !== ""),
-        badge:          form.badge || null,
+        badge:          sanitizeBadgeValue(form.badge) || null,
+        homepage_section: form.homepage_section || null,
         description:    form.description || null,
         top_note:       form.top_note || null,
         mid_note:       form.mid_note || null,
@@ -407,6 +429,8 @@ export default function AdminProducts() {
         stock:          parsedVariants.length ? parsedVariants.reduce((s, v) => s + v.stock, 0) : Number(form.stock),
         brand:          form.brand || null,
         concentration:  form.concentration || null,
+        fragrance_gender: form.fragrance_gender,
+        fragrance_line: form.fragrance_line,
         variants:       parsedVariants,
       };
       if (editing) {
@@ -743,8 +767,25 @@ export default function AdminProducts() {
                       <option value="">Mặc định (không hiển thị section)</option>
                       <option value="Mới">Mới — Dòng Sản Phẩm Mới</option>
                       <option value="Nổi Bật">Nổi Bật — Sản Phẩm Nổi Bật</option>
-                      <option value="Giảm Giá">Giảm Giá — Deal Hời</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 block mb-1.5">Section trang chủ</label>
+                    <select
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
+                      value={form.homepage_section}
+                      onChange={(e) => setForm((f) => ({ ...f, homepage_section: e.target.value }))}
+                    >
+                      <option value="">Không hiển thị trong section giới tính</option>
+                      {HOMEPAGE_SECTION_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-[11px] text-gray-500">
+                      Chỉ những sản phẩm chọn ở đây mới được đẩy lên section Nam, Nữ hoặc Unisex trên trang chủ.
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -763,6 +804,7 @@ export default function AdminProducts() {
                   </>
                 )}
                 {variants.length > 0 && (
+                  <>
                   <div>
                     <label className="text-xs text-gray-400 block mb-1.5">Badge</label>
                     <select
@@ -773,9 +815,24 @@ export default function AdminProducts() {
                       <option value="">Mặc định (không hiển thị section)</option>
                       <option value="Mới">Mới — Dòng Sản Phẩm Mới</option>
                       <option value="Nổi Bật">Nổi Bật — Sản Phẩm Nổi Bật</option>
-                      <option value="Giảm Giá">Giảm Giá — Deal Hời</option>
                     </select>
                   </div>
+                  <div>
+                    <label className="text-xs text-gray-400 block mb-1.5">Section trang chủ</label>
+                    <select
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
+                      value={form.homepage_section}
+                      onChange={(e) => setForm((f) => ({ ...f, homepage_section: e.target.value }))}
+                    >
+                      <option value="">Không hiển thị trong section giới tính</option>
+                      {HOMEPAGE_SECTION_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  </>
                 )}
 
               </div>
@@ -905,6 +962,42 @@ export default function AdminProducts() {
                     onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))}
                     placeholder="VD: Jean Paul Gaultier"
                   />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1.5">Đối tượng hương *</label>
+                  <select
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
+                    value={form.fragrance_gender}
+                    onChange={(e) => setForm((f) => ({ ...f, fragrance_gender: e.target.value }))}
+                  >
+                    <option value="">-- Chọn đối tượng hương --</option>
+                    {FRAGRANCE_GENDER_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    Xác định rõ sản phẩm dành cho nam, nữ hay unisex.
+                  </p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1.5">Dòng nước hoa *</label>
+                  <select
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
+                    value={form.fragrance_line}
+                    onChange={(e) => setForm((f) => ({ ...f, fragrance_line: e.target.value }))}
+                  >
+                    <option value="">-- Chọn dòng nước hoa --</option>
+                    {FRAGRANCE_LINE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    Phân loại rõ là designer, niche hay clone.
+                  </p>
                 </div>
                 <div>
                   <label className="text-xs text-gray-400 block mb-1.5">Nồng độ</label>
