@@ -43,7 +43,8 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
     exit 1
   fi
 
-  DATABASE_URL="$(grep -E '^DATABASE_URL=' "$ENV_FILE" | head -n1 | cut -d= -f2-)"
+  # Trim CR to support .env files with Windows line endings.
+  DATABASE_URL="$(grep -E '^DATABASE_URL=' "$ENV_FILE" | head -n1 | cut -d= -f2- | tr -d '\r')"
   export DATABASE_URL
 fi
 
