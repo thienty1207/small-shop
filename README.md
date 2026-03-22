@@ -68,9 +68,17 @@
 
 Notes:
 
-- The restore scripts import `small-shop.dump` into the database from `DATABASE_URL`.
+- By default, backup scripts write to `backups/small-shop-latest.dump`.
+- Restore scripts auto-pick `backups/small-shop-latest.dump` (or the newest `backups/*.dump`) when no path is provided.
+- You can still pass a custom dump path explicitly to restore scripts.
 - They also sync the local `_sqlx_migrations` checksums with the current `sql/*.sql` files so the backend can start cleanly after a restore on a different machine/OS.
 - The backend already runs migrations automatically on startup, so `cargo sqlx migrate run` is not required for normal local setup.
+- `sql/small-shop.sql` is a plain-SQL snapshot for inspection/manual import.
+
+Backup commands:
+
+- Linux/macOS: `bash scripts/backup-small-shop.sh`
+- Windows PowerShell: `powershell -ExecutionPolicy Bypass -File .\scripts\backup-small-shop.ps1`
 
 ## Build & Test
 

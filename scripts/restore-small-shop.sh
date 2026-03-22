@@ -3,7 +3,18 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$ROOT_DIR/backend/.env}"
-DUMP_PATH="${1:-$ROOT_DIR/small-shop.dump}"
+if [[ -n "${1:-}" ]]; then
+  DUMP_PATH="$1"
+elif [[ -f "$ROOT_DIR/backups/small-shop-latest.dump" ]]; then
+  DUMP_PATH="$ROOT_DIR/backups/small-shop-latest.dump"
+else
+  latest_dump="$(ls -1t "$ROOT_DIR"/backups/*.dump 2>/dev/null | head -n1 || true)"
+  if [[ -n "$latest_dump" ]]; then
+    DUMP_PATH="$latest_dump"
+  else
+    DUMP_PATH="$ROOT_DIR/small-shop.dump"
+  fi
+fi
 SQL_DIR="$ROOT_DIR/sql"
 
 if ! command -v pg_restore >/dev/null 2>&1; then
@@ -72,6 +83,11 @@ TMP_SQL="$(mktemp)"
 trap 'rm -f "$TMP_SQL"' EXIT
 echo "BEGIN;" > "$TMP_SQL"
 for file in "$SQL_DIR"/*.sql; do
+  base="$(basename "$file")"
+  if [[ ! "$base" =~ ^[0-9]+_.+\.sql$ ]]; then
+    continue
+  fi
+
   version="$(basename "$file" | cut -d_ -f1 | sed 's/^0*//')"
   checksum="$(sha384sum "$file" | awk '{print $1}')"
   printf "UPDATE _sqlx_migrations SET checksum = decode('%s', 'hex') WHERE version = %s;\n" \

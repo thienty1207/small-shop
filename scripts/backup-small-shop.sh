@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$ROOT_DIR/backend/.env}"
-DEFAULT_OUTPUT="$ROOT_DIR/small-shop.dump"
+DEFAULT_OUTPUT="$ROOT_DIR/backups/small-shop-latest.dump"
 OUTPUT_PATH="${1:-$DEFAULT_OUTPUT}"
 
 if ! command -v pg_dump >/dev/null 2>&1; then
@@ -28,6 +28,9 @@ fi
 
 mkdir -p "$(dirname "$OUTPUT_PATH")"
 
+TMP_PATH="${OUTPUT_PATH}.tmp"
+rm -f "$TMP_PATH"
+
 pg_dump \
   --clean \
   --if-exists \
@@ -36,7 +39,9 @@ pg_dump \
   --no-privileges \
   --format=custom \
   --compress=9 \
-  --file "$OUTPUT_PATH" \
+  --file "$TMP_PATH" \
   "$DATABASE_URL"
+
+mv -f "$TMP_PATH" "$OUTPUT_PATH"
 
 echo "Backup created at: $OUTPUT_PATH"
