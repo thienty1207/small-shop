@@ -53,8 +53,56 @@ describe("AdminProducts fragrance classification", () => {
 
       return Promise.resolve({});
     });
-    mockAdminPost.mockResolvedValue({});
-    mockAdminPut.mockResolvedValue({});
+    mockAdminPost.mockImplementation((_path: string, body: Record<string, unknown>) => Promise.resolve({
+      id: "product-1",
+      category_id: "cat-1",
+      category_name: "Azzaro",
+      name: body.name,
+      slug: body.slug,
+      price: body.price,
+      original_price: body.original_price ?? null,
+      image_url: body.image_url,
+      images: body.images ?? [],
+      badge: body.badge ?? null,
+      homepage_section: body.homepage_section ?? null,
+      description: body.description ?? null,
+      top_note: body.top_note ?? null,
+      mid_note: body.mid_note ?? null,
+      base_note: body.base_note ?? null,
+      care: body.care ?? null,
+      in_stock: body.in_stock ?? true,
+      stock: body.stock ?? 0,
+      brand: body.brand ?? null,
+      concentration: body.concentration ?? null,
+      fragrance_gender: body.fragrance_gender,
+      fragrance_line: body.fragrance_line,
+      created_at: "2026-03-22T00:00:00Z",
+    }));
+    mockAdminPut.mockImplementation((_path: string, body: Record<string, unknown>) => Promise.resolve({
+      id: "product-1",
+      category_id: "cat-1",
+      category_name: "Azzaro",
+      name: body.name,
+      slug: body.slug,
+      price: body.price,
+      original_price: body.original_price ?? null,
+      image_url: body.image_url,
+      images: body.images ?? [],
+      badge: body.badge ?? null,
+      homepage_section: body.homepage_section ?? null,
+      description: body.description ?? null,
+      top_note: body.top_note ?? null,
+      mid_note: body.mid_note ?? null,
+      base_note: body.base_note ?? null,
+      care: body.care ?? null,
+      in_stock: body.in_stock ?? true,
+      stock: body.stock ?? 0,
+      brand: body.brand ?? null,
+      concentration: body.concentration ?? null,
+      fragrance_gender: body.fragrance_gender,
+      fragrance_line: body.fragrance_line,
+      created_at: "2026-03-22T00:00:00Z",
+    }));
     mockAdminDel.mockResolvedValue({});
     mockAdminDownload.mockResolvedValue(undefined);
     mockAdminUploadImage.mockResolvedValue("https://example.com/thumb.jpg");

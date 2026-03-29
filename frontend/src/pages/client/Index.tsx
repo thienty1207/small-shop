@@ -141,6 +141,7 @@ interface ProductSectionProps {
   products: Product[];
   bordered?: "top" | "bottom" | "both" | "none";
   muted?: boolean;
+  emptyMessage?: string;
 }
 
 function ProductSection({
@@ -151,9 +152,8 @@ function ProductSection({
   products,
   bordered = "none",
   muted = false,
+  emptyMessage,
 }: ProductSectionProps) {
-  if (products.length === 0) return null;
-
   const borderClass =
     bordered === "both"
       ? "border-y border-black/10"
@@ -186,13 +186,19 @@ function ProductSection({
           </Link>
         </div>
 
-        <div className="stagger mx-auto grid max-w-[1080px] grid-cols-3 gap-3 md:grid-cols-6 md:gap-4">
-          {products.map((product) => (
-            <div key={product.id} className="animate-fade-up">
-              <ProductCard product={product} compact />
-            </div>
-          ))}
-        </div>
+        {products.length > 0 ? (
+          <div className="stagger mx-auto grid max-w-[1080px] grid-cols-3 gap-3 md:grid-cols-6 md:gap-4">
+            {products.map((product) => (
+              <div key={product.id} className="animate-fade-up">
+                <ProductCard product={product} compact />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-3xl border border-dashed border-black/15 bg-white/55 px-6 py-10 text-center text-sm text-muted-foreground">
+            {emptyMessage ?? "Chưa có sản phẩm để hiển thị."}
+          </div>
+        )}
 
         <div className="mt-5 text-center md:hidden">
           <Link
@@ -220,9 +226,21 @@ export default function Index() {
   const { products: femaleFeed } = useProducts({ homepageSection: "female", limit: HOMEPAGE_SECTION_LIMIT });
   const { products: unisexFeed } = useProducts({ homepageSection: "unisex", limit: HOMEPAGE_SECTION_LIMIT });
 
-  const maleProducts = maleFeed.filter((product) => product.homepageSection === "male");
-  const femaleProducts = femaleFeed.filter((product) => product.homepageSection === "female");
-  const unisexProducts = unisexFeed.filter((product) => product.homepageSection === "unisex");
+  const pickHomepageProducts = (feed: Product[], section: "male" | "female" | "unisex") => {
+    const curated = feed.filter((product) => product.homepageSection === section);
+    if (curated.length > 0) return curated;
+
+    const backendSupportsHomepageSection = feed.some((product) => product.homepageSection !== undefined);
+    if (!backendSupportsHomepageSection) {
+      return feed.filter((product) => product.fragranceGender === section);
+    }
+
+    return curated;
+  };
+
+  const maleProducts = pickHomepageProducts(maleFeed, "male");
+  const femaleProducts = pickHomepageProducts(femaleFeed, "female");
+  const unisexProducts = pickHomepageProducts(unisexFeed, "unisex");
 
   const brandItems = (() => {
     const fromCategories = categories
@@ -555,6 +573,7 @@ export default function Index() {
           description="Tổng hợp các mùi hương dành cho nam đang có tại cửa hàng."
           link="/products?fragrance_gender=male"
           products={maleProducts}
+          emptyMessage="Chưa có sản phẩm nào được chọn cho section nước hoa nam."
         />
 
         <ProductSection
@@ -563,14 +582,16 @@ export default function Index() {
           description="Những lựa chọn nổi bật dành cho nữ, dễ xem và dễ chọn."
           link="/products?fragrance_gender=female"
           products={femaleProducts}
+          emptyMessage="Chưa có sản phẩm nào được chọn cho section nước hoa nữ."
         />
 
         <ProductSection
-          eyebrow="Linh hoáº¡t cho má»i ngÆ°á»i"
-          title="NÆ°á»›c hoa unisex"
-          description="Nhá»¯ng mÃ¹i hÆ°Æ¡ng unisex Ä‘Æ°á»£c chá»n riÃªng Ä‘á»ƒ hiá»ƒn thá»‹ á»Ÿ trang chá»§."
+          eyebrow="Linh hoạt cho mọi người"
+          title="Nước hoa unisex"
+          description="Những mùi hương unisex được chọn riêng để hiển thị ở trang chủ."
           link="/products?fragrance_gender=unisex"
           products={unisexProducts}
+          emptyMessage="Chưa có sản phẩm nào được chọn cho section nước hoa unisex."
         />
 
         {(() => {

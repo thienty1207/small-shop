@@ -156,7 +156,7 @@ describe("Homepage UI", () => {
     expect(screen.queryByLabelText(/slide sau/i)).not.toBeInTheDocument();
   });
 
-  it("does not render products in the female section when homepage section is missing or mismatched", () => {
+  it("keeps the female section shell but does not render mismatched products", () => {
     mockUseProducts.mockImplementation(
       (opts?: { badge?: string; homepageSection?: string }) => {
         if (opts?.badge === "featured") {
@@ -193,8 +193,60 @@ describe("Homepage UI", () => {
 
     renderHomepage();
 
-    expect(screen.queryByRole("heading", { name: /nước hoa nữ/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /nước hoa nữ/i })).toBeInTheDocument();
     expect(screen.queryByText("Wrong Product")).not.toBeInTheDocument();
+  });
+
+  it("falls back to fragrance gender when the backend has not deployed homepage_section yet", () => {
+    mockUseProducts.mockImplementation(
+      (opts?: { badge?: string; homepageSection?: string }) => {
+        if (opts?.badge === "featured") {
+          return { products: featuredProducts, total: 8, totalPages: 1, isLoading: false, error: null };
+        }
+
+        if (opts?.badge === "new") {
+          return { products: newProducts, total: 8, totalPages: 1, isLoading: false, error: null };
+        }
+
+        if (opts?.homepageSection === "male") {
+          return {
+            products: [{ id: "legacy-male", name: "Legacy Mens Pick", slug: "legacy-male", fragranceGender: "male" }],
+            total: 1,
+            totalPages: 1,
+            isLoading: false,
+            error: null,
+          };
+        }
+
+        if (opts?.homepageSection === "female") {
+          return {
+            products: [{ id: "legacy-female", name: "Legacy Womens Pick", slug: "legacy-female", fragranceGender: "female" }],
+            total: 1,
+            totalPages: 1,
+            isLoading: false,
+            error: null,
+          };
+        }
+
+        if (opts?.homepageSection === "unisex") {
+          return {
+            products: [{ id: "legacy-unisex", name: "Legacy Unisex Pick", slug: "legacy-unisex", fragranceGender: "unisex" }],
+            total: 1,
+            totalPages: 1,
+            isLoading: false,
+            error: null,
+          };
+        }
+
+        return { products: [], total: 0, totalPages: 1, isLoading: false, error: null };
+      },
+    );
+
+    renderHomepage();
+
+    expect(screen.getByText("Legacy Mens Pick")).toBeInTheDocument();
+    expect(screen.getByText("Legacy Womens Pick")).toBeInTheDocument();
+    expect(screen.getByText("Legacy Unisex Pick")).toBeInTheDocument();
   });
 
   it("still maps brand cards from categories", () => {

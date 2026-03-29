@@ -62,6 +62,35 @@ interface VariantRow {
 
 const EMPTY_VARIANT: VariantRow = { ml: "", price: "", original_price: "", stock: "0", is_default: false };
 
+function buildFormFromProduct(p: AdminProduct): FormState {
+  const imgs = p.images ?? [];
+
+  return {
+    category_id:    p.category_id,
+    name:           p.name,
+    slug:           p.slug,
+    price:          String(p.price),
+    original_price: p.original_price != null ? String(p.original_price) : "",
+    image_url:      p.image_url,
+    image_url_2:    imgs[0] ?? "",
+    image_url_3:    imgs[1] ?? "",
+    image_url_4:    imgs[2] ?? "",
+    badge:          sanitizeBadgeValue(p.badge),
+    homepage_section: p.homepage_section ?? "",
+    description:    p.description ?? "",
+    top_note:       p.top_note ?? "",
+    mid_note:       p.mid_note ?? "",
+    base_note:      p.base_note ?? "",
+    care:           p.care ?? "",
+    in_stock:       p.in_stock,
+    stock:          String(p.stock),
+    brand:          p.brand ?? "",
+    concentration:  p.concentration ?? "",
+    fragrance_gender: p.fragrance_gender ?? "",
+    fragrance_line: p.fragrance_line ?? "",
+  };
+}
+
 function formatVnd(n: number) {
   return n.toLocaleString("vi-VN") + " ₫";
 }
@@ -219,35 +248,15 @@ export default function AdminProducts() {
   const openEdit = (p: AdminProduct) => {
     setEditing(p);
     const imgs = p.images ?? [];
-    setForm({
-      category_id:    p.category_id,
-      name:           p.name,
-      slug:           p.slug,
-      price:          String(p.price),
-      original_price: p.original_price != null ? String(p.original_price) : "",
-      image_url:      p.image_url,
-      image_url_2:    imgs[0] ?? "",
-      image_url_3:    imgs[1] ?? "",
-      image_url_4:    imgs[2] ?? "",
-      badge:          sanitizeBadgeValue(p.badge),
-      homepage_section: p.homepage_section ?? "",
-      description:    p.description ?? "",
-      top_note:       p.top_note ?? "",
-      mid_note:       p.mid_note ?? "",
-      base_note:      p.base_note ?? "",
-      care:           p.care ?? "",
-      in_stock:       p.in_stock,
-      stock:          String(p.stock),
-      brand:          p.brand ?? "",
-      concentration:  p.concentration ?? "",
-      fragrance_gender: p.fragrance_gender ?? "",
-      fragrance_line: p.fragrance_line ?? "",
-    });
+    setForm(buildFormFromProduct(p));
     // Load existing variants from the server
     setVariants([]);
     import("@/lib/admin-api").then(({ adminGet }) => {
-      adminGet<{ product: unknown; variants: { ml: number; price: number; original_price?: number; stock: number; is_default: boolean }[] }>(`/api/admin/products/${p.id}`)
+      adminGet<{ product: AdminProduct; variants: { ml: number; price: number; original_price?: number; stock: number; is_default: boolean }[] }>(`/api/admin/products/${p.id}`)
         .then((res) => {
+          if (res.product) {
+            setForm(buildFormFromProduct(res.product));
+          }
           setVariants(
             res.variants.map((v) => ({
               ml:             String(v.ml),
@@ -433,11 +442,16 @@ export default function AdminProducts() {
         fragrance_line: form.fragrance_line,
         variants:       parsedVariants,
       };
-      if (editing) {
-        await adminPut(`/api/admin/products/${editing.id}`, body);
-      } else {
-        await adminPost("/api/admin/products", body);
+      const savedProduct = editing
+        ? await adminPut<AdminProduct>(`/api/admin/products/${editing.id}`, body)
+        : await adminPost<AdminProduct>("/api/admin/products", body);
+
+      if ((savedProduct.homepage_section ?? null) !== (body.homepage_section ?? null)) {
+        throw new Error(
+          "Backend chÆ°a lÆ°u Ä‘Æ°á»£c 'Section trang chá»§'. HÃ£y restart backend báº£n má»›i vÃ  cháº¡y migration 025 trÆ°á»›c khi dÃ¹ng feature nÃ y.",
+        );
       }
+
       setShowModal(false);
       await load(page);
     } catch (e) {

@@ -67,7 +67,7 @@ function FilterSection({ title, emptyLabel, children, isEmpty = false }: FilterS
     <section className="border-b border-border pb-5 last:border-b-0">
       <h3 className="mb-4 text-xl font-semibold text-foreground">{title}</h3>
       {!isEmpty ? (
-        <div className="max-h-64 space-y-3 overflow-y-auto pr-2">{children}</div>
+        <div className="space-y-3">{children}</div>
       ) : (
         <p className="text-sm text-muted-foreground">{emptyLabel}</p>
       )}
@@ -200,8 +200,8 @@ export default function Products() {
     window.scrollTo({ top: 0 });
   }, []);
 
-  const renderFilterSections = () => (
-    <div className="space-y-6">
+  const renderFilterSections = (containerClassName = "") => (
+    <div className={`space-y-6 ${containerClassName}`.trim()}>
       {selectedCategory && (
         <section className="rounded-2xl border border-border bg-background px-4 py-3">
           <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Danh mục đang xem</p>
@@ -303,7 +303,7 @@ export default function Products() {
       <div className="flex-1 container mx-auto px-4 md:px-8 pb-16">
         <div className="flex flex-col md:flex-row gap-8">
           <aside className="hidden md:block w-72 shrink-0">
-            <div className="sticky top-20">
+            <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pr-3">
               {renderFilterSections()}
             </div>
           </aside>
@@ -357,7 +357,7 @@ export default function Products() {
                 <SheetHeader className="mb-4">
                   <SheetTitle>Bộ lọc</SheetTitle>
                 </SheetHeader>
-                {renderFilterSections()}
+                {renderFilterSections("pr-2")}
               </SheetContent>
             </Sheet>
 

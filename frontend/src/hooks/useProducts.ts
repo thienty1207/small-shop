@@ -81,6 +81,58 @@ interface ApiProductFilters {
   genders: ApiProductFilterOption[];
 }
 
+function sortFilterOptions(options: ProductFilterOption[], mode: "label" | "number" = "label") {
+  if (mode === "number") {
+    return [...options].sort((a, b) => Number(a.value) - Number(b.value));
+  }
+
+  return [...options].sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    return a.value.localeCompare(b.value, "vi");
+  });
+}
+
+function buildFilterOptionsFromProducts(products: ApiProduct[]): ApiProductFilters {
+  const brandCounts = new Map<string, number>();
+  const volumeCounts = new Map<string, number>();
+  const genderCounts = new Map<string, number>();
+
+  products.forEach((product) => {
+    const brand = product.brand?.trim();
+    if (brand) {
+      brandCounts.set(brand, (brandCounts.get(brand) ?? 0) + 1);
+    }
+
+    const gender = product.fragrance_gender?.trim().toLowerCase();
+    if (gender) {
+      genderCounts.set(gender, (genderCounts.get(gender) ?? 0) + 1);
+    }
+
+    const seenVolumes = new Set<number>();
+    (product.variants ?? []).forEach((variant) => {
+      if (variant.ml > 0) seenVolumes.add(variant.ml);
+    });
+
+    seenVolumes.forEach((ml) => {
+      const key = String(ml);
+      volumeCounts.set(key, (volumeCounts.get(key) ?? 0) + 1);
+    });
+  });
+
+  return {
+    brands: sortFilterOptions(
+      Array.from(brandCounts.entries()).map(([value, count]) => ({ value, count })),
+    ),
+    volumes: sortFilterOptions(
+      Array.from(volumeCounts.entries()).map(([value, count]) => ({ value, count })),
+      "number",
+    ),
+    genders: sortFilterOptions(
+      Array.from(genderCounts.entries()).map(([value, count]) => ({ value, count })),
+    ),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Mappers
 // ---------------------------------------------------------------------------
@@ -259,10 +311,20 @@ export function useProductFilters(opts: Pick<UseProductsOpts, "category" | "sear
     if (search) params.set("search", search);
 
     setIsLoading(true);
-    fetch(`${API_URL}/api/products/filters?${params.toString()}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch product filters");
-        return res.json() as Promise<ApiProductFilters>;
+    const filtersUrl = `${API_URL}/api/products/filters?${params.toString()}`;
+    const productsFallbackUrl = `${API_URL}/api/products?${params.toString()}${params.toString() ? "&" : ""}page=1&limit=1000`;
+
+    fetch(filtersUrl)
+      .then(async (res) => {
+        if (res.ok) {
+          return res.json() as Promise<ApiProductFilters>;
+        }
+
+        // Fallback for older backend instances that do not expose /api/products/filters yet.
+        const productsRes = await fetch(productsFallbackUrl);
+        if (!productsRes.ok) throw new Error("Failed to fetch product filters");
+        const productsData = await productsRes.json() as PaginatedResponse<ApiProduct>;
+        return buildFilterOptionsFromProducts(productsData.items);
       })
       .then((data) => {
         setBrands(data.brands);
