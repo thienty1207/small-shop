@@ -1,3 +1,0 @@
-đả đến lúc fix lại cái footer này rồi , hiện tại footer này bên trang admin chưa có feature nào chỉnh sửa footer này cả, trang thông tin cửa hàng (trang admin) nó chỉ có nhiêu đây feature thôi
-
-hiện tại cái footer nó vẫn còn giữ thông tin cữ như túi vãi blah blah, làm một cái section trong thông tin cửa hàng mà edit thẳng footer
