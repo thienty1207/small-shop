@@ -3,6 +3,8 @@ use std::sync::Arc;
 use chrono::Utc;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use sqlx::PgPool;
+use rand::RngCore;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     config::Config,
@@ -15,15 +17,22 @@ use crate::{
 // Google OAuth helpers
 // ---------------------------------------------------------------------------
 
+const CSRF_COOKIE_NAME: &str = "oauth_state";
+const CSRF_COOKIE_MAX_AGE_SECONDS: i64 = 10 * 60;
+
+#[derive(Debug, Serialize, Deserialize)]
+struct OAuthStateClaims {
+    state: String,
+    exp: i64,
+    iat: i64,
+}
+
 /// Build the Google OAuth consent page URL.
 /// Returns (authorization_url, csrf_state) — the caller must store csrf_state
 /// in a short-lived cookie/session and validate it on callback.
 ///
 /// SECURITY: The `state` parameter prevents CSRF attacks on the callback endpoint.
-/// TODO: Store state in a signed, short-lived cookie before redirecting.
-pub fn build_google_auth_url(config: &Config) -> (String, String) {
-    let state = generate_csrf_state();
-
+pub fn build_google_auth_url(config: &Config, state: &str) -> String {
     let url = format!(
         "https://accounts.google.com/o/oauth2/v2/auth\
          ?client_id={client_id}\
@@ -37,7 +46,107 @@ pub fn build_google_auth_url(config: &Config) -> (String, String) {
         state = state,
     );
 
-    (url, state)
+    url
+}
+
+/// Generate a random OAuth CSRF state string.
+pub fn generate_csrf_state() -> String {
+    let mut bytes = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut bytes);
+    bytes_to_hex(&bytes)
+}
+
+/// Build a signed, HttpOnly cookie that stores the OAuth state token.
+pub fn build_csrf_cookie(config: &Config, state: &str) -> Result<String, AppError> {
+    let now = Utc::now().timestamp();
+    let claims = OAuthStateClaims {
+        state: state.to_owned(),
+        exp: now + CSRF_COOKIE_MAX_AGE_SECONDS,
+        iat: now,
+    };
+
+    let token = encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(config.csrf_cookie_key.as_bytes()),
+    )
+    .map_err(|e| AppError::Internal(format!("Failed to sign OAuth CSRF cookie: {e}")))?;
+
+    Ok(format!(
+        "{name}={value}; Path=/; HttpOnly; SameSite=Lax; Max-Age={max_age}{secure}",
+        name = CSRF_COOKIE_NAME,
+        value = token,
+        max_age = CSRF_COOKIE_MAX_AGE_SECONDS,
+        secure = cookie_secure_attr(config),
+    ))
+}
+
+/// Build a deletion cookie for the OAuth state cookie.
+pub fn clear_csrf_cookie(config: &Config) -> String {
+    format!(
+        "{name}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0{secure}",
+        name = CSRF_COOKIE_NAME,
+        secure = cookie_secure_attr(config),
+    )
+}
+
+/// Extract a named cookie value from a raw Cookie header string.
+pub fn extract_cookie_value(cookie_header: Option<&str>, cookie_name: &str) -> Option<String> {
+    cookie_header.and_then(|header| {
+        header
+            .split(';')
+            .map(str::trim)
+            .filter_map(|pair| pair.split_once('='))
+            .find_map(|(name, value)| (name == cookie_name).then(|| value.to_owned()))
+    })
+}
+
+/// Verify the callback state against the signed cookie token.
+pub fn verify_csrf_state(
+    config: &Config,
+    cookie_token: Option<&str>,
+    callback_state: Option<&str>,
+) -> Result<(), AppError> {
+    let cookie_token = cookie_token.ok_or_else(|| {
+        AppError::BadRequest("Missing OAuth state cookie".into())
+    })?;
+    let callback_state = callback_state.ok_or_else(|| {
+        AppError::BadRequest("Missing OAuth state parameter".into())
+    })?;
+
+    let claims = decode::<OAuthStateClaims>(
+        cookie_token,
+        &DecodingKey::from_secret(config.csrf_cookie_key.as_bytes()),
+        &Validation::default(),
+    )
+    .map_err(|_| AppError::BadRequest("Invalid or expired OAuth state cookie".into()))?
+    .claims;
+
+    if claims.state != callback_state {
+        return Err(AppError::BadRequest("OAuth state mismatch".into()));
+    }
+
+    Ok(())
+}
+
+fn cookie_secure_attr(config: &Config) -> &'static str {
+    if config.frontend_url.starts_with("https://") || config.google_redirect_uri.starts_with("https://") {
+        "; Secure"
+    } else {
+        ""
+    }
+}
+
+fn bytes_to_hex(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        out.push(HEX[(byte >> 4) as usize] as char);
+        out.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+
+    out
 }
 
 /// Exchange the authorization code returned by Google for an access token.
@@ -98,11 +207,24 @@ pub async fn fetch_google_user_info(access_token: &str) -> Result<GoogleUserInfo
 ///
 /// SECURITY: We intentionally do NOT merge accounts that have the same email
 /// but different google_id — to prevent account takeover via email spoofing.
-/// TODO: If same email + different google_id is detected, surface a clear error.
 pub async fn upsert_user(pool: &PgPool, google_info: GoogleUserInfo) -> Result<User, AppError> {
     if let Some(existing) = user_repo::find_by_google_id(pool, &google_info.id).await? {
         user_repo::update_last_login(pool, existing.id).await?;
         return Ok(existing);
+    }
+
+    if let Some(existing_email_user) = user_repo::find_by_email(pool, &google_info.email).await? {
+        tracing::warn!(
+            user_id = %existing_email_user.id,
+            existing_google_id = %existing_email_user.google_id,
+            incoming_google_id = %google_info.id,
+            email = %google_info.email,
+            "OAuth account conflict: same email linked to different Google account"
+        );
+
+        return Err(AppError::BadRequest(
+            "Email này đã được liên kết với một tài khoản Google khác. Vui lòng dùng đúng tài khoản đã liên kết trước đó.".into(),
+        ));
     }
 
     // New user — insert and stamp last_login_at
@@ -171,15 +293,3 @@ pub fn verify_jwt(config: &Arc<Config>, token: &str) -> Result<Claims, AppError>
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
-
-fn generate_csrf_state() -> String {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    use std::time::SystemTime;
-
-    // Simple random-enough state for development.
-    // TODO: Replace with `rand::thread_rng().gen::<[u8; 32]>()` hex-encoded for production.
-    let mut hasher = DefaultHasher::new();
-    SystemTime::now().hash(&mut hasher);
-    format!("{:x}", hasher.finish())
-}

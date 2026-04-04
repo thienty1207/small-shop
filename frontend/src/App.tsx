@@ -40,7 +40,6 @@ import AdminSettingsAppearance from "./pages/admin/SettingsAppearance";
 import AdminSettingsStore from "./pages/admin/SettingsStore";
 import AdminSettingsShipping from "./pages/admin/SettingsShipping";
 import AdminSettingsEmail from "./pages/admin/SettingsEmail";
-import AdminInventory from "./pages/admin/Inventory";
 import AdminReviews from "./pages/admin/Reviews";
 import AdminCoupons from "./pages/admin/Coupons";
 
@@ -168,7 +167,7 @@ const App = () => (
                   <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                   <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
                   <Route path="/admin/products/categories" element={<AdminRoute><AdminCategories /></AdminRoute>} />
-                  <Route path="/admin/inventory" element={<AdminRoute><AdminInventory /></AdminRoute>} />
+                  <Route path="/admin/inventory" element={<Navigate to="/admin/products" replace />} />
                   <Route path="/admin/orders" element={<AdminRoute><AdminOrders /></AdminRoute>} />
                   <Route path="/admin/customers" element={<AdminRoute><AdminCustomers /></AdminRoute>} />
                   <Route path="/admin/users/customers" element={<AdminRoute><AdminCustomers /></AdminRoute>} />

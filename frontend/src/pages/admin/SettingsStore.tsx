@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Building2, Save, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Building2, Save, AlertCircle, CheckCircle2, ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { adminGet, adminPut } from "@/lib/admin-api";
+import { adminGet, adminPut, adminUploadImage } from "@/lib/admin-api";
+import { useShopSettingsCtx } from "@/contexts/ShopSettingsContext";
 import {
   FOOTER_INFO_LINK_FIELDS,
   FOOTER_KEYS,
@@ -12,6 +13,7 @@ import {
 
 const KEYS = [
   "store_name",
+  "store_logo_url",
   "store_email",
   "store_phone",
   "store_address",
@@ -21,7 +23,103 @@ const KEYS = [
   ...FOOTER_KEYS,
 ];
 
+interface LogoUploadProps {
+  value: string;
+  onChange: (url: string) => void;
+  onCommit: (url: string) => Promise<void>;
+}
+
+function LogoUpload({ value, onChange, onCommit }: LogoUploadProps) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const url = await adminUploadImage(file);
+      onChange(url);
+      await onCommit(url);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-xs font-medium text-gray-400 mb-1.5">Logo cửa hàng (hiển thị trên Navbar)</label>
+      <div className="relative w-full rounded-lg overflow-hidden border border-gray-700 bg-gray-800">
+        {value ? (
+          <>
+            <img
+              src={value}
+              alt="store-logo"
+              className="w-full h-24 object-contain bg-gray-900"
+              loading="lazy"
+              decoding="async"
+              onError={(e) => (e.currentTarget.style.display = "none")}
+            />
+            <button
+              type="button"
+              onClick={async () => {
+                onChange("");
+                await onCommit("");
+              }}
+              className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-red-500 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+            {!uploading && (
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="absolute bottom-2 left-2 text-xs bg-black/60 text-white px-2.5 py-1 rounded-lg hover:bg-black/80 transition-colors"
+              >
+                Đổi logo
+              </button>
+            )}
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => !uploading && inputRef.current?.click()}
+            className="h-24 w-full flex items-center justify-center gap-2 text-gray-500 hover:bg-gray-700 transition-colors"
+          >
+            {uploading ? (
+              <span className="text-xs text-rose-400">Đang upload...</span>
+            ) : (
+              <>
+                <ImagePlus className="w-5 h-5" />
+                <span className="text-xs">Nhấn để upload logo</span>
+              </>
+            )}
+          </button>
+        )}
+      </div>
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={async (e) => {
+          await onCommit(e.target.value);
+        }}
+        placeholder="https://... (hoặc upload từ máy)"
+        className="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-rose-500"
+      />
+      {error && <p className="text-xs text-red-400">{error}</p>}
+    </div>
+  );
+}
+
 export default function AdminSettingsStore() {
+  const { refreshSettings } = useShopSettingsCtx();
   const [values, setValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
@@ -39,12 +137,23 @@ export default function AdminSettingsStore() {
       .finally(() => setLoading(false));
   }, []);
 
+  const persistLogo = async (url: string) => {
+    setError(null);
+    try {
+      await adminPut("/api/admin/settings", { settings: { store_logo_url: url } });
+      await refreshSettings();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     setSuccess(false);
     try {
       await adminPut("/api/admin/settings", { settings: values });
+      await refreshSettings();
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (e) {
@@ -117,7 +226,12 @@ export default function AdminSettingsStore() {
         <div className="max-w-xl space-y-6">
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-5 space-y-4">
             <h3 className="text-sm font-semibold text-white border-b border-gray-800 pb-3">Thông tin cơ bản</h3>
-            {field("store_name",    "Tên cửa hàng",   "Handmade Haven")}
+            {field("store_name", "Tên cửa hàng (hiển thị trên Footer)", "Ví dụ: Rusty")}
+            <LogoUpload
+              value={values["store_logo_url"] ?? ""}
+              onChange={(url) => setValues((v) => ({ ...v, store_logo_url: url }))}
+              onCommit={persistLogo}
+            />
             {field("store_email",   "Email liên hệ",  "shop@example.com", "email")}
             {field("store_phone",   "Số điện thoại",  "0912 345 678", "tel")}
             {field("store_address", "Địa chỉ",        "123 Đường ABC, Quận 1, TP.HCM")}

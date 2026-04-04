@@ -7,7 +7,8 @@ use axum::{
 };
 
 use crate::{
-    error::AppError, models::user::UserPublic, repositories::user_repo, services::auth_service,
+    error::AppError, models::user::UserPublic, repositories::user_repo,
+    services::{auth_service, token_service},
     state::AppState,
 };
 
@@ -19,8 +20,7 @@ use crate::{
 ///
 /// Returns 401 if the token is missing, invalid, expired, or the user no longer exists.
 ///
-/// SECURITY: Token is validated on every request — no server-side session caching.
-/// TODO: Add Redis-based token blacklist to support immediate invalidation on logout.
+/// SECURITY: Token is validated on every request and checked against revocation storage.
 pub async fn jwt_auth(
     State(state): State<AppState>,
     mut request: Request<Body>,
@@ -33,6 +33,10 @@ pub async fn jwt_auth(
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .ok_or_else(|| AppError::Unauthorized("Missing Authorization header".into()))?;
+
+    if token_service::is_revoked(&state.db, token).await? {
+        return Err(AppError::Unauthorized("Token has been revoked".into()));
+    }
 
     // Verify signature and expiry
     let claims = auth_service::verify_jwt(&state.config, token)?;

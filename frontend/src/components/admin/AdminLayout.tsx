@@ -18,7 +18,6 @@ import {
   Building2,
   Truck,
   Mail,
-  Layers,
   Star,
   Ticket,
   Bell,
@@ -57,7 +56,6 @@ const NAV: NavItem[] = [
     children: [
       { label: "Tất cả sản phẩm", href: "/admin/products",            icon: Package },
       { label: "Danh mục",        href: "/admin/products/categories",  icon: Tag },
-      { label: "Tồn Kho",          href: "/admin/inventory",            icon: Layers },
     ],
   },
   {

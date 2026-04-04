@@ -5,6 +5,7 @@ pub mod admin;
 pub mod cart;
 pub mod contact;
 pub mod coupon;
+pub mod health;
 pub mod order;
 pub mod product;
 pub mod settings;
@@ -25,6 +26,7 @@ pub fn create_router(state: AppState) -> Router<AppState> {
         .merge(cart::routes(state.clone()))
         .merge(order::routes(state.clone()))
         .merge(coupon::routes())
+        .merge(health::routes(state.clone()))
         .nest(
             "/api/wishlist",
             wishlist::client_wishlist_routes(state.clone()),

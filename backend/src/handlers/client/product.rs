@@ -6,7 +6,10 @@ use axum::{
 
 use crate::{
     error::AppError,
-    models::product::{PaginatedResponse, ProductFiltersResponse, ProductPublic, ProductQuery},
+    models::product::{
+        PaginatedResponse, ProductFiltersResponse, ProductPublic, ProductQuery,
+        ProductSearchSuggestQuery, ProductSearchSuggestion,
+    },
     services::product_service,
     state::AppState,
 };
@@ -27,6 +30,17 @@ pub async fn list_product_filters(
 ) -> Result<Json<ProductFiltersResponse>, AppError> {
     let filters = product_service::list_product_filters(&state, &query).await?;
     Ok(Json(filters))
+}
+
+/// GET /api/products/search/suggest?search=...&limit=8
+pub async fn search_product_suggestions(
+    State(state): State<AppState>,
+    Query(query): Query<ProductSearchSuggestQuery>,
+) -> Result<Json<Vec<ProductSearchSuggestion>>, AppError> {
+    let keyword = query.search.unwrap_or_default();
+    let limit = query.limit.unwrap_or(8).clamp(1, 12);
+    let items = product_service::search_product_suggestions(&state, &keyword, limit).await?;
+    Ok(Json(items))
 }
 
 /// GET /api/products/:slug

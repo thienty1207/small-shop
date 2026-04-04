@@ -54,6 +54,30 @@ pub fn infer_image_content_type(raw_ct: &str, filename_hint: &str) -> Result<Str
     }
 }
 
+/// Infer upload video MIME type.
+///
+/// Prefers request `content-type`; falls back to filename extension when needed.
+pub fn infer_video_content_type(raw_ct: &str, filename_hint: &str) -> Result<String, AppError> {
+    let filename_hint = filename_hint.to_lowercase();
+    if raw_ct.starts_with("video/") {
+        Ok(raw_ct.to_string())
+    } else if !raw_ct.is_empty() && !raw_ct.starts_with("video/") {
+        Err(AppError::BadRequest("Only video files are allowed".into()))
+    } else if filename_hint.ends_with(".mp4") {
+        Ok("video/mp4".into())
+    } else if filename_hint.ends_with(".webm") {
+        Ok("video/webm".into())
+    } else if filename_hint.ends_with(".mov") {
+        Ok("video/quicktime".into())
+    } else if filename_hint.ends_with(".m4v") {
+        Ok("video/x-m4v".into())
+    } else if filename_hint.ends_with(".ogg") || filename_hint.ends_with(".ogv") {
+        Ok("video/ogg".into())
+    } else {
+        Ok("video/mp4".into())
+    }
+}
+
 /// Upload avatar from raw bytes to Cloudinary and update user's `avatar_url`.
 ///
 /// Current constraints:

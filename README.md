@@ -61,6 +61,7 @@
    - Windows PowerShell: `powershell -ExecutionPolicy Bypass -File .\scripts\restore-small-shop.ps1`
 4. Start backend:
    - `cd backend`
+   - `cp .env.example .env` (Linux/macOS) or `Copy-Item .env.example .env` (PowerShell)
    - `cargo run`
 5. Start frontend:
    - `cd frontend`
@@ -84,3 +85,14 @@ Backup commands:
 
 - Backend: `cargo check` / `cargo test`
 - Frontend: `bun run build` / `bun test`
+
+Smoke tests:
+
+- Windows PowerShell: `$env:SMOKE_ADMIN_USERNAME='<admin>'; $env:SMOKE_ADMIN_PASSWORD='<password>'; powershell -ExecutionPolicy Bypass -File .\scripts\smoke-admin.ps1`
+- Windows PowerShell (auto start backend): `powershell -ExecutionPolicy Bypass -File .\scripts\smoke-admin.ps1 -AutoStartBackend`
+- Linux/macOS: `SMOKE_ADMIN_USERNAME=<admin> SMOKE_ADMIN_PASSWORD=<password> bash scripts/smoke-admin.sh`
+
+Production readiness endpoints (for Railway healthcheck):
+
+- Liveness: `GET /healthz`
+- Readiness (DB check): `GET /readyz`

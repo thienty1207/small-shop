@@ -226,6 +226,22 @@ pub struct ProductFiltersResponse {
     pub genders: Vec<ProductFilterOption>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ProductSearchSuggestQuery {
+    pub search: Option<String>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct ProductSearchSuggestion {
+    pub id: Uuid,
+    pub slug: String,
+    pub name: String,
+    pub image_url: String,
+    pub brand: Option<String>,
+    pub price: i64,
+}
+
 // ========================
 // 4) INPUT DTOs (request)
 // ========================

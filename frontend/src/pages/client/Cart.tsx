@@ -6,14 +6,17 @@ import EmptyState from "@/components/shop/EmptyState";
 import QuantityStepper from "@/components/shop/QuantityStepper";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useShopSettingsCtx } from "@/contexts/ShopSettingsContext";
 import { formatPrice } from "@/data/products";
+import { calculateShippingFee } from "@/lib/shipping";
 import { toast } from "sonner";
 
 const Cart = () => {
   const { items, updateQuantity, removeItem, totalAmount } = useCart();
   const { isAuthenticated } = useAuth();
+  const { settings } = useShopSettingsCtx();
   const navigate = useNavigate();
-  const shippingFee = totalAmount > 500000 ? 0 : 30000;
+  const shippingFee = calculateShippingFee(totalAmount, settings);
 
   const handleCheckout = () => {
     if (!isAuthenticated) {
@@ -45,7 +48,7 @@ const Cart = () => {
   return (
     <div className="min-h-screen bg-surface-pink flex flex-col">
       <Header />
-      <div className="flex-1 container mx-auto px-4 md:px-8 pt-20 pb-8">
+      <div className="flex-1 container mx-auto px-4 md:px-8 pt-24 md:pt-28 pb-8">
         <h1 className="font-display text-2xl font-bold text-foreground mb-6">Giỏ Hàng</h1>
         <div className="grid md:grid-cols-3 gap-8">
           <div className="md:col-span-2 space-y-4">
@@ -81,7 +84,7 @@ const Cart = () => {
             ))}
           </div>
 
-          <div className="bg-card rounded-xl border border-border p-6 h-fit sticky top-20">
+          <div className="bg-card rounded-xl border border-border p-6 h-fit sticky top-24 md:top-28">
             <h3 className="font-display text-lg font-bold text-foreground mb-4">Tổng đơn hàng</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Tạm tính</span><span className="text-foreground">{formatPrice(totalAmount)}</span></div>

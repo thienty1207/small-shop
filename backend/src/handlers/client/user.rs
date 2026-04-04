@@ -1,6 +1,7 @@
 use axum::{
     extract::{Multipart, Query, State},
-    response::{IntoResponse, Redirect},
+    http::{header::AUTHORIZATION, header::SET_COOKIE, HeaderMap, HeaderValue},
+    response::{IntoResponse, Redirect, Response},
     Extension, Json,
 };
 use serde::Deserialize;
@@ -8,22 +9,52 @@ use serde::Deserialize;
 use crate::{
     error::AppError,
     models::user::{UpdateProfileInput, UserPublic},
-    services::{auth_service, user_service},
+    services::{auth_service, email_service, token_service, user_service},
     state::AppState,
 };
+
+fn extract_bearer_token(headers: &HeaderMap) -> Result<&str, AppError> {
+    headers
+        .get(AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .ok_or_else(|| AppError::Unauthorized("Missing Authorization header".into()))
+}
 
 // ---------------------------------------------------------------------------
 // Google OAuth — Step 1: redirect user to Google consent page
 // ---------------------------------------------------------------------------
 
 /// Redirect the user to Google's consent page to start OAuth flow.
-pub async fn google_login(State(state): State<AppState>) -> impl IntoResponse {
-    let (url, _csrf_state) = auth_service::build_google_auth_url(&state.config);
+#[derive(Deserialize)]
+pub struct GoogleLoginParams {
+    pub cf_turnstile_response: String,
+}
 
-    // TODO: Store _csrf_state in a signed short-lived cookie before redirecting
-    //       so we can validate it in the callback (CSRF protection).
+pub async fn google_login(
+    State(state): State<AppState>,
+    Query(params): Query<GoogleLoginParams>,
+) -> Result<Response, AppError> {
+    let token = params.cf_turnstile_response.trim();
+    if token.is_empty() {
+        return Err(AppError::BadRequest("Missing Cloudflare Turnstile token".into()));
+    }
 
-    Redirect::temporary(&url)
+    let ok = email_service::verify_turnstile(&state.config.cloudflare_secret_key, token).await?;
+    if !ok {
+        return Err(AppError::Unauthorized("Cloudflare verification failed".into()));
+    }
+
+    let csrf_state = auth_service::generate_csrf_state();
+    let url = auth_service::build_google_auth_url(&state.config, &csrf_state);
+    let csrf_cookie = auth_service::build_csrf_cookie(&state.config, &csrf_state)?;
+
+    let mut response = Redirect::temporary(&url).into_response();
+    let cookie_value = HeaderValue::from_str(&csrf_cookie)
+        .map_err(|e| AppError::Internal(format!("Invalid Set-Cookie header: {e}")))?;
+    response.headers_mut().append(SET_COOKIE, cookie_value);
+
+    Ok(response)
 }
 
 // ---------------------------------------------------------------------------
@@ -33,7 +64,7 @@ pub async fn google_login(State(state): State<AppState>) -> impl IntoResponse {
 #[derive(Deserialize)]
 /// Query params returned from Google OAuth callback.
 ///
-/// `state` is kept for CSRF validation (TODO).
+/// `state` is validated against the signed oauth_state cookie.
 pub struct CallbackParams {
     pub code: String,
     pub state: Option<String>,
@@ -43,13 +74,21 @@ pub struct CallbackParams {
 pub async fn google_callback(
     State(state): State<AppState>,
     Query(params): Query<CallbackParams>,
-) -> Result<impl IntoResponse, AppError> {
-    // TODO: Validate params.state against the stored CSRF state cookie.
-    //       If mismatch → return AppError::Unauthorized("CSRF state mismatch").
+    headers: HeaderMap,
+) -> Result<Response, AppError> {
+    let cookie_header = headers.get(axum::http::header::COOKIE).and_then(|value| value.to_str().ok());
+    let oauth_state_cookie = auth_service::extract_cookie_value(cookie_header, "oauth_state");
+
+    auth_service::verify_csrf_state(&state.config, oauth_state_cookie.as_deref(), params.state.as_deref())?;
 
     let redirect_url = user_service::build_oauth_redirect_url(&state, &params.code).await?;
 
-    Ok(Redirect::temporary(&redirect_url))
+    let mut response = Redirect::temporary(&redirect_url).into_response();
+    let clear_cookie = HeaderValue::from_str(&auth_service::clear_csrf_cookie(&state.config))
+        .map_err(|e| AppError::Internal(format!("Invalid Set-Cookie header: {e}")))?;
+    response.headers_mut().append(SET_COOKIE, clear_cookie);
+
+    Ok(response)
 }
 
 // ---------------------------------------------------------------------------
@@ -112,4 +151,20 @@ pub async fn upload_avatar(
     }
 
     Err(AppError::BadRequest("No image field in request".into()))
+}
+
+/// POST /api/logout
+///
+/// Revokes the current JWT immediately so it can no longer be used.
+pub async fn logout(
+    State(state): State<AppState>,
+    Extension(current_user): Extension<UserPublic>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let token = extract_bearer_token(&headers)?;
+    let claims = auth_service::verify_jwt(&state.config, token)?;
+
+    token_service::revoke(&state.db, token, &claims, "user", Some(current_user.id)).await?;
+
+    Ok(Json(serde_json::json!({ "ok": true })))
 }

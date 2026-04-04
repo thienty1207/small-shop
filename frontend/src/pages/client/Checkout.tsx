@@ -1,15 +1,36 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useShopSettingsCtx } from "@/contexts/ShopSettingsContext";
 import { formatPrice } from "@/data/products";
+import { calculateShippingFee } from "@/lib/shipping";
 import { toast } from "sonner";
 import { Tag, Check } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 const TOKEN_KEY = "auth_token";
+const CF_SITE_KEY = "0x4AAAAAACl-DXPV4UZR7cmo";
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (
+        container: HTMLElement,
+        options: {
+          sitekey: string;
+          callback: (token: string) => void;
+          "expired-callback": () => void;
+          "error-callback": () => void;
+          theme?: "light" | "dark" | "auto";
+        }
+      ) => string;
+      reset: (widgetId: string) => void;
+    };
+  }
+}
 
 interface OrderItemInput {
   product_id: string;
@@ -23,10 +44,14 @@ interface OrderItemInput {
 const Checkout = () => {
   const { items, totalAmount, clearCart } = useCart();
   const { user } = useAuth();
+  const { settings } = useShopSettingsCtx();
   const navigate = useNavigate();
-  const shippingFee = 30000;
+  const shippingFee = calculateShippingFee(totalAmount, settings);
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cfToken, setCfToken] = useState<string | null>(null);
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
 
   // Coupon state
   const [couponCode, setCouponCode]       = useState("");
@@ -44,6 +69,41 @@ const Checkout = () => {
     address: user?.address ?? "",
     note: "",
   });
+
+  useEffect(() => {
+    const SCRIPT_ID = "cf-turnstile-script";
+
+    const renderWidget = () => {
+      if (!turnstileRef.current || !window.turnstile) return;
+      widgetIdRef.current = window.turnstile.render(turnstileRef.current, {
+        sitekey: CF_SITE_KEY,
+        callback: (token: string) => setCfToken(token),
+        "expired-callback": () => setCfToken(null),
+        "error-callback": () => {
+          setCfToken(null);
+          toast.error("Cloudflare verification error. Please refresh.");
+        },
+        theme: "light",
+      });
+    };
+
+    if (window.turnstile) {
+      renderWidget();
+      return;
+    }
+
+    if (!document.getElementById(SCRIPT_ID)) {
+      const script = document.createElement("script");
+      script.id = SCRIPT_ID;
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.async = true;
+      script.defer = true;
+      script.onload = renderWidget;
+      document.head.appendChild(script);
+    } else {
+      document.getElementById(SCRIPT_ID)?.addEventListener("load", renderWidget);
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -74,6 +134,11 @@ const Checkout = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!cfToken) {
+      toast.error("Vui lòng xác thực Cloudflare trước khi đặt hàng.");
+      return;
+    }
+
     // Non-COD payment methods → redirect to 404 for now
     if (paymentMethod !== "cod") {
       navigate("/404");
@@ -101,6 +166,7 @@ const Checkout = () => {
       items:          orderItems,
       coupon_code:    couponApplied?.code ?? null,
       discount_amt:   couponApplied?.discount_amt ?? 0,
+      cf_turnstile_response: cfToken,
     };
 
     try {
@@ -121,6 +187,10 @@ const Checkout = () => {
 
       const order = await res.json();
       clearCart();
+      setCfToken(null);
+      if (widgetIdRef.current && window.turnstile) {
+        window.turnstile.reset(widgetIdRef.current);
+      }
       navigate("/order/success", { state: { orderCode: order.order_code } });
     } catch (err) {
       toast.error((err as Error).message);
@@ -132,7 +202,7 @@ const Checkout = () => {
   return (
     <div className="min-h-screen bg-surface-pink flex flex-col">
       <Header />
-      <div className="flex-1 container mx-auto px-4 md:px-8 pt-20 pb-8">
+      <div className="flex-1 container mx-auto px-4 md:px-8 pt-24 md:pt-28 pb-8">
         <h1 className="font-display text-2xl font-bold text-foreground mb-6">Thanh Toán</h1>
         <form onSubmit={handleSubmit} className="grid md:grid-cols-3 gap-8">
           <div className="md:col-span-2 space-y-6">
@@ -208,7 +278,7 @@ const Checkout = () => {
           </div>
 
           {/* Summary */}
-          <div className="bg-card rounded-xl border border-border p-6 h-fit sticky top-20">
+          <div className="bg-card rounded-xl border border-border p-6 h-fit sticky top-24 md:top-28">
             <h3 className="font-display text-base font-bold text-foreground mb-4">Đơn hàng</h3>
             <div className="space-y-3 mb-4">
               {items.map((item) => (
@@ -275,11 +345,19 @@ const Checkout = () => {
             </div>
             <button
               type="submit"
-              disabled={isSubmitting || items.length === 0}
+              disabled={isSubmitting || items.length === 0 || !cfToken}
               className="mt-4 w-full py-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? "Đang xử lý..." : "Đặt hàng"}
             </button>
+            <div className="mt-3">
+              <div ref={turnstileRef} />
+              {!cfToken && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  * Vui lòng xác thực Cloudflare trước khi đặt hàng.
+                </p>
+              )}
+            </div>
           </div>
         </form>
       </div>

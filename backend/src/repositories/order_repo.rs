@@ -1,5 +1,6 @@
 use sqlx::PgPool;
 use uuid::Uuid;
+use std::collections::HashSet;
 
 use crate::{
     error::AppError,
@@ -61,43 +62,11 @@ pub async fn create_order(
     .fetch_one(&mut *tx)
     .await?;
 
-    // Insert all line items + deduct stock atomically
+    // Insert all line items
     let mut order_items: Vec<OrderItem> = Vec::with_capacity(items.len());
     for item in items {
         let variant = item.variant.clone().unwrap_or_default();
         let item_subtotal = item.unit_price * item.quantity as i64;
-
-        // Check & deduct stock (SELECT FOR UPDATE prevents race conditions)
-        let stock_row = sqlx::query!(
-            "SELECT stock, name FROM products WHERE id = $1 FOR UPDATE",
-            item.product_id,
-        )
-        .fetch_optional(&mut *tx)
-        .await?;
-
-        match stock_row {
-            None => {
-                return Err(AppError::BadRequest(format!(
-                    "Sản phẩm không tồn tại (id: {})",
-                    item.product_id
-                )));
-            }
-            Some(r) if r.stock < item.quantity => {
-                return Err(AppError::BadRequest(format!(
-                    "Sản phẩm '{}' không đủ hàng. Còn lại: {} sản phẩm",
-                    r.name, r.stock
-                )));
-            }
-            Some(_) => {
-                sqlx::query!(
-                    "UPDATE products SET stock = stock - $2 WHERE id = $1",
-                    item.product_id,
-                    item.quantity as i32,
-                )
-                .execute(&mut *tx)
-                .await?;
-            }
-        }
 
         let order_item = sqlx::query_as!(
             OrderItem,
@@ -265,20 +234,222 @@ pub async fn update_order_status(
 
     Ok(order)
 }
-/// Restore product stock for all items in an order (called when order is cancelled).
-/// Uses UPDATE...FROM syntax to do it in a single query.
-pub async fn restore_stock_for_order(pool: &PgPool, order_id: Uuid) -> Result<(), AppError> {
-    sqlx::query(
+
+fn parse_variant_ml(variant: &str) -> Option<i32> {
+    let normalized = variant.trim().to_lowercase().replace(' ', "");
+    if !normalized.ends_with("ml") {
+        return None;
+    }
+    let ml = normalized.trim_end_matches("ml");
+    ml.parse::<i32>().ok().filter(|v| *v > 0)
+}
+
+/// Deduct stock for all items in an order.
+///
+/// - If item has variant like `50ml`, deduct from `product_variants.stock`.
+/// - Otherwise fallback to `products.stock` (legacy/non-variant items).
+/// - Re-sync `products.stock` / `in_stock` from variants for touched products.
+pub async fn deduct_stock_for_order(pool: &PgPool, order_id: Uuid) -> Result<(), AppError> {
+    #[derive(sqlx::FromRow)]
+    struct OrderItemStockRow {
+        product_id: Option<Uuid>,
+        product_name: String,
+        variant: String,
+        quantity: i32,
+    }
+
+    let mut tx = pool.begin().await?;
+
+    let items = sqlx::query_as::<_, OrderItemStockRow>(
         r#"
-        UPDATE products
-        SET stock = products.stock + oi.quantity
-        FROM order_items oi
-        WHERE oi.order_id = $1 AND oi.product_id = products.id
+        SELECT product_id, product_name, variant, quantity
+        FROM order_items
+        WHERE order_id = $1
         "#,
     )
     .bind(order_id)
-    .execute(pool)
+    .fetch_all(&mut *tx)
     .await?;
+
+    if items.is_empty() {
+        return Err(AppError::BadRequest(format!(
+            "Order {order_id} has no items"
+        )));
+    }
+
+    let mut variant_product_ids: HashSet<Uuid> = HashSet::new();
+
+    for item in items {
+        let product_id = item.product_id.ok_or_else(|| {
+            AppError::BadRequest(format!(
+                "Order item '{}' không có product_id hợp lệ",
+                item.product_name
+            ))
+        })?;
+
+        if let Some(ml) = parse_variant_ml(&item.variant) {
+            let variant_row = sqlx::query!(
+                r#"
+                SELECT id, stock
+                FROM product_variants
+                WHERE product_id = $1 AND ml = $2
+                FOR UPDATE
+                "#,
+                product_id,
+                ml,
+            )
+            .fetch_optional(&mut *tx)
+            .await?;
+
+            if let Some(v) = variant_row {
+                if v.stock < item.quantity {
+                    return Err(AppError::BadRequest(format!(
+                        "Biến thể '{}' của sản phẩm '{}' không đủ hàng. Còn lại: {}",
+                        item.variant, item.product_name, v.stock
+                    )));
+                }
+
+                sqlx::query!(
+                    "UPDATE product_variants SET stock = stock - $2 WHERE id = $1",
+                    v.id,
+                    item.quantity,
+                )
+                .execute(&mut *tx)
+                .await?;
+
+                variant_product_ids.insert(product_id);
+                continue;
+            }
+        }
+
+        let product_row = sqlx::query!(
+            "SELECT stock, name FROM products WHERE id = $1 FOR UPDATE",
+            product_id,
+        )
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| {
+            AppError::BadRequest(format!(
+                "Sản phẩm không tồn tại (id: {})",
+                product_id
+            ))
+        })?;
+
+        if product_row.stock < item.quantity {
+            return Err(AppError::BadRequest(format!(
+                "Sản phẩm '{}' không đủ hàng. Còn lại: {} sản phẩm",
+                product_row.name, product_row.stock
+            )));
+        }
+
+        sqlx::query!(
+            "UPDATE products SET stock = stock - $2, in_stock = (stock - $2) > 0 WHERE id = $1",
+            product_id,
+            item.quantity,
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    for product_id in variant_product_ids {
+        sqlx::query(
+            r#"
+            UPDATE products SET
+                stock    = (SELECT COALESCE(SUM(stock), 0) FROM product_variants WHERE product_id = $1),
+                in_stock = (SELECT COALESCE(SUM(stock), 0) > 0 FROM product_variants WHERE product_id = $1)
+            WHERE id = $1
+            "#,
+        )
+        .bind(product_id)
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    tx.commit().await?;
+    Ok(())
+}
+/// Restore product stock for all items in an order (called when order is cancelled).
+pub async fn restore_stock_for_order(pool: &PgPool, order_id: Uuid) -> Result<(), AppError> {
+    #[derive(sqlx::FromRow)]
+    struct OrderItemStockRow {
+        product_id: Option<Uuid>,
+        variant: String,
+        quantity: i32,
+    }
+
+    let mut tx = pool.begin().await?;
+
+    let items = sqlx::query_as::<_, OrderItemStockRow>(
+        r#"
+        SELECT product_id, variant, quantity
+        FROM order_items
+        WHERE order_id = $1
+        "#,
+    )
+    .bind(order_id)
+    .fetch_all(&mut *tx)
+    .await?;
+
+    let mut variant_product_ids: HashSet<Uuid> = HashSet::new();
+
+    for item in items {
+        let product_id = match item.product_id {
+            Some(id) => id,
+            None => continue,
+        };
+
+        if let Some(ml) = parse_variant_ml(&item.variant) {
+            let variant_id = sqlx::query_scalar!(
+                r#"
+                SELECT id
+                FROM product_variants
+                WHERE product_id = $1 AND ml = $2
+                FOR UPDATE
+                "#,
+                product_id,
+                ml,
+            )
+            .fetch_optional(&mut *tx)
+            .await?;
+
+            if let Some(v_id) = variant_id {
+                sqlx::query!(
+                    "UPDATE product_variants SET stock = stock + $2 WHERE id = $1",
+                    v_id,
+                    item.quantity,
+                )
+                .execute(&mut *tx)
+                .await?;
+
+                variant_product_ids.insert(product_id);
+                continue;
+            }
+        }
+
+        sqlx::query!(
+            "UPDATE products SET stock = stock + $2, in_stock = TRUE WHERE id = $1",
+            product_id,
+            item.quantity,
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    for product_id in variant_product_ids {
+        sqlx::query(
+            r#"
+            UPDATE products SET
+                stock    = (SELECT COALESCE(SUM(stock), 0) FROM product_variants WHERE product_id = $1),
+                in_stock = (SELECT COALESCE(SUM(stock), 0) > 0 FROM product_variants WHERE product_id = $1)
+            WHERE id = $1
+            "#,
+        )
+        .bind(product_id)
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    tx.commit().await?;
 
     Ok(())
 }

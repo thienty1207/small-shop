@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/button";
 import { adminGet, adminPut } from "@/lib/admin-api";
 
 const KEYS = ["email_footer", "email_order_subject", "email_order_intro"];
+const DEFAULT_VALUES: Record<string, string> = {
+  email_order_subject: "Xác nhận đơn hàng #{order_code}",
+  email_order_intro: "Cảm ơn bạn đã đặt hàng tại Handmade Haven! Đơn hàng của bạn đã được xác nhận.",
+  email_footer: "Cảm ơn bạn đã ủng hộ cửa hàng của chúng tôi!",
+};
 
 export default function AdminSettingsEmail() {
   const [values, setValues] = useState<Record<string, string>>({});
@@ -18,7 +23,10 @@ export default function AdminSettingsEmail() {
     adminGet<Record<string, string>>("/api/admin/settings")
       .then((data) => {
         const filtered: Record<string, string> = {};
-        KEYS.forEach((k) => { filtered[k] = data[k] ?? ""; });
+        KEYS.forEach((k) => {
+          const raw = (data[k] ?? "").trim();
+          filtered[k] = raw || DEFAULT_VALUES[k] || "";
+        });
         setValues(filtered);
       })
       .catch((e) => setError((e as Error).message))
@@ -53,6 +61,9 @@ export default function AdminSettingsEmail() {
         <div className="max-w-xl space-y-6">
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-5 space-y-4">
             <h3 className="text-sm font-semibold text-white border-b border-gray-800 pb-3">Email xác nhận đơn hàng</h3>
+            <p className="text-xs text-gray-500 -mt-2">
+              Nội dung này đang được dùng cho email xác nhận đơn hàng gửi thật tới khách hàng.
+            </p>
 
             <div>
               <label className="block text-xs font-medium text-gray-400 mb-1.5">Tiêu đề email</label>

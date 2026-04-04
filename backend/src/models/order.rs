@@ -75,6 +75,8 @@ pub struct CreateOrderInput {
     pub items: Vec<OrderItemInput>,
     pub coupon_code: Option<String>,
     pub discount_amt: Option<i64>,
+    #[serde(default)]
+    pub cf_turnstile_response: Option<String>,
 }
 
 // =========================

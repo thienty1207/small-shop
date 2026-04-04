@@ -4,12 +4,18 @@ use lettre::{
     AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
 use serde::Deserialize;
+use sqlx::PgPool;
 
 use crate::{
     config::Config,
     error::AppError,
     models::order::{Order, OrderItem},
+  repositories::settings_repo,
 };
+
+const DEFAULT_ORDER_EMAIL_SUBJECT: &str = "[Handmade Haven] Order confirmed — {order_code}";
+const DEFAULT_ORDER_EMAIL_INTRO: &str = "We have received your order and will prepare it for delivery as soon as possible.";
+const DEFAULT_ORDER_EMAIL_FOOTER: &str = "Thank you for your support!";
 
 // ─── Cloudflare Turnstile ────────────────────────────────────────────────────
 
@@ -163,10 +169,40 @@ pub async fn send_auto_reply(
 pub async fn send_order_confirmation(
     config: &Config,
     mailer: &AsyncSmtpTransport<Tokio1Executor>,
+  db: &PgPool,
     order: &Order,
     items: &[OrderItem],
 ) -> Result<(), AppError> {
-    let html = order_confirmation_html(order, items);
+  let settings = settings_repo::get_by_keys(
+    db,
+    &["email_order_subject", "email_order_intro", "email_footer"],
+  )
+  .await
+  .unwrap_or_default();
+
+  let subject_template = settings
+    .get("email_order_subject")
+    .map(|v| v.trim())
+    .filter(|v| !v.is_empty())
+    .unwrap_or(DEFAULT_ORDER_EMAIL_SUBJECT);
+
+  let intro_template = settings
+    .get("email_order_intro")
+    .map(|v| v.trim())
+    .filter(|v| !v.is_empty())
+    .unwrap_or(DEFAULT_ORDER_EMAIL_INTRO);
+
+  let footer_template = settings
+    .get("email_footer")
+    .map(|v| v.trim())
+    .filter(|v| !v.is_empty())
+    .unwrap_or(DEFAULT_ORDER_EMAIL_FOOTER);
+
+  let subject = subject_template.replace("{order_code}", &order.order_code);
+  let intro_html = html_multiline(intro_template.replace("{order_code}", &order.order_code).as_str());
+  let footer_html = html_multiline(footer_template.replace("{order_code}", &order.order_code).as_str());
+
+  let html = order_confirmation_html(order, items, &intro_html, &footer_html);
 
     let from: Mailbox = format!(
         "{} <{}>",
@@ -178,8 +214,6 @@ pub async fn send_order_confirmation(
     let to: Mailbox = format!("{} <{}>", order.customer_name, order.customer_email)
         .parse()
         .map_err(|e| AppError::Email(format!("Invalid recipient address: {e}")))?;
-
-    let subject = format!("[Handmade Haven] Order confirmed — {}", order.order_code);
 
     let email = Message::builder()
         .from(from)
@@ -287,7 +321,20 @@ fn admin_notification_html(name: &str, email: &str, phone: &str, message: &str) 
     )
 }
 
-fn order_confirmation_html(order: &Order, items: &[OrderItem]) -> String {
+fn escape_html(input: &str) -> String {
+  input
+    .replace('&', "&amp;")
+    .replace('<', "&lt;")
+    .replace('>', "&gt;")
+    .replace('"', "&quot;")
+    .replace('\'', "&#39;")
+}
+
+fn html_multiline(input: &str) -> String {
+  escape_html(input).replace('\n', "<br />")
+}
+
+fn order_confirmation_html(order: &Order, items: &[OrderItem], intro_html: &str, footer_html: &str) -> String {
     let items_html: String = items
         .iter()
         .map(|item| {
@@ -396,7 +443,7 @@ fn order_confirmation_html(order: &Order, items: &[OrderItem]) -> String {
               <!-- Greeting -->
               <p style="margin:0 0 24px;font-size:16px;color:#333;">
                 Dear <strong style="color:#e8688a;">{customer_name}</strong>,<br />
-                We have received your order and will prepare it for delivery as soon as possible.
+                {intro_html}
               </p>
 
               <!-- Customer details -->
@@ -466,10 +513,7 @@ fn order_confirmation_html(order: &Order, items: &[OrderItem]) -> String {
           <tr>
             <td style="background:#fdf6f8;padding:24px 40px;text-align:center;border-top:1px solid #f0dde5;">
               <p style="margin:0 0 6px;font-size:14px;color:#555;">
-                Questions? Reply to this email or contact us at
-                <a href="mailto:hello@handmadehaven.vn" style="color:#e8688a;text-decoration:none;">
-                  hello@handmadehaven.vn
-                </a>
+                {footer_html}
               </p>
               <p style="margin:8px 0 0;font-size:12px;color:#aaa;">
                 &copy; Handmade Haven — Crafted with love in Vietnam
@@ -490,6 +534,8 @@ fn order_confirmation_html(order: &Order, items: &[OrderItem]) -> String {
         customer_email = order.customer_email,
         address = order.address,
         payment_label = payment_label,
+        intro_html = intro_html,
+        footer_html = footer_html,
         note_row = note_row,
         items_html = items_html,
         subtotal = format_vnd(order.subtotal),

@@ -21,6 +21,7 @@ import {
   HOMEPAGE_SECTION_OPTIONS,
   FRAGRANCE_LINE_OPTIONS,
 } from "@/lib/fragrance";
+import RichTextEditor from "@/components/admin/RichTextEditor";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
@@ -1031,11 +1032,9 @@ export default function AdminProducts() {
                 </div>
                 <div>
                   <label className="text-xs text-gray-400 block mb-1.5">Mô tả</label>
-                  <textarea
-                    rows={3}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500 resize-none"
+                  <RichTextEditor
                     value={form.description}
-                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                    onChange={(value) => setForm((f) => ({ ...f, description: value }))}
                     placeholder="Mô tả sản phẩm..."
                   />
                 </div>

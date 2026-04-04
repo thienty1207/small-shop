@@ -29,6 +29,10 @@ pub fn routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/api/categories", get(product::list_categories))
         .route("/api/products/filters", get(product::list_product_filters))
+        .route(
+            "/api/products/search/suggest",
+            get(product::search_product_suggestions),
+        )
         .route("/api/products", get(product::list_products))
         .route("/api/products/:slug", get(product::get_product))
         .route(

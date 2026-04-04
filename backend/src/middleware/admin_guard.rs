@@ -7,9 +7,17 @@ use axum::{
 };
 
 use crate::{
-    error::AppError, models::admin::AdminPublic, repositories::admin_repo, services::auth_service,
+    error::AppError, models::admin::AdminPublic, repositories::admin_repo,
+    services::{auth_service, token_service},
     state::AppState,
 };
+
+fn extract_query_token(query: Option<&str>) -> Option<String> {
+    let raw = query?;
+    raw.split('&')
+        .filter_map(|pair| pair.split_once('='))
+        .find_map(|(k, v)| (k == "token" && !v.is_empty()).then(|| v.to_string()))
+}
 
 /// Admin authentication + authorisation middleware.
 ///
@@ -27,15 +35,25 @@ pub async fn admin_guard(
     next: Next,
 ) -> Result<Response, AppError> {
     // 1. Extract Bearer token
-    let token = request
+    let header_token = request
         .headers()
         .get(AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
+        .and_then(|v| v.strip_prefix("Bearer "));
+
+    let query_token = extract_query_token(request.uri().query());
+
+    let token = header_token
+        .map(str::to_string)
+        .or(query_token)
         .ok_or_else(|| AppError::Unauthorized("Missing Authorization header".into()))?;
 
+    if token_service::is_revoked(&state.db, &token).await? {
+        return Err(AppError::Unauthorized("Token has been revoked".into()));
+    }
+
     // 2. Verify JWT
-    let claims = auth_service::verify_jwt(&state.config, token)?;
+    let claims = auth_service::verify_jwt(&state.config, &token)?;
 
     // 3. Role check — reject non-admin tokens (e.g. regular user JWTs)
     if claims.role != "admin" {

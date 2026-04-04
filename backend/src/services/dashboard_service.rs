@@ -1,7 +1,7 @@
 use crate::{
     error::AppError,
     models::{
-        admin::{DashboardStats, RevenuePoint, TopProduct},
+        admin::{DashboardStats, MonthlyRevenuePoint, RevenuePoint, TopProduct},
         order::AdminOrderQuery,
     },
     repositories::order_repo,
@@ -99,14 +99,58 @@ pub async fn get_dashboard_payload(state: &AppState) -> Result<serde_json::Value
 
     let revenue_chart: Vec<RevenuePoint> = sqlx::query_as::<_, RevenuePoint>(
         r#"
+        WITH months AS (
+            SELECT generate_series(
+                DATE_TRUNC('month', NOW()) - INTERVAL '5 months',
+                DATE_TRUNC('month', NOW()),
+                INTERVAL '1 month'
+            ) AS month_start
+        ), delivered AS (
+            SELECT DATE_TRUNC('month', created_at) AS month_start,
+                   COALESCE(SUM(total), 0)::BIGINT AS revenue
+            FROM orders
+            WHERE status = 'delivered'
+              AND created_at >= DATE_TRUNC('month', NOW()) - INTERVAL '5 months'
+            GROUP BY DATE_TRUNC('month', created_at)
+        )
         SELECT
-            TO_CHAR(DATE_TRUNC('month', created_at), 'MM/YYYY') AS month,
-            COALESCE(SUM(total), 0)::BIGINT                     AS revenue
-        FROM orders
-        WHERE status = 'delivered'
-          AND created_at >= DATE_TRUNC('month', NOW()) - INTERVAL '5 months'
-        GROUP BY DATE_TRUNC('month', created_at)
-        ORDER BY DATE_TRUNC('month', created_at) ASC
+            TO_CHAR(months.month_start, 'MM/YYYY') AS month,
+            COALESCE(delivered.revenue, 0)::BIGINT AS revenue
+        FROM months
+        LEFT JOIN delivered ON delivered.month_start = months.month_start
+        ORDER BY months.month_start ASC
+        "#,
+    )
+    .fetch_all(db)
+    .await?;
+
+    let monthly_revenue: Vec<MonthlyRevenuePoint> = sqlx::query_as::<_, MonthlyRevenuePoint>(
+        r#"
+        WITH months AS (
+            SELECT generate_series(
+                DATE_TRUNC('year', NOW()),
+                DATE '2030-12-01',
+                INTERVAL '1 month'
+            )::date AS month_start
+        ), delivered AS (
+            SELECT DATE_TRUNC('month', created_at)::date AS month_start,
+                   COALESCE(SUM(total), 0)::BIGINT       AS revenue
+            FROM orders
+            WHERE status = 'delivered'
+              AND created_at >= DATE_TRUNC('year', NOW())
+              AND created_at < DATE '2031-01-01'
+            GROUP BY DATE_TRUNC('month', created_at)::date
+        )
+        SELECT
+            EXTRACT(YEAR FROM months.month_start)::INT AS year,
+            EXTRACT(MONTH FROM months.month_start)::INT AS month,
+            CASE
+                WHEN months.month_start > DATE_TRUNC('month', NOW())::date THEN NULL
+                ELSE COALESCE(delivered.revenue, 0)::BIGINT
+            END AS revenue
+        FROM months
+        LEFT JOIN delivered ON delivered.month_start = months.month_start
+        ORDER BY months.month_start ASC
         "#,
     )
     .fetch_all(db)
@@ -133,6 +177,7 @@ pub async fn get_dashboard_payload(state: &AppState) -> Result<serde_json::Value
         "stats":         stats,
         "recent_orders": recent_orders,
         "revenue_chart": revenue_chart,
+        "monthly_revenue": monthly_revenue,
         "top_products":  top_products,
     }))
 }

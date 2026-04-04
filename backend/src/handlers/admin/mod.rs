@@ -6,6 +6,7 @@ pub mod dashboard;
 pub mod export;
 pub mod notifications;
 pub mod order;
+pub mod permissions;
 pub mod product;
 pub mod review;
 pub mod settings;

@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use crate::{
     error::AppError,
     models::admin::AdminPublic,
-    services::export_service,
+    services::{export_service, permissions_service},
     state::AppState,
 };
 
@@ -79,9 +79,10 @@ fn excel_response(filename: &str, body: String) -> Response<Body> {
 /// Returns a downloadable file (`text/csv` or `application/vnd.ms-excel`).
 pub async fn export_orders(
     State(state): State<AppState>,
-    Extension(_admin): Extension<AdminPublic>,
+    Extension(admin): Extension<AdminPublic>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Response<Body>, AppError> {
+    permissions_service::require_permission(&state, &admin, "exports.orders").await?;
     let format = params
         .get("format")
         .map(|s| s.to_lowercase())
@@ -154,9 +155,10 @@ pub async fn export_orders(
 /// - Excel: TSV body + Excel MIME for quick spreadsheet opening.
 pub async fn export_products(
     State(state): State<AppState>,
-    Extension(_admin): Extension<AdminPublic>,
+    Extension(admin): Extension<AdminPublic>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Response<Body>, AppError> {
+    permissions_service::require_permission(&state, &admin, "exports.products").await?;
     let format = params
         .get("format")
         .map(|s| s.to_lowercase())

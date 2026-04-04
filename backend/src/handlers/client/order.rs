@@ -11,7 +11,7 @@ use crate::{
         order::{CreateOrderInput, OrderPublic},
         user::UserPublic,
     },
-    services::order_service,
+    services::{email_service, order_service},
     state::AppState,
 };
 
@@ -21,6 +21,18 @@ pub async fn create_order(
     Extension(user): Extension<UserPublic>,
     Json(input): Json<CreateOrderInput>,
 ) -> Result<(StatusCode, Json<OrderPublic>), AppError> {
+    let token = input
+        .cf_turnstile_response
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .ok_or_else(|| AppError::BadRequest("Missing Cloudflare Turnstile token".into()))?;
+
+    let ok = email_service::verify_turnstile(&state.config.cloudflare_secret_key, token).await?;
+    if !ok {
+        return Err(AppError::Unauthorized("Cloudflare verification failed".into()));
+    }
+
     let response = order_service::create_order_for_user(&state, user.id, &input).await?;
     Ok((StatusCode::CREATED, Json(response)))
 }

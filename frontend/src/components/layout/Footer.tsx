@@ -31,8 +31,7 @@ function FooterNavLink({ href, label }: { href: string; label: string }) {
 
 const Footer = () => {
   const { settings } = useShopSettingsCtx();
-
-  const storeName = settings.store_name || "Handmade Haven";
+  const storeName = (settings.store_name ?? "Rusty").trim() || "Rusty";
   const storeEmail = settings.store_email || "hello@handmadehaven.vn";
   const storePhone = settings.store_phone || "0901 234 567";
   const storeAddress =
@@ -82,9 +81,11 @@ const Footer = () => {
       <div className="container mx-auto px-4 py-10 md:px-8">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-4">
           <div className="md:col-span-1">
-            <h3 className="mb-3 font-display text-2xl font-bold text-background">
-              {storeName}
-            </h3>
+            <div className="mb-3">
+              <h3 className="font-display text-2xl font-semibold uppercase tracking-[0.06em] text-background">
+                {storeName}
+              </h3>
+            </div>
             <p className="mb-5 text-sm leading-relaxed text-background/60">
               {footerDescription}
             </p>
@@ -170,7 +171,7 @@ const Footer = () => {
       <div className="border-t border-background/10">
         <div className="container mx-auto flex flex-col items-center justify-between gap-2 px-4 py-4 md:flex-row md:px-8">
           <p className="text-xs text-background/40">
-            © {new Date().getFullYear()} {storeName}. {footerBottomLeft}
+            © {new Date().getFullYear()}. {footerBottomLeft}
           </p>
           <p className="text-xs text-background/40">{footerBottomRight}</p>
         </div>

@@ -9,6 +9,7 @@ pub mod order_repo;
 pub mod product_repo;
 pub mod review_repo;
 pub mod settings_repo;
+pub mod token_repo;
 pub mod user_repo;
 
 pub mod wishlist_repo;

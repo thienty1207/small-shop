@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
 import {
@@ -19,6 +19,14 @@ function fmtVND(n: number | undefined | null): string {
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString("vi-VN");
+}
+
+const SHOP_OPEN_YEAR = 2026;
+const SHOP_OPEN_MONTH = 3;
+const DASHBOARD_END_YEAR = 2030;
+
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n);
 }
 
 type OrderStatus = "pending" | "confirmed" | "shipping" | "delivered" | "cancelled";
@@ -48,9 +56,13 @@ const STATUS_CONFIG: Record<
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
   const [data,    setData]    = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number>(Math.min(Math.max(currentYear, SHOP_OPEN_YEAR), DASHBOARD_END_YEAR));
 
   const today = new Date().toLocaleDateString("vi-VN", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
@@ -66,6 +78,7 @@ export default function AdminDashboard() {
         stats:         d.stats         ?? null as unknown as DashboardStats,
         recent_orders: d.recent_orders ?? [],
         revenue_chart: d.revenue_chart ?? [],
+        monthly_revenue: d.monthly_revenue ?? [],
         top_products:  d.top_products  ?? [],
       });
     } catch (e: unknown) {
@@ -76,6 +89,16 @@ export default function AdminDashboard() {
   }
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      if (!document.hidden) {
+        void load();
+      }
+    }, 60_000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   // ── Derived stat cards from real data ──────────────────────────────────────
   const stats = data?.stats;
@@ -125,10 +148,58 @@ export default function AdminDashboard() {
     : [];
 
   // ── Revenue chart bars (normalize to max 144px height) ─────────────────────
-  const revenueChart = data?.revenue_chart ?? [];
-  const maxRevenue = revenueChart.length > 0
-    ? Math.max(...revenueChart.map((r) => r.revenue), 1)
+  const monthlyRevenue = data?.monthly_revenue ?? [];
+  const availableYears = useMemo(
+    () => Array.from({ length: DASHBOARD_END_YEAR - SHOP_OPEN_YEAR + 1 }, (_, i) => SHOP_OPEN_YEAR + i),
+    [],
+  );
+
+  const revenueByYearMonth = useMemo(() => {
+    const map = new Map<string, number | null>();
+
+    monthlyRevenue.forEach((item) => {
+      const key = `${item.year}-${item.month}`;
+      map.set(key, item.revenue);
+    });
+
+    (data?.revenue_chart ?? []).forEach((item) => {
+      const [mm, yyyy] = item.month.split("/");
+      const year = Number(yyyy);
+      const month = Number(mm);
+      if (Number.isFinite(year) && Number.isFinite(month)) {
+        const key = `${year}-${month}`;
+        if (!map.has(key)) map.set(key, item.revenue);
+      }
+    });
+
+    return map;
+  }, [monthlyRevenue, data?.revenue_chart]);
+
+  const selectedYearPoints = useMemo(() => {
+    const startMonth = selectedYear === SHOP_OPEN_YEAR ? SHOP_OPEN_MONTH : 1;
+    const endMonth = 12;
+    if (endMonth < startMonth) return [] as { year: number; month: number; revenue: number | null }[];
+
+    return Array.from({ length: endMonth - startMonth + 1 }, (_, idx) => {
+      const month = startMonth + idx;
+      const key = `${selectedYear}-${month}`;
+      const isFutureYear = selectedYear > currentYear;
+      const isFutureMonthInCurrentYear = selectedYear === currentYear && month > currentMonth;
+      const defaultValue = (isFutureYear || isFutureMonthInCurrentYear) ? null : 0;
+      return {
+        year: selectedYear,
+        month,
+        revenue: revenueByYearMonth.has(key) ? (revenueByYearMonth.get(key) ?? null) : defaultValue,
+      };
+    });
+  }, [selectedYear, currentYear, currentMonth, revenueByYearMonth]);
+
+  const maxRevenue = selectedYearPoints.length > 0
+    ? Math.max(...selectedYearPoints.map((r) => r.revenue ?? 0), 1)
     : 1;
+
+  const selectedYearRevenue = selectedYearPoints.reduce((sum, point) => sum + (point.revenue ?? 0), 0);
+  const selectedYearHasAnyData = selectedYearPoints.some((point) => point.revenue != null);
 
   return (
     <AdminLayout title="Dashboard">
@@ -338,36 +409,58 @@ export default function AdminDashboard() {
 
         {/* Revenue bar chart */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-sm font-semibold text-white">Doanh thu 6 tháng gần nhất</h3>
-            <span className="text-xs text-gray-500">Chỉ tính đơn đã giao</span>
+          <div className="flex flex-col gap-3 mb-6 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-white">Biểu đồ doanh thu</h3>
+              <span className="text-xs text-gray-500">Chỉ tính đơn đã giao</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                className="h-9 min-w-[110px] bg-gray-800 border border-gray-700 rounded px-2 text-xs text-gray-100 focus:outline-none focus:border-rose-500"
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+              >
+                {availableYears.map((year) => (
+                  <option key={year} value={year}>Năm {year}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="mb-4 rounded-lg border border-gray-800 bg-gray-950/60 px-4 py-3">
+            <p className="text-xs text-gray-500">Tổng doanh thu năm đã chọn</p>
+            <p className="text-lg font-semibold text-white mt-1">
+              {selectedYearHasAnyData ? fmtVND(selectedYearRevenue) : "— (chưa tới năm này)"}
+            </p>
           </div>
           {loading && !data ? (
-            <div className="flex items-end gap-3 h-36">
+            <div className="flex items-end gap-3 h-40">
               {[1,2,3,4,5,6].map(i => (
                 <div key={i} className="flex-1 animate-pulse bg-gray-800 rounded-t-md" style={{ height: `${40 + i * 15}px` }} />
               ))}
             </div>
           ) : (
-            <div className="flex items-end gap-3 h-36">
-              {revenueChart.map((b) => {
-                const h = maxRevenue > 0 ? Math.max(8, Math.round((b.revenue / maxRevenue) * 144)) : 8;
-                const label = b.revenue >= 1_000_000
-                  ? (b.revenue / 1_000_000).toFixed(1) + "M"
-                  : (b.revenue / 1_000).toFixed(0) + "K";
+            <div
+              className="grid gap-3 h-48"
+              style={{ gridTemplateColumns: `repeat(${Math.max(1, selectedYearPoints.length)}, minmax(0, 1fr))` }}
+            >
+              {selectedYearPoints.map((b) => {
+                const value = b.revenue ?? 0;
+                const h = maxRevenue > 0 ? Math.max(8, Math.round((value / maxRevenue) * 140)) : 8;
                 return (
-                  <div key={b.month} className="flex-1 flex flex-col items-center gap-2">
-                    <span className="text-xs text-gray-400">{label}</span>
+                  <div key={`${b.year}-${b.month}`} className="flex flex-col items-center justify-end gap-2">
+                    <span className="text-[10px] text-gray-300 text-center leading-tight">
+                      {b.revenue == null ? "—" : fmtVND(value)}
+                    </span>
                     <div
-                      className="w-full bg-rose-500/20 border border-rose-500/30 rounded-t-md hover:bg-rose-500/40 transition-colors"
+                      className={`w-full rounded-t-md transition-colors ${b.revenue == null ? "bg-gray-800/60 border border-gray-700/70" : "bg-rose-500/20 border border-rose-500/30 hover:bg-rose-500/40"}`}
                       style={{ height: `${h}px` }}
-                      title={`${b.month}: ${fmtVND(b.revenue)}`}
+                      title={`${pad2(b.month)}/${b.year}: ${b.revenue == null ? "Chưa tới tháng này" : fmtVND(value)}`}
                     />
-                    <span className="text-xs text-gray-500">{b.month}</span>
+                    <span className="text-xs text-gray-500">{pad2(b.month)}/{b.year}</span>
                   </div>
                 );
               })}
-              {!loading && revenueChart.length === 0 && (
+              {!loading && selectedYearPoints.length === 0 && (
                 <p className="text-sm text-gray-600 w-full text-center">Chưa có dữ liệu doanh thu</p>
               )}
             </div>

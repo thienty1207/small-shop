@@ -22,6 +22,7 @@ mod tests {
             database_url: "postgres://localhost/test".into(),
             jwt_secret: "super_secret_test_key_32_chars!!".into(),
             jwt_expiration_hours: 24,
+            csrf_cookie_key: "csrf_secret_test_key_32_chars!!".into(),
             google_client_id: "test_client_id".into(),
             google_client_secret: "test_client_secret".into(),
             google_redirect_uri: "http://localhost:3000/auth/callback".into(),

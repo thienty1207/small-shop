@@ -9,10 +9,13 @@ use crate::{
         AdminOrderQuery, CreateOrderInput, OrderListItem, OrderPublic, OrderItemInput,
         UpdateOrderStatusInput,
     },
-    repositories::order_repo,
+    repositories::{order_repo, settings_repo},
     services::{coupon_service, email_service},
     state::AppState,
 };
+
+const DEFAULT_SHIPPING_FEE: i64 = 30_000;
+const DEFAULT_FREE_SHIPPING_FROM: i64 = 500_000;
 
 /// Validate the order input and calculate totals.
 /// Returns `(items_validated, subtotal, shipping_fee, total)`.
@@ -75,6 +78,44 @@ pub fn validate_and_calculate(
     Ok((input.items.clone(), subtotal, shipping_fee, total))
 }
 
+fn parse_non_negative_i64(raw: Option<&String>, fallback: i64) -> i64 {
+    raw.and_then(|v| v.trim().parse::<i64>().ok())
+        .filter(|v| *v >= 0)
+        .unwrap_or(fallback)
+}
+
+fn resolve_shipping_fee_from_settings(subtotal: i64, settings: &std::collections::HashMap<String, String>) -> i64 {
+    let shipping_fee_default = parse_non_negative_i64(
+        settings.get("shipping_fee_default"),
+        DEFAULT_SHIPPING_FEE,
+    );
+    let free_shipping_from = parse_non_negative_i64(
+        settings.get("free_shipping_from"),
+        DEFAULT_FREE_SHIPPING_FROM,
+    );
+
+    if free_shipping_from == 0 || subtotal >= free_shipping_from {
+        0
+    } else {
+        shipping_fee_default
+    }
+}
+
+async fn resolve_shipping_fee_for_order(state: &AppState, subtotal: i64) -> i64 {
+    let keys = ["shipping_fee_default", "free_shipping_from"];
+    match settings_repo::get_by_keys(&state.db, &keys).await {
+        Ok(settings) => resolve_shipping_fee_from_settings(subtotal, &settings),
+        Err(err) => {
+            tracing::warn!("Failed to read shipping settings, falling back to defaults: {err}");
+            if subtotal >= DEFAULT_FREE_SHIPPING_FROM {
+                0
+            } else {
+                DEFAULT_SHIPPING_FEE
+            }
+        }
+    }
+}
+
 /// Generate a unique order code like "HS-20260304-A1B2".
 pub fn generate_order_code() -> String {
     let date = Utc::now().format("%Y%m%d").to_string();
@@ -99,7 +140,9 @@ pub async fn create_order_for_user(
     user_id: Uuid,
     input: &CreateOrderInput,
 ) -> Result<OrderPublic, AppError> {
-    let (items, subtotal, shipping_fee, mut total) = validate_and_calculate(input)?;
+    let (items, subtotal, _, _) = validate_and_calculate(input)?;
+    let shipping_fee = resolve_shipping_fee_for_order(state, subtotal).await;
+    let mut total = subtotal + shipping_fee;
 
     let mut coupon_code: Option<String> = None;
     let mut coupon_type: Option<String> = None;
@@ -152,11 +195,12 @@ pub async fn create_order_for_user(
 
     if let Some(mailer) = state.mailer.clone() {
         let config = state.config.clone();
+        let db = state.db.clone();
         let order_clone = order.clone();
         let items_clone = order_items.clone();
         tokio::spawn(async move {
             if let Err(e) =
-                email_service::send_order_confirmation(&config, &mailer, &order_clone, &items_clone)
+                email_service::send_order_confirmation(&config, &mailer, &db, &order_clone, &items_clone)
                     .await
             {
                 tracing::error!("Failed to send order confirmation email: {e}");
@@ -184,6 +228,36 @@ pub async fn create_order_for_user(
         items: order_items,
         created_at: order.created_at,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::{resolve_shipping_fee_from_settings, DEFAULT_FREE_SHIPPING_FROM, DEFAULT_SHIPPING_FEE};
+
+    #[test]
+    fn uses_defaults_when_settings_missing() {
+        let settings = HashMap::new();
+        assert_eq!(
+            resolve_shipping_fee_from_settings(DEFAULT_FREE_SHIPPING_FROM - 1, &settings),
+            DEFAULT_SHIPPING_FEE
+        );
+        assert_eq!(
+            resolve_shipping_fee_from_settings(DEFAULT_FREE_SHIPPING_FROM, &settings),
+            0
+        );
+    }
+
+    #[test]
+    fn uses_configured_threshold_and_fee() {
+        let mut settings = HashMap::new();
+        settings.insert("shipping_fee_default".to_string(), "45000".to_string());
+        settings.insert("free_shipping_from".to_string(), "700000".to_string());
+
+        assert_eq!(resolve_shipping_fee_from_settings(699_999, &settings), 45_000);
+        assert_eq!(resolve_shipping_fee_from_settings(700_000, &settings), 0);
+    }
 }
 
 /// Get details for an order that belongs to the current user.
@@ -256,7 +330,8 @@ pub async fn get_admin_order(state: &AppState, id: Uuid) -> Result<serde_json::V
 /// Update order status from admin actions.
 ///
 /// - Accepts only whitelisted statuses.
-/// - When moving to `cancelled` from another status, restores stock automatically.
+/// - When moving to `delivered` from a non-delivered status, deducts stock automatically.
+/// - When moving from `delivered` to `cancelled`, restores stock automatically.
 /// - Sends customer status email as best-effort.
 pub async fn update_admin_order_status(
     state: &AppState,
@@ -276,7 +351,11 @@ pub async fn update_admin_order_status(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("Order {id} not found")))?;
 
-    if input.status == "cancelled" && current_order.status != "cancelled" {
+    if input.status == "delivered" && current_order.status != "delivered" {
+        order_repo::deduct_stock_for_order(&state.db, id).await?;
+    }
+
+    if input.status == "cancelled" && current_order.status == "delivered" {
         order_repo::restore_stock_for_order(&state.db, id).await?;
     }
 

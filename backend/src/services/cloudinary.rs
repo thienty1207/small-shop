@@ -59,6 +59,7 @@ pub async fn upload_image(
         data.clone(),
         content_type,
         folder,
+        "image",
         local_timestamp,
     )
     .await;
@@ -93,6 +94,81 @@ pub async fn upload_image(
                 data,
                 content_type,
                 folder,
+                "image",
+                server_timestamp,
+            )
+            .await
+            .map_err(|(retry_message, _)| {
+                crate::error::AppError::Internal(format!(
+                    "Cloudinary upload failed after retry: {retry_message}"
+                ))
+            })?
+        }
+    };
+
+    let body: UploadResponse = resp
+        .json()
+        .await
+        .map_err(|e| crate::error::AppError::Internal(format!("Cloudinary parse error: {e}")))?;
+
+    Ok(body.secure_url)
+}
+
+/// Upload raw video bytes to Cloudinary and return the `secure_url`.
+pub async fn upload_video(
+    config: &CloudinaryConfig,
+    client: &reqwest::Client,
+    data: Vec<u8>,
+    content_type: &str,
+    folder: &str,
+) -> Result<String, crate::error::AppError> {
+    let local_timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    let first_resp = upload_with_timestamp(
+        config,
+        client,
+        data.clone(),
+        content_type,
+        folder,
+        "video",
+        local_timestamp,
+    )
+    .await;
+
+    let resp = match first_resp {
+        Ok(resp) => resp,
+        Err((message, date_header)) => {
+            if !message.contains("Stale request") {
+                return Err(crate::error::AppError::Internal(format!(
+                    "Cloudinary upload failed: {message}"
+                )));
+            }
+
+            let date_header = date_header.ok_or_else(|| {
+                crate::error::AppError::Internal(format!(
+                    "Cloudinary upload failed (stale request, missing date header): {message}"
+                ))
+            })?;
+
+            let server_timestamp = chrono::DateTime::parse_from_rfc2822(&date_header)
+                .map_err(|e| {
+                    crate::error::AppError::Internal(format!(
+                        "Cloudinary date header parse error: {e}"
+                    ))
+                })?
+                .with_timezone(&chrono::Utc)
+                .timestamp() as u64;
+
+            upload_with_timestamp(
+                config,
+                client,
+                data,
+                content_type,
+                folder,
+                "video",
                 server_timestamp,
             )
             .await
@@ -118,6 +194,7 @@ async fn upload_with_timestamp(
     data: Vec<u8>,
     content_type: &str,
     folder: &str,
+    resource_type: &str,
     timestamp: u64,
 ) -> Result<reqwest::Response, (String, Option<String>)> {
     // Cloudinary signature: SHA1("folder={f}&timestamp={t}{api_secret}")
@@ -134,6 +211,11 @@ async fn upload_with_timestamp(
         "image/png" => "png",
         "image/webp" => "webp",
         "image/gif" => "gif",
+        "video/webm" => "webm",
+        "video/quicktime" => "mov",
+        "video/x-m4v" => "m4v",
+        "video/ogg" => "ogv",
+        _ if resource_type == "video" => "mp4",
         _ => "jpg",
     };
     let filename = format!("{}.{}", Uuid::new_v4(), ext);
@@ -151,8 +233,9 @@ async fn upload_with_timestamp(
         .text("signature", signature);
 
     let url = format!(
-        "https://api.cloudinary.com/v1_1/{}/image/upload",
-        config.cloud_name
+        "https://api.cloudinary.com/v1_1/{}/{}/upload",
+        config.cloud_name,
+        resource_type
     );
 
     let resp = client

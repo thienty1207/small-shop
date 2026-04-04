@@ -124,3 +124,13 @@ Nếu team thống nhất theo tài liệu này, mọi PR backend nên check nha
 1. Logic nghiệp vụ đã nằm trong `services` chưa?
 2. `handlers` còn đang gọi thẳng `repositories` không?
 
+---
+
+## Deploy notes (Railway)
+
+- Backend listens on `0.0.0.0:$SERVER_PORT`.
+- Healthcheck endpoints:
+	- `GET /healthz` (process alive)
+	- `GET /readyz` (DB reachable)
+- Use [backend/.env.example](.env.example) as baseline for environment variables.
+

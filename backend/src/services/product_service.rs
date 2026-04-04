@@ -4,7 +4,8 @@ use crate::{
     error::AppError,
     models::product::{
         AdminProductQuery, Category, CategoryInput, CreateProductInput, PaginatedResponse,
-        ProductFiltersResponse, ProductPublic, ProductQuery, UpdateProductInput, UpdateStockInput,
+        ProductFiltersResponse, ProductPublic, ProductQuery, ProductSearchSuggestion,
+        UpdateProductInput, UpdateStockInput,
     },
     repositories::product_repo,
     state::AppState,
@@ -77,6 +78,14 @@ pub async fn list_product_filters(
     query: &ProductQuery,
 ) -> Result<ProductFiltersResponse, AppError> {
     product_repo::find_filters(&state.db, query).await
+}
+
+pub async fn search_product_suggestions(
+    state: &AppState,
+    search: &str,
+    limit: i64,
+) -> Result<Vec<ProductSearchSuggestion>, AppError> {
+    product_repo::find_search_suggestions(&state.db, search, limit).await
 }
 
 /// Get product details by `slug`, including variant list.

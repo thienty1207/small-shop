@@ -9,8 +9,9 @@ use tokio::time::{interval, Duration};
 use tokio_stream::wrappers::IntervalStream;
 
 use crate::{
+    error::AppError,
     models::admin::AdminPublic,
-    services::notification_service,
+    services::{notification_service, permissions_service},
     state::AppState,
 };
 
@@ -23,8 +24,9 @@ use crate::{
 /// re-fetches a count endpoint on each event.
 pub async fn notification_stream(
     State(state): State<AppState>,
-    Extension(_admin): Extension<AdminPublic>,
-) -> Sse<impl futures::Stream<Item = Result<Event, Infallible>>> {
+    Extension(admin): Extension<AdminPublic>,
+) -> Result<Sse<impl futures::Stream<Item = Result<Event, Infallible>>>, AppError> {
+    permissions_service::require_permission(&state, &admin, "notifications.view").await?;
     let app_state = state.clone();
 
     let tick = IntervalStream::new(interval(Duration::from_secs(10)));
@@ -44,5 +46,5 @@ pub async fn notification_stream(
         }
     });
 
-    Sse::new(stream).keep_alive(KeepAlive::default())
+    Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
 }

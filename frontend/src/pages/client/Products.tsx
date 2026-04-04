@@ -284,7 +284,7 @@ export default function Products() {
     <div className="min-h-screen bg-surface-pink flex flex-col">
       <Header />
 
-      <div className="container mx-auto px-4 md:px-8 pt-20 pb-4">
+      <div className="container mx-auto px-4 md:px-8 pt-24 md:pt-28 pb-4">
         <nav className="flex items-center gap-2 text-sm text-muted-foreground">
           <Link to="/" className="hover:text-foreground transition-colors">Trang chủ</Link>
           <ChevronRight size={14} />
@@ -303,7 +303,7 @@ export default function Products() {
       <div className="flex-1 container mx-auto px-4 md:px-8 pb-16">
         <div className="flex flex-col md:flex-row gap-8">
           <aside className="hidden md:block w-72 shrink-0">
-            <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pr-3">
+            <div className="sticky top-24 md:top-28 max-h-[calc(100vh-8rem)] overflow-y-auto pr-3">
               {renderFilterSections()}
             </div>
           </aside>

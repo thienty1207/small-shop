@@ -4,8 +4,11 @@ use axum::{http::Method, Router};
 use sqlx::postgres::PgPoolOptions;
 use tower_http::{
     cors::{Any, CorsLayer},
+    request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
     services::ServeDir,
+    trace::TraceLayer,
 };
+use axum::http::HeaderName;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -114,15 +117,24 @@ async fn main() {
             Method::GET,
             Method::POST,
             Method::PUT,
+            Method::PATCH,
             Method::DELETE,
             Method::OPTIONS,
         ])
         .allow_headers(Any);
 
+    let request_id_header = HeaderName::from_static("x-request-id");
+
     // Build router — static /uploads served directly without CORS wrapping
     let app = Router::new()
         .merge(routes::create_router(state.clone()))
         .nest_service("/uploads", ServeDir::new("uploads"))
+        .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
+        .layer(SetRequestIdLayer::new(
+            request_id_header,
+            MakeRequestUuid,
+        ))
+        .layer(TraceLayer::new_for_http())
         .layer(cors)
         .with_state(state);
 

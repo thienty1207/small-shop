@@ -81,6 +81,16 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const adminLogout = useCallback(() => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) {
+      void fetch(`${API_URL}/api/admin/auth/logout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {
+        // best effort revoke; local cleanup still proceeds
+      });
+    }
+
     localStorage.removeItem(TOKEN_KEY);
     setAdminUser(null);
   }, []);

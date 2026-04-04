@@ -7,7 +7,7 @@ use crate::{
     models::product::{
         AdminProduct, AdminProductQuery, Category, CategoryInput, CreateProductInput, InventoryRow,
         PaginatedResponse, Product, ProductFilterOption, ProductFiltersResponse, ProductPublic,
-        ProductQuery, ProductVariant,
+        ProductQuery, ProductSearchSuggestion, ProductVariant,
         UpdateProductInput, UpdateStockInput, VariantInput,
     },
 };
@@ -314,6 +314,62 @@ pub async fn find_filters(
         volumes,
         genders,
     })
+}
+
+pub async fn find_search_suggestions(
+    pool: &PgPool,
+    search: &str,
+    limit: i64,
+) -> Result<Vec<ProductSearchSuggestion>, AppError> {
+    let keyword = search.trim();
+    if keyword.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let safe_limit = limit.clamp(1, 12);
+
+    let suggestions = sqlx::query_as::<_, ProductSearchSuggestion>(
+        r#"
+        SELECT
+            p.id,
+            p.slug,
+            p.name,
+            p.image_url,
+            p.brand,
+            COALESCE(display_variant.display_price, p.price) AS price
+        FROM products p
+        LEFT JOIN LATERAL (
+            SELECT pv.price AS display_price
+            FROM product_variants pv
+            WHERE pv.product_id = p.id
+            ORDER BY
+                CASE
+                    WHEN pv.ml = 100 THEN 0
+                    ELSE 1
+                END,
+                ABS(pv.ml - 100),
+                pv.ml
+            LIMIT 1
+        ) AS display_variant ON TRUE
+        WHERE
+            p.name ILIKE '%' || $1 || '%'
+            OR COALESCE(p.brand, '') ILIKE '%' || $1 || '%'
+        ORDER BY
+            CASE
+                WHEN LOWER(TRIM(p.name)) = LOWER(TRIM($1)) THEN 0
+                WHEN LOWER(TRIM(p.name)) LIKE LOWER(TRIM($1)) || '%' THEN 1
+                ELSE 2
+            END,
+            p.created_at DESC
+        LIMIT $2
+        "#,
+    )
+    .bind(keyword)
+    .bind(safe_limit)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(suggestions)
 }
 
 /// Fetch a single product by its slug.

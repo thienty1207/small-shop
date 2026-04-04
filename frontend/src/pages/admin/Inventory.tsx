@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Layers, AlertCircle, Search, Package } from "lucide-react";
-import { adminGet } from "@/lib/admin-api";
+import { adminGet, adminPatch } from "@/lib/admin-api";
 
 interface InventoryRow {
   variant_id:     string;
@@ -23,6 +23,9 @@ export default function AdminInventory() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
   const [search,  setSearch]  = useState("");
+  const [stockDrafts, setStockDrafts] = useState<Record<string, string>>({});
+  const [editingIds, setEditingIds] = useState<Record<string, boolean>>({});
+  const [savingIds, setSavingIds] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -30,6 +33,8 @@ export default function AdminInventory() {
     try {
       const data = await adminGet<InventoryRow[]>("/api/admin/inventory");
       setRows(data);
+      setStockDrafts({});
+      setEditingIds({});
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -63,6 +68,52 @@ export default function AdminInventory() {
   const totalVariants = rows.length;
   const totalStock    = rows.reduce((s, r) => s + r.stock, 0);
   const outOfStock    = rows.filter((r) => r.stock === 0).length;
+
+  const beginEdit = (row: InventoryRow) => {
+    setEditingIds((prev) => ({ ...prev, [row.variant_id]: true }));
+    setStockDrafts((prev) => ({ ...prev, [row.variant_id]: String(row.stock) }));
+  };
+
+  const cancelEdit = (variantId: string) => {
+    setEditingIds((prev) => ({ ...prev, [variantId]: false }));
+    setStockDrafts((prev) => {
+      const next = { ...prev };
+      delete next[variantId];
+      return next;
+    });
+  };
+
+  const saveStock = async (row: InventoryRow) => {
+    const raw = (stockDrafts[row.variant_id] ?? "").trim();
+    const parsed = Number.parseInt(raw, 10);
+
+    if (Number.isNaN(parsed) || parsed < 0) {
+      setError("Tồn kho phải là số nguyên không âm.");
+      return;
+    }
+
+    setSavingIds((prev) => ({ ...prev, [row.variant_id]: true }));
+    setError(null);
+
+    try {
+      await adminPatch(`/api/admin/inventory/variants/${row.variant_id}/stock`, {
+        stock: parsed,
+      });
+
+      setRows((prev) =>
+        prev.map((item) =>
+          item.variant_id === row.variant_id
+            ? { ...item, stock: parsed }
+            : item,
+        ),
+      );
+      cancelEdit(row.variant_id);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSavingIds((prev) => ({ ...prev, [row.variant_id]: false }));
+    }
+  };
 
   return (
     <AdminLayout title="Quản lý Tồn Kho">
@@ -133,7 +184,7 @@ export default function AdminInventory() {
                 </div>
               </div>
 
-              {/* Variant rows — read-only */}
+              {/* Variant rows */}
               <div className="divide-y divide-gray-800/40">
                 {g.variants.map((row) => (
                   <div key={row.variant_id} className="px-5 py-3 flex items-center gap-4 hover:bg-gray-800/20 transition-colors">
@@ -152,12 +203,27 @@ export default function AdminInventory() {
                       )}
                     </div>
 
-                    {/* Stock display (read-only) */}
+                    {/* Stock editor */}
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Tồn:</span>
-                      <span className={`text-sm font-semibold ${row.stock > 0 ? "text-white" : "text-red-400"}`}>
-                        {row.stock}
-                      </span>
+                      {editingIds[row.variant_id] ? (
+                        <input
+                          type="number"
+                          min={0}
+                          value={stockDrafts[row.variant_id] ?? ""}
+                          onChange={(e) =>
+                            setStockDrafts((prev) => ({
+                              ...prev,
+                              [row.variant_id]: e.target.value,
+                            }))
+                          }
+                          className="w-20 h-8 px-2 bg-gray-900 border border-gray-700 rounded-md text-sm text-white focus:outline-none focus:border-rose-500"
+                        />
+                      ) : (
+                        <span className={`text-sm font-semibold ${row.stock > 0 ? "text-white" : "text-red-400"}`}>
+                          {row.stock}
+                        </span>
+                      )}
                     </div>
 
                     {/* Status */}
@@ -168,6 +234,34 @@ export default function AdminInventory() {
                     }`}>
                       {row.stock > 0 ? "Còn hàng" : "Hết hàng"}
                     </span>
+
+                    <div className="ml-auto flex items-center gap-2">
+                      {editingIds[row.variant_id] ? (
+                        <>
+                          <button
+                            onClick={() => saveStock(row)}
+                            disabled={savingIds[row.variant_id]}
+                            className="px-2.5 py-1 text-[11px] rounded-md bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:bg-rose-500/30 disabled:opacity-50"
+                          >
+                            {savingIds[row.variant_id] ? "Đang lưu..." : "Lưu"}
+                          </button>
+                          <button
+                            onClick={() => cancelEdit(row.variant_id)}
+                            disabled={savingIds[row.variant_id]}
+                            className="px-2.5 py-1 text-[11px] rounded-md bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700 disabled:opacity-50"
+                          >
+                            Huỷ
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => beginEdit(row)}
+                          className="px-2.5 py-1 text-[11px] rounded-md bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700"
+                        >
+                          Sửa tồn
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

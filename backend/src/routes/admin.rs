@@ -8,7 +8,7 @@ use axum::{
 use crate::{
     handlers::admin::{
         auth, category, coupon, customer, dashboard, export, notifications, order, product, review,
-        settings, staff,
+        permissions, settings, staff,
     },
     middleware::admin_guard::admin_guard,
     state::AppState,
@@ -19,6 +19,7 @@ pub fn routes(state: AppState) -> Router<AppState> {
     let protected = Router::new()
         // ── Auth ──────────────────────────────────────────────────────────
         .route("/me", get(auth::get_me))
+        .route("/auth/logout", post(auth::logout))
         // ── Dashboard ─────────────────────────────────────────────────────
         .route("/dashboard", get(dashboard::get_stats))
         // ── Products ─────────────────────────────────────────────────────
@@ -41,6 +42,10 @@ pub fn routes(state: AppState) -> Router<AppState> {
             "/upload/image",
             post(product::upload_image).layer(DefaultBodyLimit::max(12 * 1024 * 1024)),
         )
+        .route(
+            "/upload/video",
+            post(product::upload_video).layer(DefaultBodyLimit::max(40 * 1024 * 1024)),
+        )
         // ── Inventory ────────────────────────────────────────────────────
         .route("/inventory", get(product::list_inventory))
         .route(
@@ -62,6 +67,11 @@ pub fn routes(state: AppState) -> Router<AppState> {
         .route("/orders/:id/status", put(order::update_order_status))
         // ── Customers ─────────────────────────────────────────────────────
         .route("/customers", get(customer::list_customers))
+        // ── Permissions (P4) ──────────────────────────────────────────────
+        .route(
+            "/permissions",
+            get(permissions::get_permissions).patch(permissions::update_permissions),
+        )
         // ── Staff (B7) ────────────────────────────────────────────────────
         .route("/staff", get(staff::list_staff).post(staff::create_staff))
         .route(

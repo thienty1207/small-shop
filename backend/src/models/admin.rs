@@ -75,6 +75,62 @@ pub struct StaffListItem {
     pub created_at: DateTime<Utc>,
 }
 
+/// Customer row for admin customer list.
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+pub struct CustomerListItem {
+    pub id: Uuid,
+    pub google_id: String,
+    pub email: String,
+    pub name: String,
+    pub avatar_url: Option<String>,
+    pub phone: Option<String>,
+    pub address: Option<String>,
+    pub last_login_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub orders_count: i64,
+    pub total_spent: i64,
+}
+
+/// Paginated admin customer list response.
+#[derive(Debug, Serialize)]
+pub struct PaginatedCustomerList {
+    pub items: Vec<CustomerListItem>,
+    pub total: i64,
+    pub page: i64,
+    pub limit: i64,
+    pub total_pages: i64,
+}
+
+/// A single permission row in the admin permission matrix.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdminPermissionItem {
+    pub key: String,
+    pub label: String,
+    pub super_admin: bool,
+    pub manager: bool,
+    pub staff: bool,
+}
+
+/// A grouped set of permission rows.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdminPermissionGroup {
+    pub key: String,
+    pub group: String,
+    pub items: Vec<AdminPermissionItem>,
+}
+
+/// Response for GET /api/admin/permissions.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdminPermissionsResponse {
+    pub groups: Vec<AdminPermissionGroup>,
+}
+
+/// Payload for PATCH /api/admin/permissions.
+#[derive(Debug, Clone, Deserialize)]
+pub struct UpdateAdminPermissionsInput {
+    pub groups: Vec<AdminPermissionGroup>,
+}
+
 /// Create a new staff member
 #[derive(Debug, Deserialize)]
 pub struct CreateStaffInput {
@@ -120,6 +176,14 @@ pub struct DashboardStats {
 pub struct RevenuePoint {
     pub month: String,
     pub revenue: i64,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+/// Monthly revenue point for year/month picker.
+pub struct MonthlyRevenuePoint {
+    pub year: i32,
+    pub month: i32,
+    pub revenue: Option<i64>,
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]

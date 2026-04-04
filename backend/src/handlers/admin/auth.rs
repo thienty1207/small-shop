@@ -1,11 +1,23 @@
-use axum::{extract::State, Extension, Json};
+use axum::{
+    extract::State,
+    http::{header::AUTHORIZATION, HeaderMap},
+    Extension, Json,
+};
 
 use crate::{
     error::AppError,
     models::admin::{AdminLoginInput, AdminLoginResponse, AdminPublic},
-    services::admin_auth_service,
+    services::{admin_auth_service, auth_service, token_service},
     state::AppState,
 };
+
+fn extract_bearer_token(headers: &HeaderMap) -> Result<&str, AppError> {
+    headers
+        .get(AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .ok_or_else(|| AppError::Unauthorized("Missing Authorization header".into()))
+}
 
 /// POST /api/admin/auth/login
 ///
@@ -31,4 +43,20 @@ pub async fn get_me(
     Extension(admin): Extension<AdminPublic>,
 ) -> Result<Json<AdminPublic>, AppError> {
     Ok(Json(admin))
+}
+
+/// POST /api/admin/auth/logout
+///
+/// Revokes the current admin JWT immediately.
+pub async fn logout(
+    State(state): State<AppState>,
+    Extension(admin): Extension<AdminPublic>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let token = extract_bearer_token(&headers)?;
+    let claims = auth_service::verify_jwt(&state.config, token)?;
+
+    token_service::revoke(&state.db, token, &claims, "admin", Some(admin.id)).await?;
+
+    Ok(Json(serde_json::json!({ "ok": true })))
 }

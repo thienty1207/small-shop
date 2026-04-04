@@ -19,6 +19,7 @@ import {
   getFragranceLineLabel,
 } from "@/lib/fragrance";
 import { toast } from "sonner";
+import DOMPurify from "dompurify";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
@@ -55,6 +56,8 @@ const isBestValueVariant = (v: ProductVariant, all: ProductVariant[]): boolean =
   const byRatio = [...all].sort((a, b) => a.price / a.ml - b.price / b.ml);
   return byRatio[0].id === v.id;
 };
+
+const looksLikeHtml = (value: string): boolean => /<\/?[a-z][\s\S]*>/i.test(value);
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -140,6 +143,11 @@ const ProductDetail = () => {
   const activePrice    = selectedVariant?.price    ?? product?.price    ?? 0;
   const activeOriginal = selectedVariant?.originalPrice ?? product?.originalPrice;
   const activeStock    = selectedVariant?.stock    ?? product?.stock    ?? 0;
+  const descriptionRaw = (product?.description ?? "").trim();
+  const descriptionHtml = useMemo(
+    () => DOMPurify.sanitize(descriptionRaw, { USE_PROFILES: { html: true } }),
+    [descriptionRaw],
+  );
   const selectedVariantLabel = selectedVariant ? `${selectedVariant.ml}ml` : undefined;
   const quantityAlreadyInCart = product
     ? items.find((item) =>
@@ -291,7 +299,7 @@ const ProductDetail = () => {
       <Header />
 
       {/* Breadcrumb */}
-      <div className="container mx-auto px-4 md:px-8 pt-20 pb-2">
+      <div className="container mx-auto px-4 md:px-8 pt-24 md:pt-28 pb-2">
         <nav className="flex items-center gap-2 text-xs text-muted-foreground">
           <Link to="/" className="hover:text-foreground transition-colors">Trang chủ</Link>
           <ChevronRight size={12} />
@@ -438,11 +446,6 @@ const ProductDetail = () => {
                     <span className="font-bold">{selectedVariant.ml}ml</span>
                   )}
                 </p>
-                {selectedVariant && (
-                  <p className="mb-3 text-xs text-muted-foreground">
-                    Con {selectedVariant.stock} chai cho dung tich nay. Hien da co {quantityAlreadyInCart} chai trong gio, con them toi da {availableToAdd} chai.
-                  </p>
-                )}
                 <div className="flex flex-wrap gap-2">
                   {variants.map((v) => {
                     const isSelected = selectedVariant?.id === v.id;
@@ -470,7 +473,7 @@ const ProductDetail = () => {
                         <div className="text-xs mt-0.5 opacity-80">{formatPrice(v.price)}</div>
                         <div className="text-[10px] opacity-50 mt-0.5">{pricePer10ml(v.price, v.ml)} / 10ml</div>
                         {!outOfStock && (
-                          <div className="text-[10px] mt-0.5 opacity-70">Con {v.stock} chai</div>
+                          <div className="text-[10px] mt-0.5 opacity-70">Còn {v.stock} chai</div>
                         )}
                         {outOfStock && (
                           <div className="text-[10px] text-red-400 mt-0.5">Hết hàng</div>
@@ -565,7 +568,15 @@ const ProductDetail = () => {
 
               <div className="mt-5 text-sm text-muted-foreground leading-relaxed">
                 {activeTab === "description" && (
-                  <p>{product.description || "Đang cập nhật mô tả sản phẩm."}</p>
+                  descriptionRaw ? (
+                    looksLikeHtml(descriptionRaw) ? (
+                      <div className="product-richtext" dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
+                    ) : (
+                      <p className="whitespace-pre-line">{descriptionRaw}</p>
+                    )
+                  ) : (
+                    <p>Đang cập nhật mô tả sản phẩm.</p>
+                  )
                 )}
                 {activeTab === "notes" && (
                   <div className="space-y-3">

@@ -15,6 +15,9 @@ pub struct Config {
     pub jwt_secret: String,
     pub jwt_expiration_hours: i64,
 
+    // OAuth CSRF protection
+    pub csrf_cookie_key: String,
+
     // Frontend (for OAuth redirect after callback)
     pub frontend_url: String,
 
@@ -40,6 +43,16 @@ impl Config {
     /// Load configuration from environment variables.
     /// Panics early with a clear message if a required variable is missing.
     pub fn from_env() -> Result<Self, String> {
+        let jwt_secret = env_var("JWT_SECRET")?;
+        if jwt_secret.trim().len() < 32 {
+            return Err("JWT_SECRET must be at least 32 characters".into());
+        }
+
+        let csrf_cookie_key = env::var("CSRF_COOKIE_KEY").unwrap_or_else(|_| jwt_secret.clone());
+        if csrf_cookie_key.trim().len() < 32 {
+            return Err("CSRF_COOKIE_KEY must be at least 32 characters".into());
+        }
+
         Ok(Self {
             server_port: env_var("SERVER_PORT")
                 .unwrap_or_else(|_| "3000".into())
@@ -52,11 +65,12 @@ impl Config {
             google_client_secret: env_var("GOOGLE_CLIENT_SECRET")?,
             google_redirect_uri: env_var("GOOGLE_REDIRECT_URI")?,
 
-            jwt_secret: env_var("JWT_SECRET")?,
+            jwt_secret,
             jwt_expiration_hours: env_var("JWT_EXPIRATION_HOURS")
                 .unwrap_or_else(|_| "24".into())
                 .parse::<i64>()
                 .map_err(|_| "JWT_EXPIRATION_HOURS must be a valid integer")?,
+            csrf_cookie_key,
 
             frontend_url: env_var("FRONTEND_URL")?,
 
@@ -75,8 +89,8 @@ impl Config {
 
             cloudflare_secret_key: env_var("CLOUDFLARE_SECRET_KEY")?,
 
-            admin_username: env_var("ADMIN_USERNAME").unwrap_or_else(|_| "hothienty".into()),
-            admin_password: env_var("ADMIN_PASSWORD").unwrap_or_else(|_| "tohkaty01".into()),
+            admin_username: env_var("ADMIN_USERNAME")?,
+            admin_password: env_var("ADMIN_PASSWORD")?,
         })
     }
 }

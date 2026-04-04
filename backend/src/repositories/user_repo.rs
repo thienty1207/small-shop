@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 use crate::{
     error::AppError,
+    models::admin::CustomerListItem,
     models::user::{NewUser, UpdateProfileInput, User},
 };
 
@@ -146,4 +147,76 @@ pub async fn update_avatar_url(
     .await?;
 
     Ok(user)
+}
+
+/// Find customers for the admin list with pagination and simple search.
+pub async fn find_customers_paginated(
+    pool: &PgPool,
+    search: Option<&str>,
+    page: i64,
+    limit: i64,
+) -> Result<(Vec<CustomerListItem>, i64), AppError> {
+    let search_term = search
+        .map(|value| format!("%{}%", value.trim()))
+        .unwrap_or_default();
+    let offset = (page - 1) * limit;
+
+    let items = sqlx::query_as::<_, CustomerListItem>(
+        r#"
+        SELECT
+            u.id,
+            u.google_id,
+            u.email,
+            u.name,
+            u.avatar_url,
+            u.phone,
+            u.address,
+            u.last_login_at,
+            u.created_at,
+            COALESCE(o.orders_count, 0)::bigint AS orders_count,
+            COALESCE(o.total_spent, 0)::bigint AS total_spent
+        FROM users u
+        LEFT JOIN (
+            SELECT
+                user_id,
+                COUNT(*)::bigint AS orders_count,
+                COALESCE(SUM(total), 0)::bigint AS total_spent
+            FROM orders
+            WHERE user_id IS NOT NULL
+              AND status != 'cancelled'
+            GROUP BY user_id
+        ) o ON o.user_id = u.id
+        WHERE (
+            $1::text = ''
+            OR u.name ILIKE $1
+            OR u.email ILIKE $1
+            OR COALESCE(u.phone, '') ILIKE $1
+        )
+        ORDER BY u.created_at DESC
+        LIMIT $2 OFFSET $3
+        "#,
+    )
+    .bind(&search_term)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+
+    let total: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*)::bigint
+        FROM users u
+        WHERE (
+            $1::text = ''
+            OR u.name ILIKE $1
+            OR u.email ILIKE $1
+            OR COALESCE(u.phone, '') ILIKE $1
+        )
+        "#,
+    )
+    .bind(&search_term)
+    .fetch_one(pool)
+    .await?;
+
+    Ok((items, total))
 }

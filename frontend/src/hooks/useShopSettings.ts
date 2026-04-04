@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
+function buildSettingsUrl(): string {
+  const separator = API_URL.includes("?") ? "&" : "?";
+  return `${API_URL}/api/settings${separator}t=${Date.now()}`;
+}
+
 /**
  * Fetches the public shop settings from GET /api/settings.
  * Returns a key-value map that includes:
@@ -22,16 +27,31 @@ export function useShopSettings(): {
   const refreshSettings = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/settings`, { cache: "no-store" });
+      const requestInit: RequestInit = {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, max-age=0",
+          Pragma: "no-cache",
+        },
+      };
+
+      let res = await fetch(buildSettingsUrl(), requestInit);
       if (!res.ok) {
-        setSettings({});
+        // Retry once to absorb transient CDN/proxy/cache glitches.
+        res = await fetch(buildSettingsUrl(), requestInit);
+      }
+
+      if (!res.ok) {
         return;
       }
 
       const data = await (res.json() as Promise<Record<string, string>>);
-      setSettings(data ?? {});
+      if (data && typeof data === "object") {
+        setSettings(data);
+      }
     } catch {
-      setSettings({});
+      // Keep previous settings to avoid flashing default/fallback content
+      // when /api/settings fails temporarily.
     } finally {
       setIsLoading(false);
     }

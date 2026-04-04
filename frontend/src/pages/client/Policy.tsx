@@ -5,7 +5,7 @@ const Policy = () => {
   return (
     <div className="min-h-screen bg-surface-pink flex flex-col">
       <Header />
-      <div className="flex-1 container mx-auto px-4 md:px-8 pt-20 pb-10">
+      <div className="flex-1 container mx-auto px-4 md:px-8 pt-24 md:pt-28 pb-10">
         <div className="max-w-2xl mx-auto">
           <h1 className="font-display text-2xl font-bold text-foreground text-center mb-6">Chính Sách</h1>
           <div className="space-y-6 text-sm text-muted-foreground leading-relaxed">

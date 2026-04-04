@@ -8,6 +8,7 @@
 const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 const TOKEN_KEY = "admin_auth_token";
 const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_VIDEO_UPLOAD_BYTES = 35 * 1024 * 1024;
 
 function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -57,6 +58,30 @@ export async function adminUploadImage(file: File): Promise<string> {
   const res = await fetch(`${BASE}/api/admin/upload/image`, {
     method: "POST",
     headers: authHeaders(), // no Content-Type — browser sets multipart boundary
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Upload failed" }));
+    throw new Error((err as { error?: string }).error ?? "Upload failed");
+  }
+
+  const { url } = (await res.json()) as { url: string };
+  return url;
+}
+
+/** Upload a video file to /api/admin/upload/video, returns the URL string. */
+export async function adminUploadVideo(file: File): Promise<string> {
+  if (file.size > MAX_VIDEO_UPLOAD_BYTES) {
+    throw new Error("File too large (max 35 MB)");
+  }
+
+  const formData = new FormData();
+  formData.append("video", file);
+
+  const res = await fetch(`${BASE}/api/admin/upload/video`, {
+    method: "POST",
+    headers: authHeaders(),
     body: formData,
   });
 
@@ -263,6 +288,12 @@ export interface RevenuePoint {
   revenue: number;
 }
 
+export interface MonthlyRevenuePoint {
+  year: number;
+  month: number;
+  revenue: number | null;
+}
+
 export interface TopProduct {
   id:         string;
   name:       string;
@@ -275,5 +306,44 @@ export interface DashboardData {
   stats:         DashboardStats | null;
   recent_orders: AdminOrder[];
   revenue_chart: RevenuePoint[];
+  monthly_revenue: MonthlyRevenuePoint[];
   top_products:  TopProduct[];
+}
+
+export interface CustomerListItem {
+  id:            string;
+  google_id:     string;
+  email:         string;
+  name:          string;
+  avatar_url:    string | null;
+  phone:         string | null;
+  address:       string | null;
+  last_login_at: string | null;
+  created_at:    string;
+  orders_count:  number;
+  total_spent:   number;
+}
+
+export interface CustomerDetail extends CustomerListItem {}
+
+export interface AdminPermissionItem {
+  key: string;
+  label: string;
+  super_admin: boolean;
+  manager: boolean;
+  staff: boolean;
+}
+
+export interface AdminPermissionGroup {
+  key: string;
+  group: string;
+  items: AdminPermissionItem[];
+}
+
+export interface AdminPermissionsResponse {
+  groups: AdminPermissionGroup[];
+}
+
+export interface UpdateAdminPermissionsInput {
+  groups: AdminPermissionGroup[];
 }

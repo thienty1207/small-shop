@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     models::admin::{AdminPublic, CreateStaffInput, StaffListItem, UpdateStaffInput},
-    services::staff_service,
+    services::{permissions_service, staff_service},
     state::AppState,
 };
 
@@ -16,7 +16,7 @@ pub async fn list_staff(
     State(state): State<AppState>,
     Extension(admin): Extension<AdminPublic>,
 ) -> Result<Json<Vec<StaffListItem>>, AppError> {
-    staff_service::require_super_admin(&admin)?;
+    permissions_service::require_permission(&state, &admin, "staff.view").await?;
     let staff = staff_service::list_staff(&state).await?;
     Ok(Json(staff))
 }
@@ -27,7 +27,7 @@ pub async fn create_staff(
     Extension(admin): Extension<AdminPublic>,
     Json(input): Json<CreateStaffInput>,
 ) -> Result<Json<StaffListItem>, AppError> {
-    staff_service::require_super_admin(&admin)?;
+    permissions_service::require_permission(&state, &admin, "staff.edit").await?;
     let staff = staff_service::create_staff(&state, &input).await?;
 
     Ok(Json(staff))
@@ -40,7 +40,7 @@ pub async fn update_staff(
     Path(id): Path<Uuid>,
     Json(input): Json<UpdateStaffInput>,
 ) -> Result<Json<StaffListItem>, AppError> {
-    staff_service::require_super_admin(&admin)?;
+    permissions_service::require_permission(&state, &admin, "staff.edit").await?;
     let staff = staff_service::update_staff(&state, id, &input).await?;
 
     Ok(Json(staff))
@@ -52,7 +52,7 @@ pub async fn delete_staff(
     Extension(admin): Extension<AdminPublic>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    staff_service::require_super_admin(&admin)?;
+    permissions_service::require_permission(&state, &admin, "staff.delete").await?;
 
     // Prevent self-deletion
     if id == admin.id {

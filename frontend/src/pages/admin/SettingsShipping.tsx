@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { adminGet, adminPut } from "@/lib/admin-api";
 
 const KEYS = ["shipping_fee_default", "free_shipping_from"];
+const DEFAULT_VALUES: Record<string, string> = {
+  shipping_fee_default: "30000",
+  free_shipping_from: "500000",
+};
 
 export default function AdminSettingsShipping() {
   const [values, setValues] = useState<Record<string, string>>({});
@@ -17,7 +21,10 @@ export default function AdminSettingsShipping() {
     adminGet<Record<string, string>>("/api/admin/settings")
       .then((data) => {
         const filtered: Record<string, string> = {};
-        KEYS.forEach((k) => { filtered[k] = data[k] ?? ""; });
+        KEYS.forEach((k) => {
+          const raw = (data[k] ?? "").trim();
+          filtered[k] = raw || DEFAULT_VALUES[k] || "";
+        });
         setValues(filtered);
       })
       .catch((e) => setError((e as Error).message))
@@ -57,6 +64,9 @@ export default function AdminSettingsShipping() {
         <div className="max-w-xl space-y-6">
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-5 space-y-5">
             <h3 className="text-sm font-semibold text-white border-b border-gray-800 pb-3">Phí vận chuyển</h3>
+            <p className="text-xs text-gray-500 -mt-2">
+              Các giá trị bên dưới đang được áp dụng trực tiếp cho Cart, Checkout và tính tổng đơn hàng.
+            </p>
 
             <div>
               <label className="block text-xs font-medium text-gray-400 mb-1.5">Phí giao hàng mặc định (đ)</label>

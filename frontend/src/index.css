@@ -103,6 +103,15 @@
   h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.02em; }
 }
 
+/* Homepage-only dark theme scope */
+.homepage-dark {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --muted: 0 0% 10%;
+  --muted-foreground: 0 0% 74%;
+  --border: 0 0% 26%;
+}
+
 /* ── Utility overrides ───────────────────────────────────────────────────────── */
 @layer utilities {
   .min-h-screen { min-height: 100vh; }
@@ -177,4 +186,131 @@
   object-position: center;
   color: transparent;
 }
+
+/* Hero Section 1: keep more right-side content in frame */
+.hero-img-primary {
+  object-position: 50% 62%;
+  transform: scale(1.04);
+}
+
+.hero-video-primary {
+  object-position: 50% 58%;
+  transform: none;
+}
+
+@media (max-width: 767px) {
+  .hero-img-primary {
+    object-position: 52% 66%;
+    transform: scale(1.06);
+  }
+
+  .hero-video-primary {
+    object-position: 46% 62%;
+    transform: none;
+  }
+}
+
 .hero-img[src=""] { visibility: hidden; }
+
+/* Admin rich text editor */
+.admin-quill .ql-toolbar.ql-snow {
+  border: 1px solid rgb(55 65 81 / 1);
+  border-bottom: none;
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+  background: rgb(17 24 39 / 1);
+}
+
+.admin-quill .ql-container.ql-snow {
+  border: 1px solid rgb(55 65 81 / 1);
+  border-top: none;
+  border-bottom-left-radius: 0.5rem;
+  border-bottom-right-radius: 0.5rem;
+  background: rgb(31 41 55 / 1);
+  color: rgb(255 255 255 / 1);
+  min-height: 180px;
+}
+
+.admin-quill .ql-editor {
+  min-height: 180px;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.admin-quill .ql-editor.ql-blank::before {
+  color: rgb(107 114 128 / 1);
+  font-style: normal;
+}
+
+.admin-quill .ql-snow .ql-stroke,
+.admin-quill .ql-snow .ql-fill {
+  stroke: rgb(209 213 219 / 1);
+}
+
+.admin-quill .ql-snow .ql-picker,
+.admin-quill .ql-snow .ql-picker-label,
+.admin-quill .ql-snow .ql-picker-item,
+.admin-quill .ql-snow .ql-formats button {
+  color: rgb(229 231 235 / 1);
+}
+
+.admin-quill .ql-snow.ql-toolbar button:hover .ql-stroke,
+.admin-quill .ql-snow.ql-toolbar button.ql-active .ql-stroke,
+.admin-quill .ql-snow .ql-picker-label:hover .ql-stroke,
+.admin-quill .ql-snow .ql-picker-label.ql-active .ql-stroke {
+  stroke: rgb(251 113 133 / 1);
+}
+
+/* Product detail rich description */
+.product-richtext {
+  color: inherit;
+  line-height: 1.85;
+}
+
+.product-richtext > * + * {
+  margin-top: 0.9rem;
+}
+
+.product-richtext ul,
+.product-richtext ol {
+  padding-left: 1.25rem;
+}
+
+.product-richtext ul {
+  list-style: disc;
+}
+
+.product-richtext ol {
+  list-style: decimal;
+}
+
+.product-richtext h1,
+.product-richtext h2,
+.product-richtext h3,
+.product-richtext h4 {
+  color: hsl(var(--foreground));
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.product-richtext h2 {
+  font-size: 1.35rem;
+}
+
+.product-richtext h3 {
+  font-size: 1.15rem;
+}
+
+.product-richtext a {
+  color: hsl(var(--foreground));
+  text-decoration: underline;
+}
+
+.product-richtext img {
+  max-width: min(100%, 560px);
+  height: auto;
+  border-radius: 0.75rem;
+  border: 1px solid hsl(var(--border));
+  margin-left: auto;
+  margin-right: auto;
+}
