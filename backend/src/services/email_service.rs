@@ -10,11 +10,12 @@ use crate::{
     config::Config,
     error::AppError,
     models::order::{Order, OrderItem},
-  repositories::settings_repo,
+    repositories::settings_repo,
 };
 
 const DEFAULT_ORDER_EMAIL_SUBJECT: &str = "[Handmade Haven] Order confirmed — {order_code}";
-const DEFAULT_ORDER_EMAIL_INTRO: &str = "We have received your order and will prepare it for delivery as soon as possible.";
+const DEFAULT_ORDER_EMAIL_INTRO: &str =
+    "We have received your order and will prepare it for delivery as soon as possible.";
 const DEFAULT_ORDER_EMAIL_FOOTER: &str = "Thank you for your support!";
 
 // ─── Cloudflare Turnstile ────────────────────────────────────────────────────
@@ -169,40 +170,48 @@ pub async fn send_auto_reply(
 pub async fn send_order_confirmation(
     config: &Config,
     mailer: &AsyncSmtpTransport<Tokio1Executor>,
-  db: &PgPool,
+    db: &PgPool,
     order: &Order,
     items: &[OrderItem],
 ) -> Result<(), AppError> {
-  let settings = settings_repo::get_by_keys(
-    db,
-    &["email_order_subject", "email_order_intro", "email_footer"],
-  )
-  .await
-  .unwrap_or_default();
+    let settings = settings_repo::get_by_keys(
+        db,
+        &["email_order_subject", "email_order_intro", "email_footer"],
+    )
+    .await
+    .unwrap_or_default();
 
-  let subject_template = settings
-    .get("email_order_subject")
-    .map(|v| v.trim())
-    .filter(|v| !v.is_empty())
-    .unwrap_or(DEFAULT_ORDER_EMAIL_SUBJECT);
+    let subject_template = settings
+        .get("email_order_subject")
+        .map(|v| v.trim())
+        .filter(|v| !v.is_empty())
+        .unwrap_or(DEFAULT_ORDER_EMAIL_SUBJECT);
 
-  let intro_template = settings
-    .get("email_order_intro")
-    .map(|v| v.trim())
-    .filter(|v| !v.is_empty())
-    .unwrap_or(DEFAULT_ORDER_EMAIL_INTRO);
+    let intro_template = settings
+        .get("email_order_intro")
+        .map(|v| v.trim())
+        .filter(|v| !v.is_empty())
+        .unwrap_or(DEFAULT_ORDER_EMAIL_INTRO);
 
-  let footer_template = settings
-    .get("email_footer")
-    .map(|v| v.trim())
-    .filter(|v| !v.is_empty())
-    .unwrap_or(DEFAULT_ORDER_EMAIL_FOOTER);
+    let footer_template = settings
+        .get("email_footer")
+        .map(|v| v.trim())
+        .filter(|v| !v.is_empty())
+        .unwrap_or(DEFAULT_ORDER_EMAIL_FOOTER);
 
-  let subject = subject_template.replace("{order_code}", &order.order_code);
-  let intro_html = html_multiline(intro_template.replace("{order_code}", &order.order_code).as_str());
-  let footer_html = html_multiline(footer_template.replace("{order_code}", &order.order_code).as_str());
+    let subject = subject_template.replace("{order_code}", &order.order_code);
+    let intro_html = html_multiline(
+        intro_template
+            .replace("{order_code}", &order.order_code)
+            .as_str(),
+    );
+    let footer_html = html_multiline(
+        footer_template
+            .replace("{order_code}", &order.order_code)
+            .as_str(),
+    );
 
-  let html = order_confirmation_html(order, items, &intro_html, &footer_html);
+    let html = order_confirmation_html(order, items, &intro_html, &footer_html);
 
     let from: Mailbox = format!(
         "{} <{}>",
@@ -322,19 +331,24 @@ fn admin_notification_html(name: &str, email: &str, phone: &str, message: &str) 
 }
 
 fn escape_html(input: &str) -> String {
-  input
-    .replace('&', "&amp;")
-    .replace('<', "&lt;")
-    .replace('>', "&gt;")
-    .replace('"', "&quot;")
-    .replace('\'', "&#39;")
+    input
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
 }
 
 fn html_multiline(input: &str) -> String {
-  escape_html(input).replace('\n', "<br />")
+    escape_html(input).replace('\n', "<br />")
 }
 
-fn order_confirmation_html(order: &Order, items: &[OrderItem], intro_html: &str, footer_html: &str) -> String {
+fn order_confirmation_html(
+    order: &Order,
+    items: &[OrderItem],
+    intro_html: &str,
+    footer_html: &str,
+) -> String {
     let items_html: String = items
         .iter()
         .map(|item| {

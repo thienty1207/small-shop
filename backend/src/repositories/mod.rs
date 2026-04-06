@@ -2,9 +2,13 @@
 // NEVER write any logic, structs, or functions in this file
 
 pub mod admin_repo;
+pub mod blog_comment_repo;
+pub mod blog_repo;
+pub mod blog_review_repo;
 pub mod cart_repo;
 pub mod contact_repo;
 pub mod coupon_repo;
+pub mod notification_repo;
 pub mod order_repo;
 pub mod product_repo;
 pub mod review_repo;

@@ -2,9 +2,13 @@
 // NEVER write any logic, structs, or functions in this file
 
 pub mod admin;
+pub mod blog;
+pub mod blog_comment;
+pub mod blog_review;
 pub mod cart;
 pub mod contact;
 pub mod coupon;
+pub mod notification;
 pub mod order;
 pub mod product;
 pub mod review;

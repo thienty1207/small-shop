@@ -37,12 +37,16 @@ pub async fn google_login(
 ) -> Result<Response, AppError> {
     let token = params.cf_turnstile_response.trim();
     if token.is_empty() {
-        return Err(AppError::BadRequest("Missing Cloudflare Turnstile token".into()));
+        return Err(AppError::BadRequest(
+            "Missing Cloudflare Turnstile token".into(),
+        ));
     }
 
     let ok = email_service::verify_turnstile(&state.config.cloudflare_secret_key, token).await?;
     if !ok {
-        return Err(AppError::Unauthorized("Cloudflare verification failed".into()));
+        return Err(AppError::Unauthorized(
+            "Cloudflare verification failed".into(),
+        ));
     }
 
     let csrf_state = auth_service::generate_csrf_state();
@@ -76,10 +80,16 @@ pub async fn google_callback(
     Query(params): Query<CallbackParams>,
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
-    let cookie_header = headers.get(axum::http::header::COOKIE).and_then(|value| value.to_str().ok());
+    let cookie_header = headers
+        .get(axum::http::header::COOKIE)
+        .and_then(|value| value.to_str().ok());
     let oauth_state_cookie = auth_service::extract_cookie_value(cookie_header, "oauth_state");
 
-    auth_service::verify_csrf_state(&state.config, oauth_state_cookie.as_deref(), params.state.as_deref())?;
+    auth_service::verify_csrf_state(
+        &state.config,
+        oauth_state_cookie.as_deref(),
+        params.state.as_deref(),
+    )?;
 
     let redirect_url = user_service::build_oauth_redirect_url(&state, &params.code).await?;
 

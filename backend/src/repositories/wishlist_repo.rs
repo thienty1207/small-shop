@@ -56,6 +56,9 @@ pub async fn get_wishlist(pool: &PgPool, user_id: Uuid) -> Result<Vec<Product>> 
             p.stock,
             p.brand,
             p.concentration,
+            p.fragrance_gender,
+            p.homepage_section,
+            p.fragrance_line,
             p.created_at
         FROM products p
         JOIN wishlists w ON p.id = w.product_id

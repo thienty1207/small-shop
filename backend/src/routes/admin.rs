@@ -7,8 +7,8 @@ use axum::{
 
 use crate::{
     handlers::admin::{
-        auth, category, coupon, customer, dashboard, export, notifications, order, product, review,
-        permissions, settings, staff,
+        auth, blog, blog_review, category, coupon, customer, dashboard, export, notifications,
+        order, permissions, product, review, settings, staff, system_notification,
     },
     middleware::admin_guard::admin_guard,
     state::AppState,
@@ -36,6 +36,40 @@ pub fn routes(state: AppState) -> Router<AppState> {
         .route(
             "/products/:id/images/reorder",
             put(product::reorder_product_images),
+        )
+        .route("/blog", get(blog::list_posts).post(blog::create_post))
+        .route(
+            "/blog/:id",
+            get(blog::get_post)
+                .put(blog::update_post)
+                .delete(blog::delete_post),
+        )
+        .route("/blog-tags", get(blog::list_tags).post(blog::create_tag))
+        .route(
+            "/blog-tags/:id",
+            put(blog::update_tag).delete(blog::delete_tag),
+        )
+        .route("/blog-reviews", get(blog_review::list_reviews))
+        .route("/blog-reviews/:id", delete(blog_review::delete_review))
+        .route(
+            "/blog-reviews/post/:post_id/thread",
+            get(blog_review::get_post_thread),
+        )
+        .route(
+            "/blog/:post_id/thread",
+            get(blog_review::get_post_thread),
+        )
+        .route(
+            "/blog-reviews/comments/:comment_id/replies",
+            post(blog_review::admin_reply_comment),
+        )
+        .route(
+            "/blog-reviews/comments/:comment_id",
+            delete(blog_review::delete_comment),
+        )
+        .route(
+            "/blog-reviews/replies/:reply_id",
+            delete(blog_review::delete_reply),
         )
         // ── Image upload ──────────────────────────────────────────────────
         .route(
@@ -82,6 +116,11 @@ pub fn routes(state: AppState) -> Router<AppState> {
         .route(
             "/settings",
             get(settings::get_settings).put(settings::update_settings),
+        )
+        .route(
+            "/system-notifications",
+            get(system_notification::list_announcements)
+                .post(system_notification::create_announcement),
         )
         // ── Reviews (B10) ─────────────────────────────────────────────────
         .route("/reviews", get(review::list_reviews))

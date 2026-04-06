@@ -3,6 +3,9 @@
 
 pub mod admin_auth_service;
 pub mod auth_service;
+pub mod blog_comment_service;
+pub mod blog_service;
+pub mod blog_review_service;
 pub mod cart_service;
 pub mod cloudinary;
 pub mod contact_service;
@@ -10,6 +13,9 @@ pub mod coupon_service;
 pub mod dashboard_service;
 pub mod email_service;
 pub mod export_service;
+pub mod local_storage;
+pub mod link_preview_service;
+pub mod media_storage;
 pub mod notification_service;
 pub mod order_service;
 pub mod permissions_service;

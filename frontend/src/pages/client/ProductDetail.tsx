@@ -18,10 +18,12 @@ import {
   getFragranceGenderLabel,
   getFragranceLineLabel,
 } from "@/lib/fragrance";
+import { decorateBlogContent, getYoutubeEmbedUrl, getYoutubeWatchUrl } from "@/lib/blog-content";
+import { API_BASE_URL } from "@/lib/api-base";
 import { toast } from "sonner";
 import DOMPurify from "dompurify";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const API_URL = API_BASE_URL;
 
 interface ReviewPublic {
   id: string; user_name: string; user_avatar: string | null;
@@ -144,8 +146,28 @@ const ProductDetail = () => {
   const activeOriginal = selectedVariant?.originalPrice ?? product?.originalPrice;
   const activeStock    = selectedVariant?.stock    ?? product?.stock    ?? 0;
   const descriptionRaw = (product?.description ?? "").trim();
+  const descriptionLines = useMemo(() => descriptionRaw.split(/\r?\n/), [descriptionRaw]);
   const descriptionHtml = useMemo(
-    () => DOMPurify.sanitize(descriptionRaw, { USE_PROFILES: { html: true } }),
+    () => {
+      const enrichedHtml = decorateBlogContent(descriptionRaw, []);
+      return DOMPurify.sanitize(enrichedHtml, {
+        USE_PROFILES: { html: true },
+        ADD_TAGS: ["iframe"],
+        ADD_ATTR: [
+          "allow",
+          "allowfullscreen",
+          "alt",
+          "class",
+          "decoding",
+          "loading",
+          "referrerpolicy",
+          "rel",
+          "src",
+          "target",
+          "title",
+        ],
+      });
+    },
     [descriptionRaw],
   );
   const selectedVariantLabel = selectedVariant ? `${selectedVariant.ml}ml` : undefined;
@@ -196,7 +218,7 @@ const ProductDetail = () => {
     );
   }
 
-  const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+  const API_URL = API_BASE_URL;
   const resolveImg = (url: string) => url && url.startsWith("/") ? `${API_URL}${url}` : url;
 
   const images = [
@@ -572,7 +594,52 @@ const ProductDetail = () => {
                     looksLikeHtml(descriptionRaw) ? (
                       <div className="product-richtext" dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
                     ) : (
-                      <p className="whitespace-pre-line">{descriptionRaw}</p>
+                      <div className="space-y-3">
+                        {descriptionLines.map((line, index) => {
+                          const trimmed = line.trim();
+                          const isStandaloneUrl = /^https?:\/\/\S+$/i.test(trimmed);
+                          const embedUrl = isStandaloneUrl ? getYoutubeEmbedUrl(trimmed) : null;
+
+                          if (!trimmed) {
+                            return <div key={`line-${index}`} className="h-1" aria-hidden="true" />;
+                          }
+
+                          if (embedUrl) {
+                            return (
+                              <div
+                                key={`line-${index}`}
+                                className="youtube-embed-card my-2 overflow-hidden rounded-3xl border border-border bg-foreground/[0.03]"
+                              >
+                                <iframe
+                                  src={embedUrl}
+                                  title="Video YouTube"
+                                  className="aspect-video w-full bg-black"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                  allowFullScreen
+                                  loading="lazy"
+                                  referrerPolicy="strict-origin-when-cross-origin"
+                                />
+                                <div className="flex items-center justify-end p-4">
+                                  <a
+                                    href={getYoutubeWatchUrl(trimmed)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 text-sm text-rose-600 underline underline-offset-4"
+                                  >
+                                    Mở trên YouTube
+                                  </a>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <p key={`line-${index}`} className="whitespace-pre-wrap">
+                              {line}
+                            </p>
+                          );
+                        })}
+                      </div>
                     )
                   ) : (
                     <p>Đang cập nhật mô tả sản phẩm.</p>

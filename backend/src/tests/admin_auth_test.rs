@@ -9,7 +9,11 @@
 mod tests {
     use std::sync::Arc;
 
-    use crate::{config::Config, models::admin::AdminUser, services::admin_auth_service};
+    use crate::{
+        config::{AppEnv, Config, MediaBackend},
+        models::admin::AdminUser,
+        services::admin_auth_service,
+    };
 
     // -----------------------------------------------------------------------
     // Helpers
@@ -18,6 +22,10 @@ mod tests {
     /// Build a minimal in-memory Config for tests.
     fn test_config() -> Arc<Config> {
         Arc::new(Config {
+            app_env: AppEnv::Development,
+            upload_backend: MediaBackend::Local,
+            auto_run_migrations: true,
+            cloudinary_url: None,
             server_port: 3000,
             database_url: "postgres://localhost/test".into(),
             jwt_secret: "super_secret_test_key_32_chars!!".into(),

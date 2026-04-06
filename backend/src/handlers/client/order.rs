@@ -30,7 +30,9 @@ pub async fn create_order(
 
     let ok = email_service::verify_turnstile(&state.config.cloudflare_secret_key, token).await?;
     if !ok {
-        return Err(AppError::Unauthorized("Cloudflare verification failed".into()));
+        return Err(AppError::Unauthorized(
+            "Cloudflare verification failed".into(),
+        ));
     }
 
     let response = order_service::create_order_for_user(&state, user.id, &input).await?;

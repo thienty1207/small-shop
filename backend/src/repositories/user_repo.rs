@@ -220,3 +220,48 @@ pub async fn find_customers_paginated(
 
     Ok((items, total))
 }
+
+/// Ensure a synthetic "Admin hệ thống" user exists for admin-side blog replies.
+pub async fn ensure_system_admin_user(pool: &PgPool, display_name: &str) -> Result<Uuid, AppError> {
+    if let Some(existing_id) = sqlx::query_scalar::<_, Uuid>(
+        r#"
+        SELECT id
+        FROM users
+        WHERE email = 'system-admin@small-shop.local'
+           OR google_id = 'system-admin'
+        LIMIT 1
+        "#,
+    )
+    .fetch_optional(pool)
+    .await?
+    {
+        sqlx::query(
+            r#"
+            UPDATE users
+            SET name = $2,
+                role = 'staff',
+                updated_at = NOW()
+            WHERE id = $1
+            "#,
+        )
+        .bind(existing_id)
+        .bind(display_name)
+        .execute(pool)
+        .await?;
+
+        return Ok(existing_id);
+    }
+
+    let user_id = sqlx::query_scalar::<_, Uuid>(
+        r#"
+        INSERT INTO users (google_id, email, name, avatar_url, role)
+        VALUES ('system-admin', 'system-admin@small-shop.local', $1, NULL, 'staff')
+        RETURNING id
+        "#,
+    )
+    .bind(display_name)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(user_id)
+}

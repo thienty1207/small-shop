@@ -234,8 +234,7 @@ async fn upload_with_timestamp(
 
     let url = format!(
         "https://api.cloudinary.com/v1_1/{}/{}/upload",
-        config.cloud_name,
-        resource_type
+        config.cloud_name, resource_type
     );
 
     let resp = client

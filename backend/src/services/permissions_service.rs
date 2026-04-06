@@ -198,6 +198,33 @@ pub fn default_permissions() -> Vec<AdminPermissionGroup> {
             ],
         },
         AdminPermissionGroup {
+            key: "blog".into(),
+            group: "Bài viết".into(),
+            items: vec![
+                AdminPermissionItem {
+                    key: "blog.view".into(),
+                    label: "Xem bài viết".into(),
+                    super_admin: true,
+                    manager: true,
+                    staff: false,
+                },
+                AdminPermissionItem {
+                    key: "blog.edit".into(),
+                    label: "Thêm / sửa bài viết".into(),
+                    super_admin: true,
+                    manager: true,
+                    staff: false,
+                },
+                AdminPermissionItem {
+                    key: "blog.delete".into(),
+                    label: "Xoá bài viết".into(),
+                    super_admin: true,
+                    manager: false,
+                    staff: false,
+                },
+            ],
+        },
+        AdminPermissionGroup {
             key: "exports".into(),
             group: "Xuất dữ liệu".into(),
             items: vec![
@@ -258,7 +285,55 @@ pub fn default_permissions() -> Vec<AdminPermissionGroup> {
     ]
 }
 
-pub async fn get_permissions_matrix(state: &AppState) -> Result<Vec<AdminPermissionGroup>, AppError> {
+fn merge_permissions_matrix(existing: Vec<AdminPermissionGroup>) -> Vec<AdminPermissionGroup> {
+    let defaults = default_permissions();
+    let mut existing_groups: HashMap<String, AdminPermissionGroup> = existing
+        .into_iter()
+        .map(|group| (group.key.clone(), group))
+        .collect();
+    let mut merged = Vec::with_capacity(defaults.len() + existing_groups.len());
+
+    for default_group in defaults {
+        if let Some(existing_group) = existing_groups.remove(&default_group.key) {
+            let mut existing_items: HashMap<String, AdminPermissionItem> = existing_group
+                .items
+                .into_iter()
+                .map(|item| (item.key.clone(), item))
+                .collect();
+            let mut items = Vec::with_capacity(default_group.items.len() + existing_items.len());
+
+            for default_item in default_group.items {
+                if let Some(existing_item) = existing_items.remove(&default_item.key) {
+                    items.push(AdminPermissionItem {
+                        key: existing_item.key,
+                        label: default_item.label,
+                        super_admin: default_item.super_admin,
+                        manager: existing_item.manager,
+                        staff: existing_item.staff,
+                    });
+                } else {
+                    items.push(default_item);
+                }
+            }
+
+            items.extend(existing_items.into_values());
+            merged.push(AdminPermissionGroup {
+                key: default_group.key,
+                group: default_group.group,
+                items,
+            });
+        } else {
+            merged.push(default_group);
+        }
+    }
+
+    merged.extend(existing_groups.into_values());
+    merged
+}
+
+pub async fn get_permissions_matrix(
+    state: &AppState,
+) -> Result<Vec<AdminPermissionGroup>, AppError> {
     let settings = settings_repo::get_by_keys(&state.db, &[PERMISSIONS_SETTINGS_KEY]).await?;
 
     let groups = settings
@@ -266,7 +341,7 @@ pub async fn get_permissions_matrix(state: &AppState) -> Result<Vec<AdminPermiss
         .and_then(|raw| serde_json::from_str::<Vec<AdminPermissionGroup>>(raw).ok())
         .unwrap_or_else(default_permissions);
 
-    Ok(groups)
+    Ok(merge_permissions_matrix(groups))
 }
 
 pub async fn save_permissions_matrix(

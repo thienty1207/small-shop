@@ -20,7 +20,10 @@ fn validate_badge(badge: Option<&str>) -> Result<(), AppError> {
     };
 
     let normalized = value.to_lowercase();
-    if matches!(normalized.as_str(), "sale" | "giam gia" | "giam-gia" | "giảm giá") {
+    if matches!(
+        normalized.as_str(),
+        "sale" | "giam gia" | "giam-gia" | "giảm giá"
+    ) {
         return Err(AppError::BadRequest(
             "Sale badge has been removed from the storefront".into(),
         ));
@@ -46,7 +49,10 @@ fn validate_product_metadata(
         ));
     }
 
-    if let Some(value) = homepage_section.map(str::trim).filter(|value| !value.is_empty()) {
+    if let Some(value) = homepage_section
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
         let normalized_homepage_section = value.to_lowercase();
         if !ALLOWED_FRAGRANCE_GENDERS.contains(&normalized_homepage_section.as_str()) {
             return Err(AppError::BadRequest(

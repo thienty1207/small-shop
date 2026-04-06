@@ -5,9 +5,7 @@ use axum::{
 };
 
 use crate::{
-    handlers::{
-        client::{product, review},
-    },
+    handlers::client::{product, review},
     middleware::auth::jwt_auth,
     state::AppState,
 };

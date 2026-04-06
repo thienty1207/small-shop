@@ -1,4 +1,6 @@
 pub mod auth;
+pub mod blog;
+pub mod blog_review;
 pub mod category;
 pub mod coupon;
 pub mod customer;
@@ -11,3 +13,4 @@ pub mod product;
 pub mod review;
 pub mod settings;
 pub mod staff;
+pub mod system_notification;

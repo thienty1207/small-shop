@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
-use sqlx::PgPool;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 
 use crate::{
     config::Config,
@@ -107,12 +107,10 @@ pub fn verify_csrf_state(
     cookie_token: Option<&str>,
     callback_state: Option<&str>,
 ) -> Result<(), AppError> {
-    let cookie_token = cookie_token.ok_or_else(|| {
-        AppError::BadRequest("Missing OAuth state cookie".into())
-    })?;
-    let callback_state = callback_state.ok_or_else(|| {
-        AppError::BadRequest("Missing OAuth state parameter".into())
-    })?;
+    let cookie_token =
+        cookie_token.ok_or_else(|| AppError::BadRequest("Missing OAuth state cookie".into()))?;
+    let callback_state = callback_state
+        .ok_or_else(|| AppError::BadRequest("Missing OAuth state parameter".into()))?;
 
     let claims = decode::<OAuthStateClaims>(
         cookie_token,
@@ -130,7 +128,9 @@ pub fn verify_csrf_state(
 }
 
 fn cookie_secure_attr(config: &Config) -> &'static str {
-    if config.frontend_url.starts_with("https://") || config.google_redirect_uri.starts_with("https://") {
+    if config.frontend_url.starts_with("https://")
+        || config.google_redirect_uri.starts_with("https://")
+    {
         "; Secure"
     } else {
         ""

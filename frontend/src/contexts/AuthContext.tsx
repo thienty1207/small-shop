@@ -5,8 +5,9 @@ import {
   useEffect,
   useState,
 } from "react";
+import { API_BASE_URL } from "@/lib/api-base";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const API_URL = API_BASE_URL;
 const TOKEN_KEY = "auth_token";
 
 // ---------------------------------------------------------------------------
@@ -77,12 +78,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     const token = localStorage.getItem(TOKEN_KEY);
     if (token) {
-      void fetch(`${API_URL}/api/logout`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {
+      try {
+        const maybePromise = fetch(`${API_URL}/api/logout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        void Promise.resolve(maybePromise).catch(() => {
+          // best effort revoke; local cleanup still proceeds
+        });
+      } catch {
         // best effort revoke; local cleanup still proceeds
-      });
+      }
     }
 
     localStorage.removeItem(TOKEN_KEY);

@@ -4,10 +4,11 @@ import Footer from "@/components/layout/Footer";
 import { Mail, Phone, MapPin, Send, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { useShopSettingsCtx } from "@/contexts/ShopSettingsContext";
+import { buildApiUrl } from "@/lib/api-base";
 
 // Cloudflare Turnstile site key (public — safe to embed in frontend)
 const CF_SITE_KEY = "0x4AAAAAACl-DXPV4UZR7cmo";
-const CONTACT_API_URL = (import.meta.env.VITE_API_URL ?? "http://localhost:3000") + "/api/contact";
+const CONTACT_API_URL = buildApiUrl("/api/contact");
 
 // Extend window type for Turnstile widget API
 declare global {

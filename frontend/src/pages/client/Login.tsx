@@ -3,9 +3,10 @@ import { Navigate, useLocation } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { useAuth } from "@/contexts/AuthContext";
+import { API_BASE_URL } from "@/lib/api-base";
 import { toast } from "sonner";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const API_URL = API_BASE_URL;
 const CF_SITE_KEY = "0x4AAAAAACl-DXPV4UZR7cmo";
 
 declare global {

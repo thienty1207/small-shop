@@ -44,8 +44,11 @@ export function useBreadcrumbs(
     store:       "Thông tin cửa hàng",
     shipping:    "Vận chuyển",
     email:       "Email",
+    notifications: "Thông báo",
     reviews:     "Đánh giá",
     coupons:     "Mã giảm giá",
+    blog:        "Quản lý bài viết",
+    tags:        "Tag",
   };
 
   const parts = pathname.split("/").filter(Boolean);
@@ -68,6 +71,15 @@ export function useBreadcrumbs(
     }
 
     crumbs.push({ label, href: accumulated });
+  }
+
+  // Bổ sung nhãn "Tất cả bài viết" cho trang /admin/blog
+  if (pathname === "/admin/blog") {
+    crumbs.push({ label: "Tất cả bài viết" });
+  }
+
+  if (pathname === "/admin/blog/reviews") {
+    crumbs.push({ label: "Đánh giá bài viết" });
   }
 
   // Last segment has no href (current page)

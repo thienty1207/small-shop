@@ -11,7 +11,7 @@ use crate::{
         admin::AdminPublic,
         product::{AdminProductQuery, CreateProductInput, UpdateProductInput, UpdateStockInput},
     },
-    services::{permissions_service, product_service, user_service},
+    services::{media_storage, permissions_service, product_service, user_service},
     state::AppState,
 };
 
@@ -30,7 +30,6 @@ fn map_multipart_error(context: &str, error: impl std::fmt::Display) -> AppError
     AppError::BadRequest(format!("{context}: {message}"))
 }
 
-/// GET /api/admin/products  — paginated list with search & filter
 pub async fn list_products(
     State(state): State<AppState>,
     Extension(admin): Extension<AdminPublic>,
@@ -41,7 +40,6 @@ pub async fn list_products(
     Ok(Json(page))
 }
 
-/// GET /api/admin/products/:id
 pub async fn get_product(
     State(state): State<AppState>,
     Extension(admin): Extension<AdminPublic>,
@@ -52,7 +50,6 @@ pub async fn get_product(
     Ok(Json(payload))
 }
 
-/// POST /api/admin/products
 pub async fn create_product(
     State(state): State<AppState>,
     Extension(admin): Extension<AdminPublic>,
@@ -63,7 +60,6 @@ pub async fn create_product(
     Ok(Json(product))
 }
 
-/// PUT /api/admin/products/:id
 pub async fn update_product(
     State(state): State<AppState>,
     Extension(admin): Extension<AdminPublic>,
@@ -76,12 +72,10 @@ pub async fn update_product(
 }
 
 #[derive(Debug, Deserialize)]
-/// Payload for reordering product gallery images.
 pub struct ReorderImagesInput {
     pub images: Vec<String>,
 }
 
-/// PUT /api/admin/products/:id/images/reorder
 pub async fn reorder_product_images(
     State(state): State<AppState>,
     Extension(admin): Extension<AdminPublic>,
@@ -93,7 +87,6 @@ pub async fn reorder_product_images(
     Ok(Json(product))
 }
 
-/// DELETE /api/admin/products/:id
 pub async fn delete_product(
     State(state): State<AppState>,
     Extension(admin): Extension<AdminPublic>,
@@ -104,9 +97,6 @@ pub async fn delete_product(
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
-// ─── Inventory ────────────────────────────────────────────────────────────────
-
-/// GET /api/admin/inventory  — all variants with product info for stock management
 pub async fn list_inventory(
     State(state): State<AppState>,
     Extension(admin): Extension<AdminPublic>,
@@ -116,7 +106,6 @@ pub async fn list_inventory(
     Ok(Json(rows))
 }
 
-/// PATCH /api/admin/inventory/variants/:id/stock
 pub async fn update_variant_stock(
     State(state): State<AppState>,
     Extension(admin): Extension<AdminPublic>,
@@ -128,25 +117,17 @@ pub async fn update_variant_stock(
     Ok(Json(variant))
 }
 
-// ─── Image Upload ─────────────────────────────────────────────────────────────
-
-/// POST /api/admin/upload/image  — multipart image upload to Cloudinary
 pub async fn upload_image(
     State(state): State<AppState>,
     Extension(admin): Extension<AdminPublic>,
     mut multipart: Multipart,
 ) -> Result<Json<serde_json::Value>, AppError> {
     permissions_service::require_permission(&state, &admin, "products.edit").await?;
-    let cloudinary = state.cloudinary.as_ref().ok_or_else(|| {
-        AppError::Internal(
-            "Cloudinary chưa được cấu hình — kiểm tra CLOUDINARY_URL trong .env".into(),
-        )
-    })?;
 
     while let Some(field) = multipart
         .next_field()
         .await
-        .map_err(|e| map_multipart_error("Multipart error", e))?
+        .map_err(|error| map_multipart_error("Multipart error", error))?
     {
         let raw_ct = field.content_type().unwrap_or("");
         let filename_hint = field.file_name().unwrap_or("");
@@ -155,7 +136,7 @@ pub async fn upload_image(
         let data = field
             .bytes()
             .await
-            .map_err(|e| map_multipart_error("Read error", e))?;
+            .map_err(|error| map_multipart_error("Read error", error))?;
 
         if data.is_empty() {
             return Err(AppError::BadRequest("Empty file".into()));
@@ -164,38 +145,24 @@ pub async fn upload_image(
             return Err(AppError::BadRequest("File too large (max 10 MB)".into()));
         }
 
-        let url = crate::services::cloudinary::upload_image(
-            cloudinary,
-            &state.http_client,
-            data.to_vec(),
-            &content_type,
-            "shop/images",
-        )
-        .await?;
-
+        let url = media_storage::upload_image(&state, data.to_vec(), &content_type).await?;
         return Ok(Json(serde_json::json!({ "url": url })));
     }
 
     Err(AppError::BadRequest("No image field in request".into()))
 }
 
-/// POST /api/admin/upload/video  — multipart video upload to Cloudinary
 pub async fn upload_video(
     State(state): State<AppState>,
     Extension(admin): Extension<AdminPublic>,
     mut multipart: Multipart,
 ) -> Result<Json<serde_json::Value>, AppError> {
     permissions_service::require_permission(&state, &admin, "products.edit").await?;
-    let cloudinary = state.cloudinary.as_ref().ok_or_else(|| {
-        AppError::Internal(
-            "Cloudinary chưa được cấu hình — kiểm tra CLOUDINARY_URL trong .env".into(),
-        )
-    })?;
 
     while let Some(field) = multipart
         .next_field()
         .await
-        .map_err(|e| map_multipart_error("Multipart error", e))?
+        .map_err(|error| map_multipart_error("Multipart error", error))?
     {
         let raw_ct = field.content_type().unwrap_or("");
         let filename_hint = field.file_name().unwrap_or("");
@@ -204,7 +171,7 @@ pub async fn upload_video(
         let data = field
             .bytes()
             .await
-            .map_err(|e| map_multipart_error("Read error", e))?;
+            .map_err(|error| map_multipart_error("Read error", error))?;
 
         if data.is_empty() {
             return Err(AppError::BadRequest("Empty file".into()));
@@ -213,15 +180,7 @@ pub async fn upload_video(
             return Err(AppError::BadRequest("File too large (max 35 MB)".into()));
         }
 
-        let url = crate::services::cloudinary::upload_video(
-            cloudinary,
-            &state.http_client,
-            data.to_vec(),
-            &content_type,
-            "shop/videos",
-        )
-        .await?;
-
+        let url = media_storage::upload_video(&state, data.to_vec(), &content_type).await?;
         return Ok(Json(serde_json::json!({ "url": url })));
     }
 

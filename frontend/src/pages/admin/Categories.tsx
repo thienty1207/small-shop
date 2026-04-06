@@ -10,8 +10,9 @@ import {
   adminUploadImage,
   type Category,
 } from "@/lib/admin-api";
+import { API_BASE_URL } from "@/lib/api-base";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const API_URL = API_BASE_URL;
 
 export default function AdminCategories() {
   const [categories, setCategories] = useState<Category[]>([]);

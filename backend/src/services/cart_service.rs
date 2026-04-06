@@ -10,7 +10,10 @@ use crate::{
 /// Get the current full cart for a user.
 ///
 /// Returns cart rows already joined with product/variant data for direct frontend rendering.
-pub async fn get_cart(state: &AppState, user_id: Uuid) -> Result<Vec<CartItemWithProduct>, AppError> {
+pub async fn get_cart(
+    state: &AppState,
+    user_id: Uuid,
+) -> Result<Vec<CartItemWithProduct>, AppError> {
     cart_repo::get_user_cart(&state.db, user_id).await
 }
 
@@ -35,7 +38,11 @@ pub async fn add_to_cart(
 /// Remove a specific cart item by `item_id`.
 ///
 /// Returns `true` if a row was deleted, `false` if the item does not exist or does not belong to the user.
-pub async fn remove_cart_item(state: &AppState, user_id: Uuid, item_id: Uuid) -> Result<bool, AppError> {
+pub async fn remove_cart_item(
+    state: &AppState,
+    user_id: Uuid,
+    item_id: Uuid,
+) -> Result<bool, AppError> {
     cart_repo::remove_item(&state.db, user_id, item_id).await
 }
 

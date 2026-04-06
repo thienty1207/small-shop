@@ -5,13 +5,14 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { useCategories } from "@/hooks/useProducts";
 import { useShopSettingsCtx } from "@/contexts/ShopSettingsContext";
+import { API_BASE_URL } from "@/lib/api-base";
 import heroBanner from "@/assets/hero-banner.jpg";
 import candlesCat from "@/assets/categories/candles.jpg";
 import cardsCat from "@/assets/categories/cards.jpg";
 import totesCat from "@/assets/categories/totes.jpg";
 import jewelryCat from "@/assets/categories/jewelry.jpg";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const API_URL = API_BASE_URL;
 const BRAND_SLIDE_DURATION = 4000;
 
 const categoryImages = [candlesCat, cardsCat, totesCat, jewelryCat];

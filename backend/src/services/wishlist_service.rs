@@ -15,7 +15,7 @@ pub async fn toggle_wishlist(
         .map_err(AppError::from)
 }
 
-    /// Get all products in the user's wishlist.
+/// Get all products in the user's wishlist.
 pub async fn get_wishlist(state: &AppState, user_id: Uuid) -> Result<serde_json::Value, AppError> {
     let products = wishlist_repo::get_wishlist(&state.db, user_id)
         .await
@@ -24,7 +24,10 @@ pub async fn get_wishlist(state: &AppState, user_id: Uuid) -> Result<serde_json:
 }
 
 /// Get wishlist `product_id` values (useful for quick liked-state marking on frontend).
-pub async fn get_wishlist_ids(state: &AppState, user_id: Uuid) -> Result<serde_json::Value, AppError> {
+pub async fn get_wishlist_ids(
+    state: &AppState,
+    user_id: Uuid,
+) -> Result<serde_json::Value, AppError> {
     let ids = wishlist_repo::get_wishlist_ids(&state.db, user_id)
         .await
         .map_err(AppError::from)?;

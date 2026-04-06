@@ -2,6 +2,7 @@
 // NEVER write any logic, structs, or functions in this file
 
 pub mod admin;
+pub mod blog;
 pub mod cart;
 pub mod contact;
 pub mod coupon;
@@ -21,6 +22,7 @@ pub fn create_router(state: AppState) -> Router<AppState> {
     Router::new()
         .merge(user::routes(state.clone()))
         .merge(contact::routes(state.clone()))
+        .merge(blog::routes(state.clone()))
         .merge(product::routes(state.clone()))
         .merge(settings::routes(state.clone()))
         .merge(cart::routes(state.clone()))

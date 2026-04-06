@@ -1,11 +1,14 @@
-use axum::{extract::{Query, State}, Extension, Json};
+use axum::{
+    extract::{Query, State},
+    Extension, Json,
+};
 use serde::Deserialize;
 
 use crate::{
     error::AppError,
     models::admin::{AdminPublic, PaginatedCustomerList},
-    services::permissions_service,
     repositories::user_repo,
+    services::permissions_service,
     state::AppState,
 };
 
@@ -38,13 +41,9 @@ pub async fn list_customers(
     let page = query.page.max(1);
     let limit = query.limit.clamp(1, 100);
 
-    let (items, total) = user_repo::find_customers_paginated(
-        &state.db,
-        query.search.as_deref(),
-        page,
-        limit,
-    )
-    .await?;
+    let (items, total) =
+        user_repo::find_customers_paginated(&state.db, query.search.as_deref(), page, limit)
+            .await?;
 
     let total_pages = ((total + limit - 1) / limit).max(1);
 

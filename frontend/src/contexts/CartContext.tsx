@@ -8,9 +8,10 @@ import React, {
 } from "react";
 import type { Product } from "@/data/products";
 import { useAuth } from "@/contexts/AuthContext";
+import { API_BASE_URL } from "@/lib/api-base";
 
 const TOKEN_KEY = "auth_token";
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const API_BASE = API_BASE_URL;
 
 export interface CartItem {
   id?: string; // backend cart_item id (only when synced)

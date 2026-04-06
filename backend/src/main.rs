@@ -1,149 +1,43 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
-use axum::{http::Method, Router};
-use sqlx::postgres::PgPoolOptions;
-use tower_http::{
-    cors::{Any, CorsLayer},
-    request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
-    services::ServeDir,
-    trace::TraceLayer,
-};
-use axum::http::HeaderName;
 use tracing::info;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-use backend::{
-    config::Config,
-    routes,
-    services::{admin_auth_service, cloudinary::CloudinaryConfig, email_service},
-    state::AppState,
-};
+use backend::{config::Config, startup};
 
 #[tokio::main]
 async fn main() {
-    // Load .env FIRST — works whether running from backend/ or workspace root
-    if std::path::Path::new(".env").exists() {
-        dotenvy::dotenv().ok();
-    } else {
-        dotenvy::from_path("backend/.env").ok();
-    }
+    startup::load_env_files();
+    startup::init_tracing();
 
-    // Initialize structured logging (after env is loaded so RUST_LOG is available)
-    tracing_subscriber::registry()
-        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| "backend=debug,info".into()))
-        .with(tracing_subscriber::fmt::layer())
-        .init();
-
-    // Load and validate configuration
     let config = Arc::new(Config::from_env().expect("Failed to load configuration"));
-
-    // Connect to PostgreSQL
-    let db = PgPoolOptions::new()
-        .max_connections(10)
-        .connect(&config.database_url)
+    let db = startup::connect_db(&config.database_url)
         .await
         .expect("Failed to connect to database");
 
     info!("Connected to database");
 
-    // Run SQL migrations automatically on every startup
-    sqlx::migrate!("../sql")
-        .run(&db)
+    if config.auto_run_migrations {
+        startup::run_migrations(&db)
+            .await
+            .expect("Failed to run database migrations");
+        info!("Database migrations applied");
+    } else {
+        info!("Database auto migrations disabled for this environment");
+    }
+
+    let state = startup::build_state(config.clone(), db)
         .await
-        .expect("Failed to run database migrations");
-
-    info!("Database migrations applied");
-
-    // Seed bootstrap admin account (idempotent — skips if already exists)
-    admin_auth_service::seed_admin_user(&db, &config)
+        .expect("Failed to build application state");
+    let app = startup::build_app(state)
         .await
-        .expect("Failed to seed admin user");
-
-    // Build the SMTP mailer once — reused across all requests (avoids per-request TLS handshake)
-    let mailer = match email_service::build_mailer(&config) {
-        Ok(m) => {
-            info!(
-                "SMTP mailer ready ({}:{})",
-                config.smtp_host, config.smtp_port
-            );
-            Some(m)
-        }
-        Err(e) => {
-            tracing::warn!("SMTP mailer failed to initialize — emails disabled: {e}");
-            None
-        }
-    };
-
-    // Build Cloudinary config from CLOUDINARY_URL (optional)
-    let cloudinary = std::env::var("CLOUDINARY_URL").ok().and_then(|url| {
-        match CloudinaryConfig::from_url(&url) {
-            Ok(c) => {
-                info!("Cloudinary ready (cloud: {})", c.cloud_name);
-                Some(c)
-            }
-            Err(e) => {
-                tracing::warn!("Cloudinary config error — image uploads disabled: {e}");
-                None
-            }
-        }
-    });
-
-    // Build application state
-    let http_client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(15))
-        .build()
-        .expect("Failed to build HTTP client");
-
-    let state = AppState {
-        db,
-        config: config.clone(),
-        http_client,
-        mailer,
-        cloudinary,
-    };
-
-    // Ensure uploads directory exists (serves existing /uploads/* URLs for backward compat)
-    tokio::fs::create_dir_all("uploads")
-        .await
-        .expect("Failed to create uploads directory");
-
-    // CORS — allow frontend origin to call the API
-    let cors = CorsLayer::new()
-        .allow_origin([config
-            .frontend_url
-            .parse::<axum::http::HeaderValue>()
-            .expect("Invalid FRONTEND_URL for CORS")])
-        .allow_methods([
-            Method::GET,
-            Method::POST,
-            Method::PUT,
-            Method::PATCH,
-            Method::DELETE,
-            Method::OPTIONS,
-        ])
-        .allow_headers(Any);
-
-    let request_id_header = HeaderName::from_static("x-request-id");
-
-    // Build router — static /uploads served directly without CORS wrapping
-    let app = Router::new()
-        .merge(routes::create_router(state.clone()))
-        .nest_service("/uploads", ServeDir::new("uploads"))
-        .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
-        .layer(SetRequestIdLayer::new(
-            request_id_header,
-            MakeRequestUuid,
-        ))
-        .layer(TraceLayer::new_for_http())
-        .layer(cors)
-        .with_state(state);
+        .expect("Failed to build router");
 
     let addr = format!("0.0.0.0:{}", config.server_port);
-    info!("Server listening on {}", addr);
-
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
-        .expect("Failed to bind address");
+        .unwrap_or_else(|error| panic!("{}", startup::format_bind_error(&addr, &error)));
+
+    info!("Server listening on {}", addr);
 
     axum::serve(listener, app).await.expect("Server error");
 }

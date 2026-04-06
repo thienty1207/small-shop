@@ -314,3 +314,28 @@
   margin-left: auto;
   margin-right: auto;
 }
+
+/* Notification modal scrollbar */
+.notifications-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.32) rgba(0, 0, 0, 0.45);
+}
+
+.notifications-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.notifications-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 9999px;
+}
+
+.notifications-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.25));
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.notifications-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.32));
+}

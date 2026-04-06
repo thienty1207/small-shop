@@ -1,10 +1,11 @@
 ﻿import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Search, ShoppingCart, User, LogOut, Package, Settings, Menu, X, Heart } from "lucide-react";
+import { Search, ShoppingCart, User, LogOut, Package, Settings, Menu, X, Heart, Bell } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { useShopSettingsCtx } from "@/contexts/ShopSettingsContext";
+import { API_BASE_URL } from "@/lib/api-base";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,9 +15,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const API_URL = API_BASE_URL;
 
 interface SearchSuggestion {
+  type: "product";
   id: string;
   slug: string;
   name: string;
@@ -25,11 +27,145 @@ interface SearchSuggestion {
   price: number;
 }
 
+interface BlogSuggestion {
+  type: "blog";
+  id: string;
+  slug: string;
+  title: string;
+  cover_image_url: string | null;
+  published_at: string | null;
+}
+
+type GlobalSearchSuggestion = SearchSuggestion | BlogSuggestion;
+
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+async function fetchProductSuggestions(
+  keyword: string,
+  signal: AbortSignal,
+): Promise<SearchSuggestion[]> {
+  const res = await fetch(
+    `${API_URL}/api/products/search/suggest?search=${encodeURIComponent(keyword)}&limit=8`,
+    { signal },
+  );
+
+  if (res.ok) {
+    const data = (await res.json()) as Array<{
+      id: string;
+      slug: string;
+      name: string;
+      image_url: string;
+      brand?: string;
+      price: number;
+    }>;
+
+    return (Array.isArray(data) ? data : []).map((item) => ({
+      type: "product",
+      id: item.id,
+      slug: item.slug,
+      name: item.name,
+      image_url: item.image_url,
+      brand: item.brand,
+      price: item.price,
+    }));
+  }
+
+  if (res.status !== 404) {
+    throw new Error("Failed to fetch search suggestions");
+  }
+
+  // Backward compatibility: backend chưa bật endpoint suggest
+  const fallbackRes = await fetch(
+    `${API_URL}/api/products?search=${encodeURIComponent(keyword)}&limit=8&page=1`,
+    { signal },
+  );
+  if (!fallbackRes.ok) throw new Error("Failed to fetch fallback search suggestions");
+
+  const fallbackData = await fallbackRes.json() as {
+    items?: Array<{
+      id: string;
+      slug: string;
+      name: string;
+      image_url: string;
+      brand?: string;
+      price: number;
+    }>;
+  };
+
+  return (fallbackData.items ?? []).map((item) => ({
+    type: "product",
+    id: item.id,
+    slug: item.slug,
+    name: item.name,
+    image_url: item.image_url,
+    brand: item.brand,
+    price: item.price,
+  }));
+}
+
+async function fetchBlogSuggestions(
+  keyword: string,
+  signal: AbortSignal,
+): Promise<BlogSuggestion[]> {
+  const res = await fetch(
+    `${API_URL}/api/blog?search=${encodeURIComponent(keyword)}&limit=4&page=1`,
+    { signal },
+  );
+
+  if (!res.ok) return [];
+
+  const data = (await res.json()) as {
+    items?: Array<{
+      id: string;
+      slug: string;
+      title: string;
+      cover_image_url: string | null;
+      published_at: string | null;
+    }>;
+  };
+
+  const normalizedKeyword = normalizeSearchText(keyword);
+
+  return (data.items ?? [])
+    .filter((item) => normalizeSearchText(item.title).includes(normalizedKeyword))
+    .map((item) => ({
+      type: "blog",
+      id: item.id,
+      slug: item.slug,
+      title: item.title,
+      cover_image_url: item.cover_image_url,
+      published_at: item.published_at,
+    }));
+}
+
 interface HeaderProps {
   /** When true, header starts transparent and becomes solid on scroll */
   transparent?: boolean;
   /** When true, solid header state uses dark styling (homepage-only). */
   darkOnSolid?: boolean;
+}
+
+interface UserNotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+interface UserNotificationsResponse {
+  items: UserNotificationItem[];
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
 }
 
 const Header = ({ transparent = false, darkOnSolid = true }: HeaderProps) => {
@@ -56,8 +192,12 @@ const Header = ({ transparent = false, darkOnSolid = true }: HeaderProps) => {
   const [logoFailed, setLogoFailed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
+  const [searchSuggestions, setSearchSuggestions] = useState<GlobalSearchSuggestion[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
+  const [notificationItems, setNotificationItems] = useState<UserNotificationItem[]>([]);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -75,6 +215,7 @@ const Header = ({ transparent = false, darkOnSolid = true }: HeaderProps) => {
   useEffect(() => {
     setMobileMenuOpen(false);
     setSearchOpen(false);
+    setBellOpen(false);
   }, [location.pathname, location.search]);
 
   useEffect(() => {
@@ -85,6 +226,69 @@ const Header = ({ transparent = false, darkOnSolid = true }: HeaderProps) => {
     }, 0);
     return () => window.clearTimeout(id);
   }, [searchOpen]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setNotificationItems([]);
+      setUnreadNotifications(0);
+      return;
+    }
+
+    let active = true;
+    const token = localStorage.getItem("auth_token");
+    if (!token) return;
+
+    const pullNotifications = async () => {
+      try {
+        const [listRes, unreadRes] = await Promise.all([
+          fetch(`${API_URL}/api/notifications?limit=10&page=1`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${API_URL}/api/notifications/unread-count`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        if (!listRes.ok || !unreadRes.ok) return;
+
+        const listPayload = (await listRes.json()) as UserNotificationsResponse;
+        const unreadPayload = (await unreadRes.json()) as { unread?: number };
+        if (!active) return;
+
+        setNotificationItems(listPayload.items ?? []);
+        setUnreadNotifications(unreadPayload.unread ?? 0);
+      } catch {
+        // ignore polling errors
+      }
+    };
+
+    void pullNotifications();
+    const intervalId = window.setInterval(() => {
+      void pullNotifications();
+    }, 15000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!bellOpen) return;
+
+    const token = localStorage.getItem("auth_token");
+    if (!token) return;
+
+    setLoadingNotifications(true);
+    fetch(`${API_URL}/api/notifications/mark-all-read`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .finally(() => {
+        setUnreadNotifications(0);
+        setLoadingNotifications(false);
+      });
+  }, [bellOpen]);
 
   useEffect(() => {
     if (!searchOpen) {
@@ -104,45 +308,15 @@ const Header = ({ transparent = false, darkOnSolid = true }: HeaderProps) => {
     const timer = window.setTimeout(async () => {
       setSearchLoading(true);
       try {
-        const res = await fetch(
-          `${API_URL}/api/products/search/suggest?search=${encodeURIComponent(keyword)}&limit=8`,
-          { signal: controller.signal },
-        );
+        const [products, blogs] = await Promise.all([
+          fetchProductSuggestions(keyword, controller.signal),
+          fetchBlogSuggestions(keyword, controller.signal),
+        ]);
 
-        if (res.ok) {
-          const data = (await res.json()) as SearchSuggestion[];
-          setSearchSuggestions(Array.isArray(data) ? data : []);
-        } else if (res.status === 404) {
-          // Backward compatibility: backend chưa bật endpoint suggest
-          const fallbackRes = await fetch(
-            `${API_URL}/api/products?search=${encodeURIComponent(keyword)}&limit=8&page=1`,
-            { signal: controller.signal },
-          );
-          if (!fallbackRes.ok) throw new Error("Failed to fetch fallback search suggestions");
-
-          const fallbackData = await fallbackRes.json() as {
-            items?: Array<{
-              id: string;
-              slug: string;
-              name: string;
-              image_url: string;
-              brand?: string;
-              price: number;
-            }>;
-          };
-
-          const mapped = (fallbackData.items ?? []).map((item) => ({
-            id: item.id,
-            slug: item.slug,
-            name: item.name,
-            image_url: item.image_url,
-            brand: item.brand,
-            price: item.price,
-          }));
-          setSearchSuggestions(mapped);
-        } else {
-          throw new Error("Failed to fetch search suggestions");
-        }
+        setSearchSuggestions([
+          ...products.slice(0, 4),
+          ...blogs.slice(0, 4),
+        ]);
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
           setSearchSuggestions([]);
@@ -181,6 +355,14 @@ const Header = ({ transparent = false, darkOnSolid = true }: HeaderProps) => {
   };
 
   const formatPrice = (value: number) => `${new Intl.NumberFormat("vi-VN").format(value)}đ`;
+  const formatDate = (value: string | null) => {
+    if (!value) return "Bài viết";
+    return new Date(value).toLocaleDateString("vi-VN");
+  };
+  const resolveSuggestionImage = (url: string | null) => {
+    if (!url) return storeLogoUrl || "";
+    return url.startsWith("/") ? `${API_URL}${url}` : url;
+  };
 
   const isSolid = !transparent || scrolled || mobileMenuOpen || searchOpen;
   const solidDark = isSolid && darkOnSolid;
@@ -202,6 +384,7 @@ const Header = ({ transparent = false, darkOnSolid = true }: HeaderProps) => {
 
   const navLinks = [
     { label: "Cửa Hàng", href: "/products" },
+    { label: "Blog", href: "/blog" },
     { label: "Giới Thiệu", href: "/about" },
     { label: "Liên Hệ", href: "/contact" },
   ];
@@ -329,7 +512,7 @@ const Header = ({ transparent = false, darkOnSolid = true }: HeaderProps) => {
             }`}
           >
             <Search size={18} />
-            <span className="leading-none">Search</span>
+            <span className="leading-none">Tìm kiếm</span>
           </button>
 
           {/* Menu toggle (all screens) */}
@@ -366,7 +549,7 @@ const Header = ({ transparent = false, darkOnSolid = true }: HeaderProps) => {
                   ref={searchInputRef}
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Tìm theo tên hoặc thương hiệu..."
+                  placeholder="Tìm theo tên nước hoa hoặc tiêu đề bài viết..."
                   className="h-full w-full bg-transparent text-sm outline-none"
                 />
               </div>
@@ -390,27 +573,31 @@ const Header = ({ transparent = false, darkOnSolid = true }: HeaderProps) => {
               )}
 
               {showNoSuggestion && (
-                <p className={`px-1 text-xs ${searchHintTone}`}>Không có gợi ý phù hợp.</p>
+                <p className={`px-1 text-xs ${searchHintTone}`}>Không có gợi ý sản phẩm hoặc bài viết phù hợp.</p>
               )}
 
               {searchSuggestions.length > 0 && (
                 <div className="space-y-1">
                   {searchSuggestions.map((item) => (
                     <Link
-                      key={item.id}
-                      to={`/product/${item.slug}`}
+                      key={`${item.type}-${item.id}`}
+                      to={item.type === "product" ? `/product/${item.slug}` : `/blog/${item.slug}`}
                       onClick={() => setSearchOpen(false)}
                       className={`flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors ${searchItemTone}`}
                     >
                       <img
-                        src={item.image_url}
-                        alt={item.name}
+                        src={item.type === "product" ? item.image_url : resolveSuggestionImage(item.cover_image_url)}
+                        alt={item.type === "product" ? item.name : item.title}
                         className="h-11 w-11 shrink-0 rounded-lg object-cover"
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{item.name}</p>
+                        <p className="truncate text-sm font-medium">
+                          {item.type === "product" ? item.name : item.title}
+                        </p>
                         <p className={`truncate text-xs ${searchSubTone}`}>
-                          {item.brand ? `${item.brand} · ${formatPrice(item.price)}` : formatPrice(item.price)}
+                          {item.type === "product"
+                            ? (item.brand ? `${item.brand} · ${formatPrice(item.price)}` : formatPrice(item.price))
+                            : `Blog · ${formatDate(item.published_at)}`}
                         </p>
                       </div>
                     </Link>
@@ -493,6 +680,64 @@ const Header = ({ transparent = false, darkOnSolid = true }: HeaderProps) => {
                   </span>
                 )}
               </Link>
+
+              <div className="relative">
+                <button
+                  onClick={() => setBellOpen((prev) => !prev)}
+                  className={`w-full px-4 py-2.5 rounded-xl text-sm font-medium flex items-center justify-between text-left ${
+                    darkOnSolid ? "text-white/85 hover:bg-white/10" : "text-black hover:bg-black/5"
+                  }`}
+                >
+                  <span className="flex items-center gap-2"><Bell size={16} /> Thông báo</span>
+                  {unreadNotifications > 0 && (
+                    <span className="text-[10px] min-w-5 h-5 px-1.5 rounded-full bg-rose-500 text-white font-semibold flex items-center justify-center">
+                      {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                    </span>
+                  )}
+                </button>
+
+                {bellOpen && (
+                  <div
+                    className={`absolute z-[70] left-2 right-2 top-full mt-3 overflow-hidden rounded-2xl border shadow-2xl md:left-auto md:right-full md:mr-3 md:top-1/2 md:mt-0 md:w-80 md:-translate-y-1/2 ${
+                      darkOnSolid ? "border-white/15 bg-black/95" : "border-black/10 bg-white/95"
+                    }`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`absolute -top-1.5 left-10 h-3 w-3 rotate-45 border-l border-t md:left-auto md:-right-1.5 md:top-1/2 md:-translate-y-1/2 md:rotate-45 md:border-l-0 md:border-t-0 md:border-r md:border-b ${
+                        darkOnSolid
+                          ? "border-white/15 bg-black/95"
+                          : "border-black/10 bg-white/95"
+                      }`}
+                    />
+
+                    <div className={`px-4 py-3 text-xs font-semibold border-b ${darkOnSolid ? "border-white/10 text-white" : "border-black/10 text-foreground"}`}>
+                      Thông báo của bạn
+                    </div>
+
+                    <div className="notifications-scroll max-h-[20rem] overflow-y-auto overscroll-contain">
+                      {loadingNotifications ? (
+                        <p className={`px-4 py-5 text-xs ${searchHintTone}`}>Đang cập nhật...</p>
+                      ) : notificationItems.length === 0 ? (
+                        <p className={`px-4 py-5 text-xs ${searchHintTone}`}>Chưa có thông báo nào.</p>
+                      ) : (
+                        notificationItems.map((item) => (
+                          <div
+                            key={item.id}
+                            className={`min-h-20 px-4 py-3 border-b last:border-b-0 ${darkOnSolid ? "border-white/10" : "border-black/10"}`}
+                          >
+                            <p className={`text-xs font-semibold ${darkOnSolid ? "text-white" : "text-foreground"}`}>{item.title}</p>
+                            <p className={`mt-1 text-xs ${searchSubTone}`}>{item.message}</p>
+                            <p className={`mt-1 text-[10px] ${searchHintTone}`}>
+                              {new Date(item.created_at).toLocaleString("vi-VN")}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <Link
                 to="/cart"

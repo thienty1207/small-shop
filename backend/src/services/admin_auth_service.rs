@@ -12,7 +12,7 @@ use crate::{
     config::Config,
     error::AppError,
     models::{
-        admin::{AdminLoginResponse, AdminUser, AdminPublic},
+        admin::{AdminLoginResponse, AdminPublic, AdminUser},
         user::Claims,
     },
     repositories::admin_repo,

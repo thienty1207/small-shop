@@ -21,9 +21,10 @@ import {
   HOMEPAGE_SECTION_OPTIONS,
   FRAGRANCE_LINE_OPTIONS,
 } from "@/lib/fragrance";
+import { API_BASE_URL } from "@/lib/api-base";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const API_URL = API_BASE_URL;
 
 const EMPTY_FORM = {
   category_id:    "",
@@ -252,24 +253,25 @@ export default function AdminProducts() {
     setForm(buildFormFromProduct(p));
     // Load existing variants from the server
     setVariants([]);
-    import("@/lib/admin-api").then(({ adminGet }) => {
-      adminGet<{ product: AdminProduct; variants: { ml: number; price: number; original_price?: number; stock: number; is_default: boolean }[] }>(`/api/admin/products/${p.id}`)
-        .then((res) => {
-          if (res.product) {
-            setForm(buildFormFromProduct(res.product));
-          }
-          setVariants(
-            res.variants.map((v) => ({
-              ml:             String(v.ml),
-              price:          String(v.price),
-              original_price: v.original_price != null ? String(v.original_price) : "",
-              stock:          String(v.stock),
-              is_default:     v.is_default,
-            }))
-          );
-        })
-        .catch(() => {});
-    });
+    void adminGet<{
+      product: AdminProduct;
+      variants: { ml: number; price: number; original_price?: number; stock: number; is_default: boolean }[];
+    }>(`/api/admin/products/${p.id}`)
+      .then((res) => {
+        if (res.product) {
+          setForm(buildFormFromProduct(res.product));
+        }
+        setVariants(
+          res.variants.map((v) => ({
+            ml:             String(v.ml),
+            price:          String(v.price),
+            original_price: v.original_price != null ? String(v.original_price) : "",
+            stock:          String(v.stock),
+            is_default:     v.is_default,
+          }))
+        );
+      })
+      .catch(() => {});
     setSlugEdited(false);
     const resolve = (u: string) => u ? (u.startsWith("/") ? `${API_URL}${u}` : u) : "";
     setImgPreview(resolve(p.image_url));

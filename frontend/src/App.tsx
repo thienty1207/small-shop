@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,63 +11,68 @@ import { ShopSettingsProvider, useShopSettingsCtx } from "@/contexts/ShopSetting
 import { WishlistProvider } from "@/contexts/WishlistContext";
 import { useApplyShopFont } from "@/hooks/useApplyShopFont";
 
-// ── Client pages ──────────────────────────────────────────────────────────────
-import Index from "./pages/client/Index";
-import Products from "./pages/client/Products";
-import ProductDetail from "./pages/client/ProductDetail";
-import Cart from "./pages/client/Cart";
-import Checkout from "./pages/client/Checkout";
-import OrderSuccess from "./pages/client/OrderSuccess";
-import Login from "./pages/client/Login";
-import AuthCallback from "./pages/client/AuthCallback";
-import Account from "./pages/client/Account";
-import WishlistPage from "./pages/client/Wishlist";
-import OrderDetail from "./pages/client/OrderDetail";
-import About from "./pages/client/About";
-import Contact from "./pages/client/Contact";
-import Policy from "./pages/client/Policy";
-import NotFound from "./pages/client/NotFound";
+const Index = lazy(() => import("./pages/client/Index"));
+const Products = lazy(() => import("./pages/client/Products"));
+const ProductDetail = lazy(() => import("./pages/client/ProductDetail"));
+const Cart = lazy(() => import("./pages/client/Cart"));
+const Checkout = lazy(() => import("./pages/client/Checkout"));
+const OrderSuccess = lazy(() => import("./pages/client/OrderSuccess"));
+const Login = lazy(() => import("./pages/client/Login"));
+const AuthCallback = lazy(() => import("./pages/client/AuthCallback"));
+const Account = lazy(() => import("./pages/client/Account"));
+const WishlistPage = lazy(() => import("./pages/client/Wishlist"));
+const OrderDetail = lazy(() => import("./pages/client/OrderDetail"));
+const About = lazy(() => import("./pages/client/About"));
+const Contact = lazy(() => import("./pages/client/Contact"));
+const Policy = lazy(() => import("./pages/client/Policy"));
+const BlogList = lazy(() => import("./pages/client/BlogList"));
+const BlogDetail = lazy(() => import("./pages/client/BlogDetail"));
+const NotFound = lazy(() => import("./pages/client/NotFound"));
 
-// ── Admin pages ───────────────────────────────────────────────────────────────
-import AdminLogin from "./pages/admin/Login";
-import AdminDashboard from "./pages/admin/Dashboard";
-import AdminProducts from "./pages/admin/Products";
-import AdminOrders from "./pages/admin/Orders";
-import AdminCustomers from "./pages/admin/Customers";
-import AdminCategories from "./pages/admin/Categories";
-import AdminStaff from "./pages/admin/Staff";
-import AdminPermissions from "./pages/admin/Permissions";
-import AdminSettingsAppearance from "./pages/admin/SettingsAppearance";
-import AdminSettingsStore from "./pages/admin/SettingsStore";
-import AdminSettingsShipping from "./pages/admin/SettingsShipping";
-import AdminSettingsEmail from "./pages/admin/SettingsEmail";
-import AdminReviews from "./pages/admin/Reviews";
-import AdminCoupons from "./pages/admin/Coupons";
+const AdminLogin = lazy(() => import("./pages/admin/Login"));
+const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
+const AdminProducts = lazy(() => import("./pages/admin/Products"));
+const AdminOrders = lazy(() => import("./pages/admin/Orders"));
+const AdminCustomers = lazy(() => import("./pages/admin/Customers"));
+const AdminCategories = lazy(() => import("./pages/admin/Categories"));
+const AdminStaff = lazy(() => import("./pages/admin/Staff"));
+const AdminPermissions = lazy(() => import("./pages/admin/Permissions"));
+const AdminSettingsAppearance = lazy(() => import("./pages/admin/SettingsAppearance"));
+const AdminSettingsStore = lazy(() => import("./pages/admin/SettingsStore"));
+const AdminSettingsShipping = lazy(() => import("./pages/admin/SettingsShipping"));
+const AdminSettingsEmail = lazy(() => import("./pages/admin/SettingsEmail"));
+const AdminSettingsNotifications = lazy(() => import("./pages/admin/SettingsNotifications"));
+const AdminReviews = lazy(() => import("./pages/admin/Reviews"));
+const AdminCoupons = lazy(() => import("./pages/admin/Coupons"));
+const AdminBlog = lazy(() => import("./pages/admin/Blog"));
+const AdminBlogTags = lazy(() => import("./pages/admin/BlogTags"));
+const AdminBlogReviews = lazy(() => import("./pages/admin/BlogReviews"));
 
 const queryClient = new QueryClient();
 
-/** Applies the shop font from settings to the entire document. */
+function PageLoader() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <p className="text-sm text-muted-foreground">Đang tải...</p>
+    </div>
+  );
+}
+
 function FontApplier() {
   const { settings } = useShopSettingsCtx();
   useApplyShopFont(settings);
   return null;
 }
 
-/** Redirects unauthenticated users to /login, preserving the intended destination. */
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-surface-pink flex items-center justify-center">
-        <p className="text-sm text-muted-foreground">Đang tải...</p>
-      </div>
-    );
+    return <PageLoader />;
   }
 
   if (!isAuthenticated) {
-    // Save the current path so Login can restore it after OAuth callback
     sessionStorage.setItem("returnTo", location.pathname + location.search);
     return <Navigate to="/login" state={{ returnTo: location.pathname + location.search }} replace />;
   }
@@ -74,13 +80,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-/** Redirects non-admin users — requires a valid admin JWT stored in AdminAuthContext. */
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAdminAuthenticated, isAdminLoading } = useAdminAuth();
 
   if (isAdminLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950">
+      <div className="flex min-h-screen items-center justify-center bg-gray-950">
         <p className="text-sm text-gray-500">Đang tải...</p>
       </div>
     );
@@ -93,13 +98,12 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-/** Requires super_admin role. Redirects manager/staff to /admin dashboard. */
 const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAdminAuthenticated, isAdminLoading, adminUser } = useAdminAuth();
 
   if (isAdminLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950">
+      <div className="flex min-h-screen items-center justify-center bg-gray-950">
         <p className="text-sm text-gray-500">Đang tải...</p>
       </div>
     );
@@ -111,13 +115,12 @@ const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-/** Requires manager or super_admin role. Redirects staff to /admin dashboard. */
 const ManagerRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAdminAuthenticated, isAdminLoading, adminUser } = useAdminAuth();
 
   if (isAdminLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950">
+      <div className="flex min-h-screen items-center justify-center bg-gray-950">
         <p className="text-sm text-gray-500">Đang tải...</p>
       </div>
     );
@@ -141,47 +144,51 @@ const App = () => (
                   <Toaster />
                   <Sonner />
                   <FontApplier />
-                  <Routes>
-                  {/* Public routes */}
-                  <Route path="/" element={<Index />} />
-                  <Route path="/products" element={<Products />} />
-                  <Route path="/product/:slug" element={<ProductDetail />} />
-                  <Route path="/cart" element={<Cart />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/auth/callback" element={<AuthCallback />} />
-                  <Route path="/about" element={<About />} />
-                  <Route path="/contact" element={<Contact />} />
-                  <Route path="/policy" element={<Policy />} />
+                  <Suspense fallback={<PageLoader />}>
+                    <Routes>
+                      <Route path="/" element={<Index />} />
+                      <Route path="/products" element={<Products />} />
+                      <Route path="/product/:slug" element={<ProductDetail />} />
+                      <Route path="/cart" element={<Cart />} />
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/auth/callback" element={<AuthCallback />} />
+                      <Route path="/about" element={<About />} />
+                      <Route path="/contact" element={<Contact />} />
+                      <Route path="/policy" element={<Policy />} />
+                      <Route path="/blog" element={<BlogList />} />
+                      <Route path="/blog/:slug" element={<BlogDetail />} />
 
-                  {/* Protected routes — require login */}
-                  <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-                  <Route path="/order/success" element={<ProtectedRoute><OrderSuccess /></ProtectedRoute>} />
-                  <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
-                  <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
-                  <Route path="/account/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
+                      <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+                      <Route path="/order/success" element={<ProtectedRoute><OrderSuccess /></ProtectedRoute>} />
+                      <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+                      <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
+                      <Route path="/account/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
 
-                  {/* Admin public */}
-                  <Route path="/admin/login" element={<AdminLogin />} />
+                      <Route path="/admin/login" element={<AdminLogin />} />
 
-                  {/* Admin protected — require admin JWT */}
-                  <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-                  <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
-                  <Route path="/admin/products/categories" element={<AdminRoute><AdminCategories /></AdminRoute>} />
-                  <Route path="/admin/inventory" element={<Navigate to="/admin/products" replace />} />
-                  <Route path="/admin/orders" element={<AdminRoute><AdminOrders /></AdminRoute>} />
-                  <Route path="/admin/customers" element={<AdminRoute><AdminCustomers /></AdminRoute>} />
-                  <Route path="/admin/users/customers" element={<AdminRoute><AdminCustomers /></AdminRoute>} />
-                  <Route path="/admin/users/staff" element={<ManagerRoute><AdminStaff /></ManagerRoute>} />
-                  <Route path="/admin/users/permissions" element={<SuperAdminRoute><AdminPermissions /></SuperAdminRoute>} />
-                  <Route path="/admin/settings/appearance" element={<SuperAdminRoute><AdminSettingsAppearance /></SuperAdminRoute>} />
-                  <Route path="/admin/settings/store" element={<SuperAdminRoute><AdminSettingsStore /></SuperAdminRoute>} />
-                  <Route path="/admin/settings/shipping" element={<SuperAdminRoute><AdminSettingsShipping /></SuperAdminRoute>} />
-                  <Route path="/admin/settings/email" element={<SuperAdminRoute><AdminSettingsEmail /></SuperAdminRoute>} />
-                  <Route path="/admin/reviews" element={<ManagerRoute><AdminReviews /></ManagerRoute>} />
-                  <Route path="/admin/coupons" element={<ManagerRoute><AdminCoupons /></ManagerRoute>} />
+                      <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                      <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
+                      <Route path="/admin/products/categories" element={<AdminRoute><AdminCategories /></AdminRoute>} />
+                      <Route path="/admin/inventory" element={<Navigate to="/admin/products" replace />} />
+                      <Route path="/admin/orders" element={<AdminRoute><AdminOrders /></AdminRoute>} />
+                      <Route path="/admin/customers" element={<AdminRoute><AdminCustomers /></AdminRoute>} />
+                      <Route path="/admin/users/customers" element={<AdminRoute><AdminCustomers /></AdminRoute>} />
+                      <Route path="/admin/users/staff" element={<ManagerRoute><AdminStaff /></ManagerRoute>} />
+                      <Route path="/admin/users/permissions" element={<SuperAdminRoute><AdminPermissions /></SuperAdminRoute>} />
+                      <Route path="/admin/settings/appearance" element={<SuperAdminRoute><AdminSettingsAppearance /></SuperAdminRoute>} />
+                      <Route path="/admin/settings/store" element={<SuperAdminRoute><AdminSettingsStore /></SuperAdminRoute>} />
+                      <Route path="/admin/settings/shipping" element={<SuperAdminRoute><AdminSettingsShipping /></SuperAdminRoute>} />
+                      <Route path="/admin/settings/email" element={<SuperAdminRoute><AdminSettingsEmail /></SuperAdminRoute>} />
+                      <Route path="/admin/settings/notifications" element={<SuperAdminRoute><AdminSettingsNotifications /></SuperAdminRoute>} />
+                      <Route path="/admin/reviews" element={<ManagerRoute><AdminReviews /></ManagerRoute>} />
+                      <Route path="/admin/coupons" element={<ManagerRoute><AdminCoupons /></ManagerRoute>} />
+                      <Route path="/admin/blog" element={<ManagerRoute><AdminBlog /></ManagerRoute>} />
+                      <Route path="/admin/blog/tags" element={<ManagerRoute><AdminBlogTags /></ManagerRoute>} />
+                      <Route path="/admin/blog/reviews" element={<ManagerRoute><AdminBlogReviews /></ManagerRoute>} />
 
-                  <Route path="*" element={<NotFound />} />
-                  </Routes>
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </Suspense>
                 </CartProvider>
               </WishlistProvider>
             </BrowserRouter>

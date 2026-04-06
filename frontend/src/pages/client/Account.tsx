@@ -7,10 +7,11 @@ import { formatPrice, type Product } from "@/data/products";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWishlist } from "@/contexts/WishlistContext";
 import { Loader2 } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api-base";
 import { toast } from "sonner";
 
 const TOKEN_KEY = "auth_token";
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const API_BASE = API_BASE_URL;
 
 interface OrderListItem {
   id: string;

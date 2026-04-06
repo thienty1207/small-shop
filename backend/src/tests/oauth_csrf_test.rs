@@ -3,10 +3,17 @@
 mod tests {
     use std::sync::Arc;
 
-    use crate::{config::Config, services::auth_service};
+    use crate::{
+        config::{AppEnv, Config, MediaBackend},
+        services::auth_service,
+    };
 
     fn test_config() -> Arc<Config> {
         Arc::new(Config {
+            app_env: AppEnv::Development,
+            upload_backend: MediaBackend::Local,
+            auto_run_migrations: true,
+            cloudinary_url: None,
             server_port: 3000,
             database_url: "postgres://localhost/test".into(),
             google_client_id: "test_client_id".into(),
@@ -47,8 +54,8 @@ mod tests {
         let config = test_config();
         let state = auth_service::generate_csrf_state();
 
-        let cookie = auth_service::build_csrf_cookie(&config, &state)
-            .expect("cookie should be built");
+        let cookie =
+            auth_service::build_csrf_cookie(&config, &state).expect("cookie should be built");
         let token = cookie
             .split(';')
             .find_map(|part| part.trim().strip_prefix("oauth_state="))
@@ -63,8 +70,8 @@ mod tests {
         let config = test_config();
         let state = auth_service::generate_csrf_state();
 
-        let cookie = auth_service::build_csrf_cookie(&config, &state)
-            .expect("cookie should be built");
+        let cookie =
+            auth_service::build_csrf_cookie(&config, &state).expect("cookie should be built");
         let token = cookie
             .split(';')
             .find_map(|part| part.trim().strip_prefix("oauth_state="))

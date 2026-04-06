@@ -4,9 +4,10 @@ import { ChevronRight, CheckCircle, Package, Truck, Home, Loader2 } from "lucide
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { formatPrice } from "@/data/products";
+import { API_BASE_URL } from "@/lib/api-base";
 
 const TOKEN_KEY = "auth_token";
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const API_BASE = API_BASE_URL;
 
 interface OrderItem {
   id: string;

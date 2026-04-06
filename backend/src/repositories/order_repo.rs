@@ -1,6 +1,6 @@
 use sqlx::PgPool;
-use uuid::Uuid;
 use std::collections::HashSet;
+use uuid::Uuid;
 
 use crate::{
     error::AppError,
@@ -329,10 +329,7 @@ pub async fn deduct_stock_for_order(pool: &PgPool, order_id: Uuid) -> Result<(),
         .fetch_optional(&mut *tx)
         .await?
         .ok_or_else(|| {
-            AppError::BadRequest(format!(
-                "Sản phẩm không tồn tại (id: {})",
-                product_id
-            ))
+            AppError::BadRequest(format!("Sản phẩm không tồn tại (id: {})", product_id))
         })?;
 
         if product_row.stock < item.quantity {

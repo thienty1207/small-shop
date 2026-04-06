@@ -7,8 +7,8 @@ use crate::{
     models::product::{
         AdminProduct, AdminProductQuery, Category, CategoryInput, CreateProductInput, InventoryRow,
         PaginatedResponse, Product, ProductFilterOption, ProductFiltersResponse, ProductPublic,
-        ProductQuery, ProductSearchSuggestion, ProductVariant,
-        UpdateProductInput, UpdateStockInput, VariantInput,
+        ProductQuery, ProductSearchSuggestion, ProductVariant, UpdateProductInput,
+        UpdateStockInput, VariantInput,
     },
 };
 
@@ -47,18 +47,19 @@ fn normalize_badge_filters(raw: Option<&str>) -> Option<Vec<String>> {
 }
 
 fn normalize_fragrance_gender_filters(raw: Option<&str>) -> Option<Vec<String>> {
-    parse_csv_strings(raw).map(|values| {
-        values
-            .into_iter()
-            .filter_map(|value| match value.to_lowercase().as_str() {
-                "male" | "nam" => Some("male".to_string()),
-                "female" | "nu" | "nữ" => Some("female".to_string()),
-                "unisex" => Some("unisex".to_string()),
-                _ => None,
-            })
-            .collect::<Vec<_>>()
-    })
-    .filter(|values| !values.is_empty())
+    parse_csv_strings(raw)
+        .map(|values| {
+            values
+                .into_iter()
+                .filter_map(|value| match value.to_lowercase().as_str() {
+                    "male" | "nam" => Some("male".to_string()),
+                    "female" | "nu" | "nữ" => Some("female".to_string()),
+                    "unisex" => Some("unisex".to_string()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        })
+        .filter(|values| !values.is_empty())
 }
 
 fn normalize_homepage_section_filters(raw: Option<&str>) -> Option<Vec<String>> {
@@ -66,18 +67,24 @@ fn normalize_homepage_section_filters(raw: Option<&str>) -> Option<Vec<String>> 
 }
 
 fn normalize_brand_filters(raw: Option<&str>) -> Option<Vec<String>> {
-    parse_csv_strings(raw).map(|values| values.into_iter().map(|value| value.to_lowercase()).collect())
-}
-
-fn normalize_volume_filters(raw: Option<&str>) -> Option<Vec<i32>> {
     parse_csv_strings(raw).map(|values| {
         values
             .into_iter()
-            .filter_map(|value| value.parse::<i32>().ok())
-            .filter(|value| *value > 0)
-            .collect::<Vec<_>>()
+            .map(|value| value.to_lowercase())
+            .collect()
     })
-    .filter(|values| !values.is_empty())
+}
+
+fn normalize_volume_filters(raw: Option<&str>) -> Option<Vec<i32>> {
+    parse_csv_strings(raw)
+        .map(|values| {
+            values
+                .into_iter()
+                .filter_map(|value| value.parse::<i32>().ok())
+                .filter(|value| *value > 0)
+                .collect::<Vec<_>>()
+        })
+        .filter(|values| !values.is_empty())
 }
 
 // ─── Public client queries ────────────────────────────────────────────────────
@@ -97,8 +104,12 @@ pub async fn find_all(
     let volume_filters = normalize_volume_filters(query.volume.as_deref());
 
     let order_by = match query.sort.as_deref() {
-        Some("price_asc") => "COALESCE(display_variant.display_price, p.price) ASC,  p.created_at DESC",
-        Some("price_desc") => "COALESCE(display_variant.display_price, p.price) DESC, p.created_at DESC",
+        Some("price_asc") => {
+            "COALESCE(display_variant.display_price, p.price) ASC,  p.created_at DESC"
+        }
+        Some("price_desc") => {
+            "COALESCE(display_variant.display_price, p.price) DESC, p.created_at DESC"
+        }
         Some("best_selling") => "COALESCE(sales.total_sold, 0) DESC, p.created_at DESC",
         _ => "p.created_at DESC",
     };

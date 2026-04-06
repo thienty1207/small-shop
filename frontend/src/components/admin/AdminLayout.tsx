@@ -22,9 +22,12 @@ import {
   Ticket,
   Bell,
   X,
+  BookOpenText,
+  Heart,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useBreadcrumbs } from "@/hooks/useBreadcrumbs";
+import { API_BASE_URL } from "@/lib/api-base";
 import { cn } from "@/lib/utils";
 
 // ─── Nav tree structure ───────────────────────────────────────────────────────
@@ -72,6 +75,15 @@ const NAV: NavItem[] = [
     ],
   },
   {
+    label: "Quản lý bài viết",
+    icon:  BookOpenText,
+    children: [
+      { label: "Tất cả bài viết", href: "/admin/blog", icon: BookOpenText },
+      { label: "Đánh giá bài viết", href: "/admin/blog/reviews", icon: Heart },
+      { label: "Tag", href: "/admin/blog/tags", icon: Tag },
+    ],
+  },
+  {
     label: "Người dùng",
     icon:  Users,
     children: [
@@ -88,6 +100,7 @@ const NAV: NavItem[] = [
       { label: "Thông tin cửa hàng", href: "/admin/settings/store",          icon: Building2 },
       { label: "Vận chuyển & Phí",   href: "/admin/settings/shipping",       icon: Truck },
       { label: "Email template",     href: "/admin/settings/email",          icon: Mail },
+      { label: "Thông báo chung",    href: "/admin/settings/notifications",  icon: Bell },
     ],
   },
 ];
@@ -109,6 +122,7 @@ function filterNav(nav: NavItem[], role: string | undefined): NavItem[] {
     .map((item) => {
       // Hide the whole settings group from non-super_admin
       if (item.label === "Cài đặt hệ thống" && role !== "super_admin") return null;
+      if (item.label === "Quản lý bài viết" && role === "staff") return null;
 
       // For "Người dùng" group — filter children based on role
       if (item.label === "Người dùng" && item.children) {
@@ -162,7 +176,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const [bellOpen, setBellOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const bellRef = useRef<HTMLDivElement>(null);
-  const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+  const API_URL = API_BASE_URL;
 
   const playNotificationSound = () => {
     try {

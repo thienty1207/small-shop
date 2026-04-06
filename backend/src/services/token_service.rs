@@ -3,11 +3,7 @@ use sha1::{Digest, Sha1};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::{
-    error::AppError,
-    models::user::Claims,
-    repositories::token_repo,
-};
+use crate::{error::AppError, models::user::Claims, repositories::token_repo};
 
 /// Return a stable SHA-1 fingerprint for a raw JWT string.
 ///

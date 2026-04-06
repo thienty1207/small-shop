@@ -30,7 +30,8 @@ pub async fn login(
     State(state): State<AppState>,
     Json(input): Json<AdminLoginInput>,
 ) -> Result<Json<AdminLoginResponse>, AppError> {
-    let response = admin_auth_service::authenticate_admin(&state, &input.username, &input.password).await?;
+    let response =
+        admin_auth_service::authenticate_admin(&state, &input.username, &input.password).await?;
     tracing::info!("Admin '{}' logged in", response.user.username);
     Ok(Json(response))
 }

@@ -5,7 +5,9 @@
  * stored under "admin_auth_token" in localStorage.
  */
 
-const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+import { API_BASE_URL, buildApiUrl } from "@/lib/api-base";
+
+const BASE = API_BASE_URL;
 const TOKEN_KEY = "admin_auth_token";
 const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_VIDEO_UPLOAD_BYTES = 35 * 1024 * 1024;
@@ -55,7 +57,7 @@ export async function adminUploadImage(file: File): Promise<string> {
   const formData = new FormData();
   formData.append("image", file);
 
-  const res = await fetch(`${BASE}/api/admin/upload/image`, {
+  const res = await fetch(buildApiUrl("/api/admin/upload/image"), {
     method: "POST",
     headers: authHeaders(), // no Content-Type — browser sets multipart boundary
     body: formData,
@@ -79,7 +81,7 @@ export async function adminUploadVideo(file: File): Promise<string> {
   const formData = new FormData();
   formData.append("video", file);
 
-  const res = await fetch(`${BASE}/api/admin/upload/video`, {
+  const res = await fetch(buildApiUrl("/api/admin/upload/video"), {
     method: "POST",
     headers: authHeaders(),
     body: formData,
@@ -180,6 +182,83 @@ export interface AdminProduct {
   homepage_section: string | null;
   fragrance_line: string | null;
   created_at:     string;
+}
+
+export type BlogStatus = "draft" | "published";
+
+export interface BlogTag {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface AdminBlogTag extends BlogTag {
+  posts_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RelatedBlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  cover_image_url: string | null;
+  published_at: string | null;
+  primary_tag: BlogTag | null;
+}
+
+export interface PublicBlogTag extends BlogTag {
+  posts_count: number;
+}
+
+export interface BlogExternalLinkPreview {
+  url: string;
+  title: string;
+  description: string | null;
+  image_url: string | null;
+  site_name: string | null;
+  domain: string;
+}
+
+export interface AdminBlogPost {
+  id:               string;
+  title:            string;
+  slug:             string;
+  excerpt:          string | null;
+  cover_image_url:  string | null;
+  content_html:     string;
+  content_delta:    unknown | null;
+  tags:             BlogTag[];
+  primary_tag:      BlogTag | null;
+  youtube_urls:     string[];
+  external_link_previews: BlogExternalLinkPreview[];
+  seo_title:        string | null;
+  seo_description:  string | null;
+  status:           BlogStatus;
+  published_at:     string | null;
+  created_at:       string;
+  updated_at?:      string;
+}
+
+export interface BlogPostPublic {
+  id:               string;
+  title:            string;
+  slug:             string;
+  excerpt:          string | null;
+  cover_image_url:  string | null;
+  content_html:     string;
+  content_delta?:   unknown | null;
+  tags:             BlogTag[];
+  primary_tag:      BlogTag | null;
+  youtube_urls:     string[];
+  external_link_previews: BlogExternalLinkPreview[];
+  seo_title:        string | null;
+  seo_description:  string | null;
+  status:           BlogStatus;
+  published_at:     string | null;
+  created_at:       string;
+  recommended_posts: RelatedBlogPost[];
 }
 
 export interface Category {

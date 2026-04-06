@@ -2,10 +2,7 @@ use axum::{extract::State, http::StatusCode, Json};
 use serde_json::json;
 
 use crate::{
-    error::AppError,
-    models::contact::ContactRequest,
-    services::contact_service,
-    state::AppState,
+    error::AppError, models::contact::ContactRequest, services::contact_service, state::AppState,
 };
 
 /// POST /api/contact

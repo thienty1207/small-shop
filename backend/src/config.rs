@@ -1,8 +1,79 @@
 use std::env;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AppEnv {
+    Development,
+    Production,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MediaBackend {
+    Local,
+    Cloudinary,
+}
+
+pub fn parse_app_env(raw: Option<&str>) -> Result<AppEnv, String> {
+    match raw.unwrap_or("development").trim().to_lowercase().as_str() {
+        "development" | "dev" | "local" => Ok(AppEnv::Development),
+        "production" | "prod" => Ok(AppEnv::Production),
+        other => Err(format!(
+            "APP_ENV must be 'development' or 'production', got '{other}'"
+        )),
+    }
+}
+
+pub fn resolve_auto_run_migrations(app_env: AppEnv, raw: Option<&str>) -> Result<bool, String> {
+    match raw.map(|value| value.trim().to_lowercase()) {
+        Some(value) if matches!(value.as_str(), "1" | "true" | "yes" | "on") => Ok(true),
+        Some(value) if matches!(value.as_str(), "0" | "false" | "no" | "off") => Ok(false),
+        Some(value) => Err(format!(
+            "AUTO_RUN_MIGRATIONS must be a boolean, got '{value}'"
+        )),
+        None => Ok(matches!(app_env, AppEnv::Development)),
+    }
+}
+
+pub fn resolve_media_backend(
+    app_env: AppEnv,
+    raw: Option<&str>,
+    has_cloudinary_config: bool,
+) -> Result<MediaBackend, String> {
+    match raw.map(|value| value.trim().to_lowercase()) {
+        Some(value) if value == "local" => {
+            if matches!(app_env, AppEnv::Production) {
+                return Err(
+                    "UPLOAD_BACKEND=local is only allowed in development environments".into(),
+                );
+            }
+            Ok(MediaBackend::Local)
+        }
+        Some(value) if value == "cloudinary" => {
+            if !has_cloudinary_config {
+                return Err(
+                    "UPLOAD_BACKEND=cloudinary requires CLOUDINARY_URL to be configured".into(),
+                );
+            }
+            Ok(MediaBackend::Cloudinary)
+        }
+        Some(value) => Err(format!(
+            "UPLOAD_BACKEND must be 'local' or 'cloudinary', got '{value}'"
+        )),
+        None if has_cloudinary_config => Ok(MediaBackend::Cloudinary),
+        None if matches!(app_env, AppEnv::Development) => Ok(MediaBackend::Local),
+        None => Err(
+            "Production requires a remote upload backend. Configure CLOUDINARY_URL or set UPLOAD_BACKEND=cloudinary"
+                .into(),
+        ),
+    }
+}
+
 /// Application configuration loaded from environment variables.
 #[derive(Debug, Clone)]
 pub struct Config {
+    pub app_env: AppEnv,
+    pub upload_backend: MediaBackend,
+    pub auto_run_migrations: bool,
+    pub cloudinary_url: Option<String>,
     pub server_port: u16,
     pub database_url: String,
 
@@ -53,7 +124,24 @@ impl Config {
             return Err("CSRF_COOKIE_KEY must be at least 32 characters".into());
         }
 
+        let app_env = parse_app_env(env::var("APP_ENV").ok().as_deref())?;
+        let cloudinary_url = env::var("CLOUDINARY_URL")
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+        let upload_backend = resolve_media_backend(
+            app_env,
+            env::var("UPLOAD_BACKEND").ok().as_deref(),
+            cloudinary_url.is_some(),
+        )?;
+        let auto_run_migrations =
+            resolve_auto_run_migrations(app_env, env::var("AUTO_RUN_MIGRATIONS").ok().as_deref())?;
+
         Ok(Self {
+            app_env,
+            upload_backend,
+            auto_run_migrations,
+            cloudinary_url,
             server_port: env_var("SERVER_PORT")
                 .unwrap_or_else(|_| "3000".into())
                 .parse::<u16>()

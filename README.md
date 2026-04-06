@@ -62,6 +62,7 @@
 4. Start backend:
    - `cd backend`
    - `cp .env.example .env` (Linux/macOS) or `Copy-Item .env.example .env` (PowerShell)
+   - Optional when you want explicit control over migrations: `cargo run --bin migrate`
    - `cargo run`
 5. Start frontend:
    - `cd frontend`
@@ -73,7 +74,9 @@ Notes:
 - Restore scripts auto-pick `backups/small-shop-latest.dump` (or the newest `backups/*.dump`) when no path is provided.
 - You can still pass a custom dump path explicitly to restore scripts.
 - They also sync the local `_sqlx_migrations` checksums with the current `sql/*.sql` files so the backend can start cleanly after a restore on a different machine/OS.
-- The backend already runs migrations automatically on startup, so `cargo sqlx migrate run` is not required for normal local setup.
+- Development keeps `AUTO_RUN_MIGRATIONS=true` by default, so local startup still works with `cargo run`.
+- For production or Railway-style deploys, use `cargo run --bin migrate` (or the compiled `migrate` binary) as a release step and keep `AUTO_RUN_MIGRATIONS=false`.
+- Production should use a remote upload backend such as Cloudinary. Local uploads are only intended for development fallback.
 - `sql/small-shop.sql` is a plain-SQL snapshot for inspection/manual import.
 
 Backup commands:

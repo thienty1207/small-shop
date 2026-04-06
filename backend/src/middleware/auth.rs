@@ -7,7 +7,9 @@ use axum::{
 };
 
 use crate::{
-    error::AppError, models::user::UserPublic, repositories::user_repo,
+    error::AppError,
+    models::user::UserPublic,
+    repositories::user_repo,
     services::{auth_service, token_service},
     state::AppState,
 };

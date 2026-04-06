@@ -166,7 +166,8 @@ pub async fn export_products(
     let from_filter = params.get("from").cloned();
     let to_filter = params.get("to").cloned();
 
-    let rows = export_service::fetch_products(&state, from_filter.as_deref(), to_filter.as_deref()).await?;
+    let rows = export_service::fetch_products(&state, from_filter.as_deref(), to_filter.as_deref())
+        .await?;
 
     match format.as_str() {
         "excel" | "xls" | "xlsx" => {

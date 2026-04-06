@@ -6,11 +6,12 @@ import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useShopSettingsCtx } from "@/contexts/ShopSettingsContext";
 import { formatPrice } from "@/data/products";
+import { API_BASE_URL } from "@/lib/api-base";
 import { calculateShippingFee } from "@/lib/shipping";
 import { toast } from "sonner";
 import { Tag, Check } from "lucide-react";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const API_URL = API_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const CF_SITE_KEY = "0x4AAAAAACl-DXPV4UZR7cmo";
 

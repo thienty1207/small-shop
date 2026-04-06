@@ -6,11 +6,11 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     models::order::{
-        AdminOrderQuery, CreateOrderInput, OrderListItem, OrderPublic, OrderItemInput,
+        AdminOrderQuery, CreateOrderInput, OrderItemInput, OrderListItem, OrderPublic,
         UpdateOrderStatusInput,
     },
     repositories::{order_repo, settings_repo},
-    services::{coupon_service, email_service},
+    services::{coupon_service, email_service, notification_service},
     state::AppState,
 };
 
@@ -84,11 +84,12 @@ fn parse_non_negative_i64(raw: Option<&String>, fallback: i64) -> i64 {
         .unwrap_or(fallback)
 }
 
-fn resolve_shipping_fee_from_settings(subtotal: i64, settings: &std::collections::HashMap<String, String>) -> i64 {
-    let shipping_fee_default = parse_non_negative_i64(
-        settings.get("shipping_fee_default"),
-        DEFAULT_SHIPPING_FEE,
-    );
+fn resolve_shipping_fee_from_settings(
+    subtotal: i64,
+    settings: &std::collections::HashMap<String, String>,
+) -> i64 {
+    let shipping_fee_default =
+        parse_non_negative_i64(settings.get("shipping_fee_default"), DEFAULT_SHIPPING_FEE);
     let free_shipping_from = parse_non_negative_i64(
         settings.get("free_shipping_from"),
         DEFAULT_FREE_SHIPPING_FROM,
@@ -152,7 +153,8 @@ pub async fn create_order_for_user(
     if let Some(raw_code) = input.coupon_code.as_deref() {
         let code = raw_code.trim();
         if !code.is_empty() {
-            let validated = coupon_service::validate_coupon_for_order(state, code, subtotal).await?;
+            let validated =
+                coupon_service::validate_coupon_for_order(state, code, subtotal).await?;
             coupon_code = Some(validated.code);
             coupon_type = Some(validated.coupon_type);
             coupon_value = Some(validated.value);
@@ -199,14 +201,21 @@ pub async fn create_order_for_user(
         let order_clone = order.clone();
         let items_clone = order_items.clone();
         tokio::spawn(async move {
-            if let Err(e) =
-                email_service::send_order_confirmation(&config, &mailer, &db, &order_clone, &items_clone)
-                    .await
+            if let Err(e) = email_service::send_order_confirmation(
+                &config,
+                &mailer,
+                &db,
+                &order_clone,
+                &items_clone,
+            )
+            .await
             {
                 tracing::error!("Failed to send order confirmation email: {e}");
             }
         });
     }
+
+    let _ = notification_service::notify_order_created(state, user_id, &order, &order_items).await;
 
     Ok(OrderPublic {
         id: order.id,
@@ -234,7 +243,9 @@ pub async fn create_order_for_user(
 mod tests {
     use std::collections::HashMap;
 
-    use super::{resolve_shipping_fee_from_settings, DEFAULT_FREE_SHIPPING_FROM, DEFAULT_SHIPPING_FEE};
+    use super::{
+        resolve_shipping_fee_from_settings, DEFAULT_FREE_SHIPPING_FROM, DEFAULT_SHIPPING_FEE,
+    };
 
     #[test]
     fn uses_defaults_when_settings_missing() {
@@ -255,7 +266,10 @@ mod tests {
         settings.insert("shipping_fee_default".to_string(), "45000".to_string());
         settings.insert("free_shipping_from".to_string(), "700000".to_string());
 
-        assert_eq!(resolve_shipping_fee_from_settings(699_999, &settings), 45_000);
+        assert_eq!(
+            resolve_shipping_fee_from_settings(699_999, &settings),
+            45_000
+        );
         assert_eq!(resolve_shipping_fee_from_settings(700_000, &settings), 0);
     }
 }
@@ -299,7 +313,10 @@ pub async fn get_user_order(
 }
 
 /// List orders for a given `user_id`.
-pub async fn list_user_orders(state: &AppState, user_id: Uuid) -> Result<Vec<OrderListItem>, AppError> {
+pub async fn list_user_orders(
+    state: &AppState,
+    user_id: Uuid,
+) -> Result<Vec<OrderListItem>, AppError> {
     order_repo::find_by_user(&state.db, user_id).await
 }
 
@@ -360,6 +377,10 @@ pub async fn update_admin_order_status(
     }
 
     let order = order_repo::update_order_status(&state.db, id, &input.status).await?;
+
+    if let Some(user_id) = order.user_id {
+        let _ = notification_service::notify_order_status_updated(state, user_id, &order).await;
+    }
 
     if let Some(mailer) = state.mailer.clone() {
         let config = state.config.clone();

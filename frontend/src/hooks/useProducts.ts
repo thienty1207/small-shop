@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import type { Category, Product } from "@/data/products";
 import type { FragranceGender, FragranceLine, HomepageSection } from "@/lib/fragrance";
+import { API_BASE_URL } from "@/lib/api-base";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const API_URL = API_BASE_URL;
 
 // ---------------------------------------------------------------------------
 // Raw API shapes (snake_case from the backend)

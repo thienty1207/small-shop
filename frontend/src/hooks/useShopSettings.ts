@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { API_BASE_URL } from "@/lib/api-base";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const API_URL = API_BASE_URL;
 
 function buildSettingsUrl(): string {
   const separator = API_URL.includes("?") ? "&" : "?";
