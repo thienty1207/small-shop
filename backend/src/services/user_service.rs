@@ -47,8 +47,6 @@ pub fn infer_image_content_type(raw_ct: &str, filename_hint: &str) -> Result<Str
         Ok("image/webp".into())
     } else if filename_hint.ends_with(".gif") {
         Ok("image/gif".into())
-    } else if filename_hint.ends_with(".jpg") || filename_hint.ends_with(".jpeg") {
-        Ok("image/jpeg".into())
     } else {
         Ok("image/jpeg".into())
     }

@@ -111,7 +111,7 @@ pub async fn export_orders(
                     r.customer_name,
                     r.customer_email,
                     as_text_cell(&r.customer_phone),
-                    r.address.replace('\t', " ").replace('\n', " "),
+                    r.address.replace(['\t', '\n'], " "),
                     r.payment_method,
                     r.status,
                     r.subtotal,
@@ -177,7 +177,7 @@ pub async fn export_products(
             for r in rows {
                 tsv.push_str(&format!(
                     "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
-                    r.name.replace('\t', " ").replace('\n', " "),
+                    r.name.replace(['\t', '\n'], " "),
                     as_text_cell(&r.slug),
                     r.category,
                     r.price,

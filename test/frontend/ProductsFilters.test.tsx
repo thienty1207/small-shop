@@ -27,7 +27,7 @@ vi.mock("../../frontend/src/hooks/useProducts", () => ({
 }));
 
 describe("Products filters", () => {
-  it("wires brand, volume and gender filters into the products query", async () => {
+  it("wires category, volume and gender filters into the products query", async () => {
     const user = userEvent.setup();
     vi.stubGlobal("scrollTo", vi.fn());
 
@@ -39,14 +39,14 @@ describe("Products filters", () => {
       error: null,
     });
     mockUseProductFilters.mockReturnValue({
-      brands: [{ value: "Afnan", count: 14 }],
+      categories: [{ value: "azzaro", count: 14 }],
       volumes: [{ value: "100", count: 32 }],
       genders: [{ value: "male", count: 12 }],
       isLoading: false,
       error: null,
     });
     mockUseCategories.mockReturnValue({
-      categories: [],
+      categories: [{ id: "c-1", name: "Azzaro", slug: "azzaro", image: "" }],
       isLoading: false,
       error: null,
     });
@@ -59,17 +59,16 @@ describe("Products filters", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Afnan (14)")).toBeInTheDocument();
+    expect(screen.getByText("Azzaro (14)")).toBeInTheDocument();
     expect(screen.getByText("100ml (32)")).toBeInTheDocument();
     expect(screen.getByText("Nam (12)")).toBeInTheDocument();
 
-    await user.click(screen.getByLabelText(/Afnan \(14\)/i));
+    await user.click(screen.getByLabelText(/Azzaro \(14\)/i));
     await user.click(screen.getByLabelText(/100ml \(32\)/i));
     await user.click(screen.getByLabelText(/Nam \(12\)/i));
 
     expect(mockUseProducts).toHaveBeenLastCalledWith({
-      category: undefined,
-      brands: ["Afnan"],
+      category: "azzaro",
       volumes: [100],
       fragranceGender: ["male"],
       search: undefined,

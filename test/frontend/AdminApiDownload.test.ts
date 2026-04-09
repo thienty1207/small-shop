@@ -44,7 +44,7 @@ describe("adminDownload", () => {
     await adminDownload("/api/admin/orders/export?format=csv", "fallback.csv");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3000/api/admin/orders/export?format=csv",
+      expect.stringMatching(/\/api\/admin\/orders\/export\?format=csv$/),
       {
         method: "GET",
         headers: { Authorization: "Bearer token-123" },

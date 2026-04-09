@@ -25,6 +25,9 @@ vi.mock("@/components/layout/Footer", () => ({ default: () => <div data-testid="
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 
+type AuthContextValue = ReturnType<typeof useAuth>;
+type CartContextValue = ReturnType<typeof useCart>;
+
 const mockProduct = {
   id: "product-1",
   name: "Nến Thơm Lavender",
@@ -66,7 +69,7 @@ describe("Cart page", () => {
       login: vi.fn(),
       logout: vi.fn(),
       setUser: vi.fn(),
-    } as any);
+    } as AuthContextValue);
 
     renderCart();
 
@@ -81,16 +84,16 @@ describe("Cart page", () => {
       login: vi.fn(),
       logout: vi.fn(),
       setUser: vi.fn(),
-    } as any);
+    } as AuthContextValue);
 
     vi.mocked(useCart).mockReturnValue({
-      items: [{ product: mockProduct as any, quantity: 1 }],
+      items: [{ product: mockProduct, quantity: 1 }],
       addItem: vi.fn(),
       removeItem: vi.fn(),
       updateQuantity: vi.fn(),
       clearCart: vi.fn(),
       totalAmount: 185000,
-    });
+    } as CartContextValue);
 
     renderCart();
 
@@ -105,16 +108,16 @@ describe("Cart page", () => {
       login: vi.fn(),
       logout: vi.fn(),
       setUser: vi.fn(),
-    } as any);
+    } as AuthContextValue);
 
     vi.mocked(useCart).mockReturnValue({
-      items: [{ product: mockProduct as any, quantity: 1 }],
+      items: [{ product: mockProduct, quantity: 1 }],
       addItem: vi.fn(),
       removeItem: vi.fn(),
       updateQuantity: vi.fn(),
       clearCart: vi.fn(),
       totalAmount: 185000,
-    });
+    } as CartContextValue);
 
     renderCart();
 
@@ -129,16 +132,16 @@ describe("Cart page", () => {
       login: vi.fn(),
       logout: vi.fn(),
       setUser: vi.fn(),
-    } as any);
+    } as AuthContextValue);
 
     vi.mocked(useCart).mockReturnValue({
-      items: [{ product: mockProduct as any, quantity: 1 }],
+      items: [{ product: mockProduct, quantity: 1 }],
       addItem: vi.fn(),
       removeItem: vi.fn(),
       updateQuantity: vi.fn(),
       clearCart: vi.fn(),
       totalAmount: 185000,
-    });
+    } as CartContextValue);
 
     renderCart();
 
@@ -157,16 +160,16 @@ describe("Cart page", () => {
       login: vi.fn(),
       logout: vi.fn(),
       setUser: vi.fn(),
-    } as any);
+    } as AuthContextValue);
 
     vi.mocked(useCart).mockReturnValue({
-      items: [{ product: mockProduct as any, quantity: 1 }],
+      items: [{ product: mockProduct, quantity: 1 }],
       addItem: vi.fn(),
       removeItem: vi.fn(),
       updateQuantity: vi.fn(),
       clearCart: vi.fn(),
       totalAmount: 185000,
-    });
+    } as CartContextValue);
 
     renderCart();
 
@@ -183,16 +186,16 @@ describe("Cart page", () => {
       login: vi.fn(),
       logout: vi.fn(),
       setUser: vi.fn(),
-    } as any);
+    } as AuthContextValue);
 
     vi.mocked(useCart).mockReturnValue({
-      items: [{ product: mockProduct as any, quantity: 2 }],
+      items: [{ product: mockProduct, quantity: 2 }],
       addItem: vi.fn(),
       removeItem: vi.fn(),
       updateQuantity: vi.fn(),
       clearCart: vi.fn(),
       totalAmount: 370000,
-    });
+    } as CartContextValue);
 
     renderCart();
 

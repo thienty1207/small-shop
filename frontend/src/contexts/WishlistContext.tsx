@@ -3,6 +3,8 @@ import type { Product } from "@/data/products";
 import { useAuth } from "@/contexts/AuthContext";
 import { API_BASE_URL } from "@/lib/api-base";
 
+/* eslint-disable react-refresh/only-export-components */
+
 const API_URL = API_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const WISHLIST_BASES = ["/api/wishlist", "/api/wishlists"];

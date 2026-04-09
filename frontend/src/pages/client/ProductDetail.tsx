@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import DOMPurify from "dompurify";
 
 const API_URL = API_BASE_URL;
+const BUY_NOW_CHECKOUT_KEY = "buy_now_checkout_item";
 
 interface ReviewPublic {
   id: string; user_name: string; user_avatar: string | null;
@@ -91,15 +92,16 @@ const ProductDetail = () => {
   const [myRating, setMyRating]             = useState(5);
   const [myComment, setMyComment]           = useState("");
   const [submitingReview, setSubmitingReview] = useState(false);
+  const productId = product?.id;
 
   useEffect(() => {
-    if (!product) return;
+    if (!productId) return;
     setReviewsLoading(true);
-    fetch(`${API_URL}/api/products/${product.id}/reviews?limit=20`)
+    fetch(`${API_URL}/api/products/${productId}/reviews?limit=20`)
       .then((r) => r.json())
       .then((d) => setReviews(d.items ?? []))
       .finally(() => setReviewsLoading(false));
-  }, [product?.id]);
+  }, [productId]);
 
   const handleSubmitReview = async () => {
     if (!isAuthenticated) { toast.error("Đăng nhập để đánh giá"); return; }
@@ -129,7 +131,7 @@ const ProductDetail = () => {
   };
 
   // ── Derived state ──────────────────────────────────────────────────────────
-  const variants = product?.variants ?? [];
+  const variants = useMemo(() => product?.variants ?? [], [product?.variants]);
 
   const selectedVariant: ProductVariant | null = useMemo(() => {
     if (!variants.length) return null;
@@ -218,7 +220,6 @@ const ProductDetail = () => {
     );
   }
 
-  const API_URL = API_BASE_URL;
   const resolveImg = (url: string) => url && url.startsWith("/") ? `${API_URL}${url}` : url;
 
   const images = [
@@ -287,10 +288,30 @@ const ProductDetail = () => {
     return true;
   };
 
-  const handleBuyNow = async (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
-    const added = await handleAddToCart();
-    if (added) navigate("/cart");
+  const handleBuyNow = () => {
+    if (activeOutOfStock) return;
+
+    const buyNowPayload = {
+      product: {
+        ...product,
+        price: activePrice,
+        originalPrice: activeOriginal,
+        stock: activeStock,
+      },
+      quantity,
+      variant: selectedVariantLabel,
+    };
+
+    sessionStorage.setItem(BUY_NOW_CHECKOUT_KEY, JSON.stringify(buyNowPayload));
+
+    if (!isAuthenticated) {
+      const returnTo = "/checkout?mode=buy-now";
+      sessionStorage.setItem("returnTo", returnTo);
+      navigate("/login", { state: { returnTo } });
+      return;
+    }
+
+    navigate("/checkout?mode=buy-now");
   };
 
   const handleToggleWishlist = async () => {
@@ -521,28 +542,37 @@ const ProductDetail = () => {
                     onChange={(value) => setQuantity(Math.min(value, Math.max(1, availableToAdd)))}
                   />
                   <button
-                    onClick={() => { void handleAddToCart(); }}
-                    disabled={availableToAdd <= 0}
-                    className="flex-1 flex items-center justify-center gap-2 py-4 bg-foreground text-background text-sm font-semibold hover:bg-foreground/85 transition-colors tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
+                    type="button"
+                    onClick={handleBuyNow}
+                    className={`flex-1 flex items-center justify-center gap-2 py-4 bg-foreground text-background text-sm font-semibold transition-colors tracking-wide ${
+                      activeOutOfStock
+                        ? "cursor-not-allowed opacity-50"
+                        : "hover:bg-foreground/85"
+                    }`}
+                    disabled={activeOutOfStock}
                   >
                     <ShoppingBag size={16} />
-                    Thêm vào giỏ
+                    Mua ngay
                   </button>
                 </>
               )}
             </div>
             {!activeOutOfStock && (
-              <Link
-                to="/cart"
-                onClick={handleBuyNow}
-                className={`block mt-2 w-full py-4 border border-foreground text-foreground text-sm font-semibold text-center transition-colors tracking-wide ${
+              <button
+                type="button"
+                onClick={() => {
+                  void handleAddToCart();
+                }}
+                className={`mt-2 w-full py-4 border border-foreground/20 bg-background text-foreground text-sm font-semibold text-center transition-colors tracking-wide flex items-center justify-center gap-2 ${
                   availableToAdd <= 0
-                    ? "pointer-events-none cursor-not-allowed opacity-50"
-                    : "hover:bg-foreground hover:text-background"
+                    ? "cursor-not-allowed opacity-50"
+                    : "hover:bg-foreground/5"
                 }`}
+                disabled={availableToAdd <= 0}
               >
-                Mua ngay
-              </Link>
+                <ShoppingBag size={16} />
+                Thêm vào giỏ
+              </button>
             )}
 
             <button

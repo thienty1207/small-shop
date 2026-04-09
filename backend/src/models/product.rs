@@ -221,6 +221,7 @@ pub struct ProductFilterOption {
 
 #[derive(Debug, Serialize)]
 pub struct ProductFiltersResponse {
+    pub categories: Vec<ProductFilterOption>,
     pub brands: Vec<ProductFilterOption>,
     pub volumes: Vec<ProductFilterOption>,
     pub genders: Vec<ProductFilterOption>,

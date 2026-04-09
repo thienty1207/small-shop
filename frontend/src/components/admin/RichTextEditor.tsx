@@ -9,7 +9,22 @@ type RichTextEditorProps = {
   onChange: (value: string) => void;
   placeholder?: string;
   onDeltaChange?: (delta: string) => void;
-  onEditorReady?: (editor: any) => void;
+  onEditorReady?: (editor: QuillLike) => void;
+};
+
+type QuillLike = {
+  root: { innerHTML: string };
+  setText: (text: string, source?: string) => void;
+  setContents: (delta: unknown, source?: string) => void;
+  getSelection: (focus?: boolean) => { index: number } | null;
+  getLength: () => number;
+  insertEmbed: (index: number, type: string, value: string, source?: string) => void;
+  setSelection: (index: number, length: number, source?: string) => void;
+  getContents: () => unknown;
+  on: (eventName: string, handler: () => void) => void;
+  clipboard: {
+    convert: (input: { html: string }) => unknown;
+  };
 };
 
 const API_URL = API_BASE_URL;
@@ -34,7 +49,7 @@ const normalizeValue = (next: string) => (next === "<p><br></p>" ? "" : next);
 
 const resolveImageUrl = (url: string) => (url.startsWith("/") ? `${API_URL}${url}` : url);
 
-function syncEditorHtml(quill: any, nextValue: string) {
+function syncEditorHtml(quill: QuillLike, nextValue: string) {
   const normalized = normalizeValue(nextValue);
   const current = normalizeValue(quill.root.innerHTML);
 
@@ -61,7 +76,7 @@ export default function RichTextEditor({
 
   const editorHostRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
-  const quillRef = useRef<any>(null);
+  const quillRef = useRef<QuillLike | null>(null);
 
   const valueRef = useRef(value);
   const onChangeRef = useRef(onChange);
@@ -74,7 +89,7 @@ export default function RichTextEditor({
   onEditorReadyRef.current = onEditorReady;
 
   const handleImageUpload = useMemo(
-    () => async (quill: any) => {
+    () => async (quill: QuillLike) => {
       const input = document.createElement("input");
       input.setAttribute("type", "file");
       input.setAttribute("accept", "image/*");
@@ -105,14 +120,15 @@ export default function RichTextEditor({
 
   useEffect(() => {
     let isMounted = true;
+    const editorHost = editorHostRef.current;
 
     const setup = async () => {
       const [{ default: Quill }] = await Promise.all([import("quill")]);
-      if (!isMounted || !editorHostRef.current || !toolbarRef.current || quillRef.current) {
+      if (!isMounted || !editorHost || !toolbarRef.current || quillRef.current) {
         return;
       }
 
-      const quill = new Quill(editorHostRef.current, {
+      const quill = new Quill(editorHost, {
         theme: "snow",
         placeholder: placeholder ?? "",
         modules: {
@@ -126,7 +142,7 @@ export default function RichTextEditor({
           },
         },
         formats: FORMATS,
-      });
+      }) as QuillLike;
 
       syncEditorHtml(quill, valueRef.current);
 
@@ -147,8 +163,8 @@ export default function RichTextEditor({
     return () => {
       isMounted = false;
       quillRef.current = null;
-      if (editorHostRef.current) {
-        editorHostRef.current.innerHTML = "";
+      if (editorHost) {
+        editorHost.innerHTML = "";
       }
     };
   }, [handleImageUpload, placeholder]);

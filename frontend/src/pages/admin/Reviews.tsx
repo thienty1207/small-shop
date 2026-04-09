@@ -42,7 +42,7 @@ export default function AdminReviews() {
   const [loading, setLoading]   = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  const load = async (p = page) => {
+  const load = async (p: number) => {
     setLoading(true);
     try {
       const res = await adminGet<ReviewsResponse>(`/api/admin/reviews?page=${p}&limit=20`);
@@ -52,7 +52,7 @@ export default function AdminReviews() {
     }
   };
 
-  useEffect(() => { load(); }, [page]);
+  useEffect(() => { void load(page); }, [page]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Xoá đánh giá này?")) return;

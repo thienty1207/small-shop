@@ -4,12 +4,10 @@ import { MemoryRouter } from "react-router-dom";
 import React from "react";
 import Index from "@/pages/client/Index";
 
-const mockUseProducts = vi.fn();
 const mockUseCategories = vi.fn();
 let mockSettings: Record<string, string> = {};
 
 vi.mock("@/hooks/useProducts", () => ({
-  useProducts: (opts: unknown) => mockUseProducts(opts),
   useCategories: () => mockUseCategories(),
 }));
 
@@ -30,30 +28,6 @@ vi.mock("@/components/shop/ProductCard", () => ({
     React.createElement("article", { "data-testid": "product-card" }, product.name),
 }));
 
-const featuredProducts = Array.from({ length: 8 }, (_, index) => ({
-  id: `f-${index + 1}`,
-  name: `Featured ${index + 1}`,
-  slug: `featured-${index + 1}`,
-}));
-
-const newProducts = Array.from({ length: 8 }, (_, index) => ({
-  id: `n-${index + 1}`,
-  name: `New ${index + 1}`,
-  slug: `new-${index + 1}`,
-}));
-
-const maleProducts = [
-  { id: "m-1", name: "Mens Pick", slug: "mens-pick", fragranceGender: "male", homepageSection: "male" },
-];
-
-const femaleProducts = [
-  { id: "w-1", name: "Womens Pick", slug: "womens-pick", fragranceGender: "female", homepageSection: "female" },
-];
-
-const unisexProducts = [
-  { id: "u-1", name: "Unisex Pick", slug: "unisex-pick", fragranceGender: "unisex", homepageSection: "unisex" },
-];
-
 function renderHomepage() {
   return render(
     React.createElement(
@@ -64,10 +38,6 @@ function renderHomepage() {
   );
 }
 
-function expectBefore(first: HTMLElement, second: HTMLElement) {
-  expect(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-}
-
 describe("Homepage UI", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -75,32 +45,6 @@ describe("Homepage UI", () => {
       brand_section_title: "Thương hiệu nổi bật",
       brand_slide_1_img: "https://example.com/brand-slide.jpg",
     };
-
-    mockUseProducts.mockImplementation(
-      (opts?: { badge?: string; homepageSection?: string }) => {
-        if (opts?.badge === "featured") {
-          return { products: featuredProducts, total: 8, totalPages: 1, isLoading: false, error: null };
-        }
-
-        if (opts?.badge === "new") {
-          return { products: newProducts, total: 8, totalPages: 1, isLoading: false, error: null };
-        }
-
-        if (opts?.homepageSection === "male") {
-          return { products: maleProducts, total: 1, totalPages: 1, isLoading: false, error: null };
-        }
-
-        if (opts?.homepageSection === "female") {
-          return { products: femaleProducts, total: 1, totalPages: 1, isLoading: false, error: null };
-        }
-
-        if (opts?.homepageSection === "unisex") {
-          return { products: unisexProducts, total: 1, totalPages: 1, isLoading: false, error: null };
-        }
-
-        return { products: [], total: 0, totalPages: 1, isLoading: false, error: null };
-      },
-    );
 
     mockUseCategories.mockReturnValue({
       categories: [
@@ -115,138 +59,18 @@ describe("Homepage UI", () => {
     });
   });
 
-  it("renders the homepage in the requested order and keeps deal/testimonials removed", () => {
+  it("renders key hero + brand sections and keeps old deal/testimonial blocks removed", () => {
     renderHomepage();
 
     expect(screen.getByTestId("homepage-header")).toBeInTheDocument();
     expect(screen.getByTestId("homepage-footer")).toBeInTheDocument();
 
-    const featuredHeading = screen.getByRole("heading", { name: /sản phẩm nổi bật/i });
-    const brandHeading = screen.getByRole("heading", { name: /thương hiệu nổi bật/i });
-    const newHeading = screen.getByRole("heading", { name: /dòng sản phẩm mới/i });
-    const maleHeading = screen.getByRole("heading", { name: /nước hoa nam/i });
-    const femaleHeading = screen.getByRole("heading", { name: /nước hoa nữ/i });
-    const unisexHeading = screen.getByRole("heading", { name: /unisex/i });
-
-    expectBefore(featuredHeading, brandHeading);
-    expectBefore(brandHeading, newHeading);
-    expectBefore(newHeading, maleHeading);
-    expectBefore(maleHeading, femaleHeading);
-    expectBefore(femaleHeading, unisexHeading);
-
-    expect(screen.getByText("Featured 1")).toBeInTheDocument();
-    expect(screen.getByText("New 1")).toBeInTheDocument();
-    expect(screen.getByText("Mens Pick")).toBeInTheDocument();
-    expect(screen.getByText("Womens Pick")).toBeInTheDocument();
-    expect(screen.getByText("Unisex Pick")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /spring summer 2026 collection/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /thương hiệu nổi bật/i })).toBeInTheDocument();
+    expect(screen.getByText(/ưu đãi đặc biệt/i)).toBeInTheDocument();
 
     expect(screen.queryByRole("heading", { name: /deal hời/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /phản hồi thực tế/i })).not.toBeInTheDocument();
-  });
-
-  it("requests homepage gender sections from the dedicated homepage field", () => {
-    renderHomepage();
-
-    expect(mockUseProducts).toHaveBeenCalledWith({ badge: "featured", limit: 1000 });
-    expect(mockUseProducts).toHaveBeenCalledWith({ badge: "new", limit: 1000 });
-    expect(mockUseProducts).toHaveBeenCalledWith({ homepageSection: "male", limit: 1000 });
-    expect(mockUseProducts).toHaveBeenCalledWith({ homepageSection: "female", limit: 1000 });
-    expect(mockUseProducts).toHaveBeenCalledWith({ homepageSection: "unisex", limit: 1000 });
-
-    expect(screen.queryByLabelText(/slide sau/i)).not.toBeInTheDocument();
-  });
-
-  it("keeps the female section shell but does not render mismatched products", () => {
-    mockUseProducts.mockImplementation(
-      (opts?: { badge?: string; homepageSection?: string }) => {
-        if (opts?.badge === "featured") {
-          return { products: featuredProducts, total: 8, totalPages: 1, isLoading: false, error: null };
-        }
-
-        if (opts?.badge === "new") {
-          return { products: newProducts, total: 8, totalPages: 1, isLoading: false, error: null };
-        }
-
-        if (opts?.homepageSection === "male") {
-          return { products: maleProducts, total: 1, totalPages: 1, isLoading: false, error: null };
-        }
-
-        if (opts?.homepageSection === "female") {
-          return {
-            products: [
-              { id: "bad-1", name: "Wrong Product", slug: "wrong", fragranceGender: "male", homepageSection: "male" },
-            ],
-            total: 1,
-            totalPages: 1,
-            isLoading: false,
-            error: null,
-          };
-        }
-
-        if (opts?.homepageSection === "unisex") {
-          return { products: [], total: 0, totalPages: 1, isLoading: false, error: null };
-        }
-
-        return { products: [], total: 0, totalPages: 1, isLoading: false, error: null };
-      },
-    );
-
-    renderHomepage();
-
-    expect(screen.getByRole("heading", { name: /nước hoa nữ/i })).toBeInTheDocument();
-    expect(screen.queryByText("Wrong Product")).not.toBeInTheDocument();
-  });
-
-  it("falls back to fragrance gender when the backend has not deployed homepage_section yet", () => {
-    mockUseProducts.mockImplementation(
-      (opts?: { badge?: string; homepageSection?: string }) => {
-        if (opts?.badge === "featured") {
-          return { products: featuredProducts, total: 8, totalPages: 1, isLoading: false, error: null };
-        }
-
-        if (opts?.badge === "new") {
-          return { products: newProducts, total: 8, totalPages: 1, isLoading: false, error: null };
-        }
-
-        if (opts?.homepageSection === "male") {
-          return {
-            products: [{ id: "legacy-male", name: "Legacy Mens Pick", slug: "legacy-male", fragranceGender: "male" }],
-            total: 1,
-            totalPages: 1,
-            isLoading: false,
-            error: null,
-          };
-        }
-
-        if (opts?.homepageSection === "female") {
-          return {
-            products: [{ id: "legacy-female", name: "Legacy Womens Pick", slug: "legacy-female", fragranceGender: "female" }],
-            total: 1,
-            totalPages: 1,
-            isLoading: false,
-            error: null,
-          };
-        }
-
-        if (opts?.homepageSection === "unisex") {
-          return {
-            products: [{ id: "legacy-unisex", name: "Legacy Unisex Pick", slug: "legacy-unisex", fragranceGender: "unisex" }],
-            total: 1,
-            totalPages: 1,
-            isLoading: false,
-            error: null,
-          };
-        }
-
-        return { products: [], total: 0, totalPages: 1, isLoading: false, error: null };
-      },
-    );
-
-    renderHomepage();
-
-    expect(screen.getByText("Legacy Mens Pick")).toBeInTheDocument();
-    expect(screen.getByText("Legacy Womens Pick")).toBeInTheDocument();
-    expect(screen.getByText("Legacy Unisex Pick")).toBeInTheDocument();
   });
 
   it("still maps brand cards from categories", () => {

@@ -40,13 +40,14 @@ const Login = () => {
 
     const SCRIPT_ID = "cf-turnstile-script";
     const scriptEl = document.getElementById(SCRIPT_ID);
+    const turnstileEl = turnstileRef.current;
 
     const renderWidget = () => {
-      if (!turnstileRef.current || !window.turnstile) return;
+      if (!turnstileEl || !window.turnstile) return;
       if (widgetIdRef.current) return;
 
-      turnstileRef.current.innerHTML = "";
-      widgetIdRef.current = window.turnstile.render(turnstileRef.current, {
+      turnstileEl.innerHTML = "";
+      widgetIdRef.current = window.turnstile.render(turnstileEl, {
         sitekey: CF_SITE_KEY,
         callback: (token: string) => {
           setCfToken(token);
@@ -85,8 +86,8 @@ const Login = () => {
         scriptEl.removeEventListener("load", renderWidget);
       }
       widgetIdRef.current = null;
-      if (turnstileRef.current) {
-        turnstileRef.current.innerHTML = "";
+      if (turnstileEl) {
+        turnstileEl.innerHTML = "";
       }
     };
   }, [isAuthenticated]);

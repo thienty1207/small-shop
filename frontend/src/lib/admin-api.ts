@@ -232,6 +232,7 @@ export interface AdminBlogPost {
   tags:             BlogTag[];
   primary_tag:      BlogTag | null;
   youtube_urls:     string[];
+  featured_product_slugs: string[];
   external_link_previews: BlogExternalLinkPreview[];
   seo_title:        string | null;
   seo_description:  string | null;
@@ -252,6 +253,7 @@ export interface BlogPostPublic {
   tags:             BlogTag[];
   primary_tag:      BlogTag | null;
   youtube_urls:     string[];
+  featured_product_slugs: string[];
   external_link_previews: BlogExternalLinkPreview[];
   seo_title:        string | null;
   seo_description:  string | null;
@@ -403,7 +405,7 @@ export interface CustomerListItem {
   total_spent:   number;
 }
 
-export interface CustomerDetail extends CustomerListItem {}
+export type CustomerDetail = CustomerListItem;
 
 export interface AdminPermissionItem {
   key: string;

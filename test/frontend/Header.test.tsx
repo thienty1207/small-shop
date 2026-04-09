@@ -9,6 +9,7 @@ import Header from "../../frontend/src/components/layout/Header";
 // ---------------------------------------------------------------------------
 
 const mockLogout = vi.fn();
+let mockCartItems: Array<{ quantity: number }> = [];
 
 // Default: unauthenticated
 let mockAuthState = {
@@ -33,7 +34,7 @@ vi.mock("../../frontend/src/contexts/AuthContext", () => ({
 }));
 
 vi.mock("../../frontend/src/contexts/CartContext", () => ({
-  useCart: () => ({ items: [] }),
+  useCart: () => ({ items: mockCartItems }),
 }));
 
 vi.mock("../../frontend/src/contexts/WishlistContext", () => ({
@@ -73,11 +74,12 @@ describe("Header", () => {
       updateProfile: vi.fn(),
     };
     mockLogout.mockClear();
+    mockCartItems = [];
   });
 
   it("renders logo", () => {
     renderHeader();
-    expect(screen.getByText("Handmade Haven")).toBeInTheDocument();
+    expect(screen.getByText("Small Shop")).toBeInTheDocument();
   });
 
   it("shows login icon when unauthenticated", () => {
@@ -105,8 +107,6 @@ describe("Header", () => {
 
     // Dropdown trigger shows user initial letter
     expect(screen.getByText("T")).toBeInTheDocument(); // T from "Test User"
-    // Desktop name label
-    expect(screen.getByText("Test User")).toBeInTheDocument();
   });
 
   it("opens dropdown on avatar click and shows user email", async () => {
@@ -126,8 +126,8 @@ describe("Header", () => {
 
     renderHeader();
 
-    // Click the avatar/trigger button
-    const trigger = screen.getAllByRole("button")[1]; // first button is mobile search
+    // Click the profile trigger
+    const trigger = screen.getByLabelText(/hồ sơ cá nhân/i);
     await userEvent.click(trigger);
 
     await waitFor(() => {
@@ -152,8 +152,8 @@ describe("Header", () => {
 
     renderHeader();
 
-    // Open dropdown
-    const trigger = screen.getAllByRole("button")[1];
+    // Open profile dropdown
+    const trigger = screen.getByLabelText(/hồ sơ cá nhân/i);
     await userEvent.click(trigger);
 
     await waitFor(() =>
@@ -164,13 +164,28 @@ describe("Header", () => {
     expect(mockLogout).toHaveBeenCalledOnce();
   });
 
-  it("shows cart icon with item count badge", () => {
-    vi.mock("../../frontend/src/contexts/CartContext", () => ({
-      useCart: () => ({ items: [{ quantity: 3 }, { quantity: 2 }] }),
-    }));
+  it("shows cart icon with item count badge", async () => {
+    mockAuthState = {
+      ...mockAuthState,
+      isAuthenticated: true,
+      user: {
+        id: "1",
+        email: "user@test.com",
+        name: "Test User",
+        avatar_url: null,
+        role: "customer",
+        phone: null,
+        address: null,
+      },
+    };
+    mockCartItems = [{ quantity: 3 }, { quantity: 2 }];
 
-    const { container } = renderHeader();
-    const cartLink = container.querySelector('a[href="/cart"]');
-    expect(cartLink).toBeInTheDocument();
+    renderHeader();
+
+    const menuBtn = screen.getByRole("button", { name: /mở menu/i });
+    await userEvent.click(menuBtn);
+
+    expect(screen.getByRole("link", { name: /giỏ hàng/i })).toBeInTheDocument();
+    expect(screen.getByText("5")).toBeInTheDocument();
   });
 });

@@ -77,9 +77,32 @@ interface ApiProductFilterOption {
 }
 
 interface ApiProductFilters {
+  categories?: ApiProductFilterOption[];
   brands: ApiProductFilterOption[];
   volumes: ApiProductFilterOption[];
   genders: ApiProductFilterOption[];
+}
+
+function mergeCaseInsensitiveOptions(options: ProductFilterOption[]): ProductFilterOption[] {
+  const map = new Map<string, ProductFilterOption>();
+
+  options.forEach((option) => {
+    const key = option.value.trim().toLowerCase();
+    if (!key) return;
+
+    const current = map.get(key);
+    if (!current) {
+      map.set(key, { value: option.value.trim(), count: option.count });
+      return;
+    }
+
+    current.count += option.count;
+    if (option.value.length < current.value.length) {
+      current.value = option.value.trim();
+    }
+  });
+
+  return Array.from(map.values());
 }
 
 function sortFilterOptions(options: ProductFilterOption[], mode: "label" | "number" = "label") {
@@ -219,6 +242,7 @@ export interface ProductFilterOption {
 }
 
 export interface ProductFiltersResult {
+  categories: ProductFilterOption[];
   brands: ProductFilterOption[];
   volumes: ProductFilterOption[];
   genders: ProductFilterOption[];
@@ -297,6 +321,7 @@ export function useProducts(opts: UseProductsOpts = {}): UseProductsResult {
 }
 
 export function useProductFilters(opts: Pick<UseProductsOpts, "category" | "search"> = {}): ProductFiltersResult {
+  const [categories, setCategories] = useState<ProductFilterOption[]>([]);
   const [brands, setBrands] = useState<ProductFilterOption[]>([]);
   const [volumes, setVolumes] = useState<ProductFilterOption[]>([]);
   const [genders, setGenders] = useState<ProductFilterOption[]>([]);
@@ -328,7 +353,8 @@ export function useProductFilters(opts: Pick<UseProductsOpts, "category" | "sear
         return buildFilterOptionsFromProducts(productsData.items);
       })
       .then((data) => {
-        setBrands(data.brands);
+        setCategories(data.categories ?? []);
+        setBrands(sortFilterOptions(mergeCaseInsensitiveOptions(data.brands)));
         setVolumes(data.volumes);
         setGenders(data.genders);
         setError(null);
@@ -337,7 +363,7 @@ export function useProductFilters(opts: Pick<UseProductsOpts, "category" | "sear
       .finally(() => setIsLoading(false));
   }, [category, search]);
 
-  return { brands, volumes, genders, isLoading, error };
+  return { categories, brands, volumes, genders, isLoading, error };
 }
 
 interface UseProductResult {

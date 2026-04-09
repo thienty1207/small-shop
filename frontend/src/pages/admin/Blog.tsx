@@ -27,6 +27,7 @@ import { API_BASE_URL } from "@/lib/api-base";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 
 const API_URL = API_BASE_URL;
+const FEATURED_PRODUCT_SLOTS = 5;
 
 const EMPTY_FORM = {
   title: "",
@@ -37,6 +38,7 @@ const EMPTY_FORM = {
   content_delta: "",
   tag_ids: [] as string[],
   primary_tag_id: "",
+  featured_product_slugs: [] as string[],
   seo_title: "",
   seo_description: "",
   status: "draft" as BlogStatus,
@@ -61,6 +63,147 @@ function resolveImageUrl(url: string) {
   return url.startsWith("/") ? `${API_URL}${url}` : url;
 }
 
+function extractProductSlug(input: string): string {
+  const raw = input.trim();
+  if (!raw) return "";
+
+  const lower = raw.toLowerCase();
+  const markers = ["/product/", "/products/", "product/", "products/"];
+
+  for (const marker of markers) {
+    const index = lower.indexOf(marker);
+    if (index >= 0) {
+      const tail = raw.slice(index + marker.length);
+      const slug = tail.split(/[?#/&]/)[0]?.trim().toLowerCase() ?? "";
+      if (slug) return slug;
+    }
+  }
+
+  return (raw.split(/[?#/&]/)[0] ?? "").trim().toLowerCase();
+}
+
+function toFeaturedProductSlots(values: string[]): string[] {
+  const normalized = values.slice(0, FEATURED_PRODUCT_SLOTS);
+  while (normalized.length < FEATURED_PRODUCT_SLOTS) {
+    normalized.push("");
+  }
+  return normalized;
+}
+
+function extractPlainTextFromHtml(html: string): string {
+  if (!html.trim()) return "";
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return (doc.body.textContent ?? "").trim();
+}
+
+function extractContentLinesFromHtml(html: string): string[] {
+  if (!html.trim()) return [];
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const nodes = Array.from(doc.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li"));
+
+  const lines = nodes
+    .map((node) => (node.textContent ?? "").replace(/\s+/g, " ").trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length > 0) {
+    return lines;
+  }
+
+  return (doc.body.textContent ?? "")
+    .split(/\n+/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter((line) => line.length > 0);
+}
+
+function normalizeForSearch(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "d")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const PRODUCT_NAME_STOPWORDS = new Set([
+  "nuoc",
+  "hoa",
+  "chai",
+  "parfum",
+  "perfume",
+  "eau",
+  "de",
+  "edp",
+  "edt",
+  "intense",
+  "for",
+  "men",
+  "women",
+  "nam",
+  "nu",
+]);
+
+function tokenizeProductName(value: string): string[] {
+  return normalizeForSearch(value)
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 4 && !PRODUCT_NAME_STOPWORDS.has(token));
+}
+
+function extractLikelyProductMentions(lines: string[]): string[] {
+  const seen = new Set<string>();
+  const mentions: string[] = [];
+
+  for (const rawLine of lines) {
+    const line = rawLine
+      .replace(/^\s*\d+[.)\-\s]+/, "")
+      .replace(/^\s*[•·]\s+/, "")
+      .trim();
+
+    if (!line) continue;
+
+    const titlePart = line.split(/\s[–-]\s|[–-]/)[0]?.trim() ?? line;
+    if (!titlePart || titlePart.length < 4) continue;
+
+    const key = normalizeForSearch(titlePart);
+    if (!key || seen.has(key)) continue;
+
+    seen.add(key);
+    mentions.push(titlePart);
+  }
+
+  return mentions;
+}
+
+function buildMentionQueryTerms(mentions: string[]): string[] {
+  const seen = new Set<string>();
+  const terms: string[] = [];
+
+  for (const mention of mentions) {
+    const normalized = mention.replace(/\s+/g, " ").trim();
+    if (!normalized) continue;
+
+    const words = normalized.split(" ").filter(Boolean);
+    const candidates = [
+      normalized,
+      words.slice(0, 4).join(" "),
+      words.slice(0, 3).join(" "),
+      words.slice(0, 2).join(" "),
+    ].filter((value) => value.length >= 4);
+
+    for (const candidate of candidates) {
+      const key = normalizeForSearch(candidate);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      terms.push(candidate);
+    }
+  }
+
+  return terms;
+}
+
 export default function AdminBlog() {
   const [data, setData] = useState<PaginatedResponse<AdminBlogPost> | null>(null);
   const [tags, setTags] = useState<AdminBlogTag[]>([]);
@@ -79,6 +222,8 @@ export default function AdminBlog() {
   const [formError, setFormError] = useState<string | null>(null);
   const [coverPreview, setCoverPreview] = useState("");
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [suggestingProducts, setSuggestingProducts] = useState(false);
+  const [autoMatchReasons, setAutoMatchReasons] = useState<Record<string, string>>({});
   const [slugEdited, setSlugEdited] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<AdminBlogPost | null>(null);
@@ -133,6 +278,7 @@ export default function AdminBlog() {
     setSlugEdited(false);
     setCoverPreview("");
     setFormError(null);
+    setAutoMatchReasons({});
     setShowModal(true);
   };
 
@@ -152,6 +298,7 @@ export default function AdminBlog() {
             : "",
       tag_ids: post.tags.map((tag) => tag.id),
       primary_tag_id: post.primary_tag?.id ?? post.tags[0]?.id ?? "",
+      featured_product_slugs: post.featured_product_slugs ?? [],
       seo_title: post.seo_title ?? "",
       seo_description: post.seo_description ?? "",
       status: post.status,
@@ -160,6 +307,7 @@ export default function AdminBlog() {
     setSlugEdited(false);
     setCoverPreview(resolveImageUrl(post.cover_image_url ?? ""));
     setFormError(null);
+    setAutoMatchReasons({});
     setShowModal(true);
   };
 
@@ -256,6 +404,7 @@ export default function AdminBlog() {
         content_delta: form.content_delta || null,
         tag_ids: form.tag_ids,
         primary_tag_id: form.primary_tag_id || null,
+        featured_product_slugs: form.featured_product_slugs,
         youtube_urls: [],
         seo_title: form.seo_title.trim() || null,
         seo_description: form.seo_description.trim() || null,
@@ -291,6 +440,199 @@ export default function AdminBlog() {
       alert((nextError as Error).message);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const updateFeaturedProductSlot = (slotIndex: number, rawValue: string) => {
+    const nextSlug = extractProductSlug(rawValue);
+    setAutoMatchReasons({});
+    setForm((current) => {
+      const slots = toFeaturedProductSlots(current.featured_product_slugs);
+      slots[slotIndex] = nextSlug;
+
+      const seen = new Set<string>();
+      const deduped = slots.filter((value) => {
+        if (!value) return false;
+        if (seen.has(value)) return false;
+        seen.add(value);
+        return true;
+      });
+
+      return {
+        ...current,
+        featured_product_slugs: deduped,
+      };
+    });
+  };
+
+  const handleSuggestFiveProducts = async () => {
+    setSuggestingProducts(true);
+    setFormError(null);
+    try {
+      const articleLines = extractContentLinesFromHtml(form.content_html);
+      const articleText = extractPlainTextFromHtml(form.content_html);
+      const normalizedArticle = normalizeForSearch(articleText);
+      if (!normalizedArticle || articleLines.length === 0) {
+        throw new Error("Bài viết chưa có nội dung để tự động nhận diện sản phẩm.");
+      }
+
+      const mentionPhrases = extractLikelyProductMentions(articleLines).slice(0, 30);
+      if (mentionPhrases.length === 0) {
+        throw new Error("Không nhận diện được tên sản phẩm trong nội dung bài viết.");
+      }
+
+      const queryTerms = buildMentionQueryTerms(mentionPhrases).slice(0, 40);
+
+      type SuggestItem = { slug?: string; name?: string };
+      type SuggestPayload = SuggestItem[];
+
+      const suggestResults = await Promise.all(
+        queryTerms.map(async (phrase) => {
+          const response = await fetch(
+            `${API_URL}/api/products/search/suggest?search=${encodeURIComponent(phrase)}&limit=12`,
+          );
+          if (!response.ok) {
+            return { phrase, items: [] as SuggestItem[] };
+          }
+
+          const items = (await response.json()) as SuggestPayload;
+          return { phrase, items: Array.isArray(items) ? items : [] };
+        }),
+      );
+
+      const matchedBySlug = new Map<
+        string,
+        { slug: string; name: string; score: number; reason: string }
+      >();
+
+      const articleWords = new Set(normalizedArticle.split(" ").filter(Boolean));
+
+      for (const result of suggestResults) {
+        const phraseNormalized = normalizeForSearch(result.phrase);
+        const phraseTokens = tokenizeProductName(result.phrase);
+
+        for (const item of result.items) {
+          const slug = (item.slug ?? "").trim().toLowerCase();
+          const name = (item.name ?? "").trim();
+          if (!slug || !name) continue;
+
+          const normalizedName = normalizeForSearch(name);
+          const nameTokens = tokenizeProductName(name);
+          const overlap = phraseTokens.filter((token) => nameTokens.includes(token)).length;
+
+          const exactNameInArticle =
+            normalizedName.length >= 6 && normalizedArticle.includes(normalizedName);
+          const phraseInName =
+            phraseNormalized.length >= 4 &&
+            (normalizedName.includes(phraseNormalized) || phraseNormalized.includes(normalizedName));
+          const keywordHit = nameTokens.filter((token) => articleWords.has(token)).length;
+
+          const accepted =
+            exactNameInArticle ||
+            phraseInName ||
+            overlap >= 2 ||
+            keywordHit >= 2 ||
+            (overlap >= 1 && keywordHit >= 1);
+          if (!accepted) continue;
+
+          const score =
+            (exactNameInArticle ? 100 : 0) +
+            (phraseInName ? 60 : 0) +
+            overlap * 12 +
+            keywordHit * 8;
+
+          const reason = exactNameInArticle
+            ? `Khớp chính xác tên trong nội dung: ${name}`
+            : phraseInName
+              ? `Khớp theo cụm từ trong bài: "${result.phrase}"`
+              : `Khớp theo từ khóa trong bài: ${name}`;
+
+          const current = matchedBySlug.get(slug);
+          if (!current || score > current.score) {
+            matchedBySlug.set(slug, { slug, name, score, reason });
+          }
+        }
+      }
+
+      if (matchedBySlug.size === 0) {
+        type ProductListPayload = {
+          items?: Array<{ slug?: string; name?: string }>;
+          total_pages?: number;
+        };
+
+        const productPages = await Promise.all(
+          [1, 2, 3].map(async (page) => {
+            const response = await fetch(
+              `${API_URL}/api/products?sort=best_selling&page=${page}&limit=100`,
+            );
+            if (!response.ok) {
+              return { items: [] } as ProductListPayload;
+            }
+            return (await response.json()) as ProductListPayload;
+          }),
+        );
+
+        const catalog = productPages
+          .flatMap((page) => page.items ?? [])
+          .map((item) => ({
+            slug: (item.slug ?? "").trim().toLowerCase(),
+            name: (item.name ?? "").trim(),
+          }))
+          .filter((item) => item.slug && item.name);
+
+        for (const item of catalog) {
+          const normalizedName = normalizeForSearch(item.name);
+          const nameTokens = tokenizeProductName(item.name);
+          const keywordHit = nameTokens.filter((token) => articleWords.has(token)).length;
+          const phraseHit = mentionPhrases.some((phrase) => {
+            const p = normalizeForSearch(phrase);
+            return p && (normalizedName.includes(p) || p.includes(normalizedName));
+          });
+          const exactNameInArticle =
+            normalizedName.length >= 6 && normalizedArticle.includes(normalizedName);
+
+          if (!(exactNameInArticle || phraseHit || keywordHit >= 2)) {
+            continue;
+          }
+
+          const score =
+            (exactNameInArticle ? 120 : 0) +
+            (phraseHit ? 60 : 0) +
+            keywordHit * 10;
+
+          matchedBySlug.set(item.slug, {
+            slug: item.slug,
+            name: item.name,
+            score,
+            reason: exactNameInArticle
+              ? `Khớp chính xác tên trong nội dung: ${item.name}`
+              : phraseHit
+                ? `Khớp theo cụm tên sản phẩm trong bài: ${item.name}`
+                : `Khớp theo từ khóa nội dung: ${item.name}`,
+          });
+        }
+      }
+
+      const matched = Array.from(matchedBySlug.values())
+        .sort((a, b) => b.score - a.score)
+        .slice(0, FEATURED_PRODUCT_SLOTS);
+
+      const slugs = matched.map((item) => item.slug);
+
+      if (slugs.length === 0) {
+        throw new Error("Không tìm thấy sản phẩm nào được nhắc trong nội dung bài viết.");
+      }
+
+      setForm((current) => ({ ...current, featured_product_slugs: slugs }));
+      setAutoMatchReasons(
+        Object.fromEntries(
+          matched.map((item) => [item.slug, item.reason]),
+        ),
+      );
+    } catch (nextError) {
+      setFormError((nextError as Error).message);
+    } finally {
+      setSuggestingProducts(false);
     }
   };
 
@@ -359,6 +701,7 @@ export default function AdminBlog() {
               <tr className="border-b border-gray-800">
                 <th className="w-16 px-4 py-3 text-left font-medium text-gray-400">Ảnh</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-400">Tiêu đề</th>
+                <th className="hidden px-4 py-3 text-left font-medium text-gray-400 lg:table-cell">SP gắn</th>
                 <th className="hidden px-4 py-3 text-left font-medium text-gray-400 lg:table-cell">Tag chính</th>
                 <th className="hidden px-4 py-3 text-left font-medium text-gray-400 lg:table-cell">Trạng thái</th>
                 <th className="hidden px-4 py-3 text-left font-medium text-gray-400 lg:table-cell">Ngày đăng</th>
@@ -368,7 +711,7 @@ export default function AdminBlog() {
             <tbody>
               {!data || data.items.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-16 text-center text-gray-500">
+                  <td colSpan={7} className="py-16 text-center text-gray-500">
                     Chưa có bài viết nào.
                   </td>
                 </tr>
@@ -392,6 +735,12 @@ export default function AdminBlog() {
                     <td className="px-4 py-3">
                       <p className="max-w-[280px] truncate font-medium text-white">{post.title}</p>
                       <p className="mt-1 max-w-[280px] truncate text-xs text-gray-500">/{post.slug}</p>
+                    </td>
+
+                    <td className="hidden px-4 py-3 lg:table-cell">
+                      <span className="rounded-full bg-sky-500/10 px-2 py-1 text-xs text-sky-300">
+                        {post.featured_product_slugs?.length ?? 0} sản phẩm
+                      </span>
                     </td>
 
                     <td className="hidden px-4 py-3 lg:table-cell">
@@ -637,6 +986,41 @@ export default function AdminBlog() {
                     value={form.seo_title}
                     onChange={(event) => setForm((current) => ({ ...current, seo_title: event.target.value }))}
                   />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-gray-400">Sản phẩm nổi bật (dán link)</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {toFeaturedProductSlots(form.featured_product_slugs).map((value, index) => (
+                      <div key={index}>
+                        <input
+                          className="h-9 w-full rounded-lg border border-gray-800 bg-gray-900 px-3 text-sm text-white placeholder:text-gray-600 focus:border-rose-500 focus:outline-none"
+                          placeholder={`Link sản phẩm #${index + 1}`}
+                          value={value}
+                          onChange={(event) => updateFeaturedProductSlot(index, event.target.value)}
+                        />
+                        {value && autoMatchReasons[value] && (
+                          <p className="mt-1 text-[11px] text-emerald-300">{autoMatchReasons[value]}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-8 border-gray-700 bg-gray-900 text-gray-300 hover:bg-gray-800 hover:text-white"
+                      onClick={handleSuggestFiveProducts}
+                      disabled={suggestingProducts}
+                    >
+                      {suggestingProducts
+                        ? "Đang tự động thêm..."
+                        : "Tự động thêm sản phẩm có trong nội dung"}
+                    </Button>
+                  </div>
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    Chỉ tự động thêm sản phẩm có tên xuất hiện trong nội dung. Không bù bằng sản phẩm bán chạy.
+                  </p>
                 </div>
 
                 <div>

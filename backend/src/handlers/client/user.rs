@@ -136,7 +136,7 @@ pub async fn upload_avatar(
     Extension(current_user): Extension<UserPublic>,
     mut multipart: Multipart,
 ) -> Result<Json<UserPublic>, AppError> {
-    while let Some(field) = multipart
+    if let Some(field) = multipart
         .next_field()
         .await
         .map_err(|e| AppError::BadRequest(format!("Multipart error: {e}")))?
@@ -157,7 +157,7 @@ pub async fn upload_avatar(
             &content_type,
         )
         .await?;
-        return Ok(Json(updated.into()));
+        return Ok(Json(updated));
     }
 
     Err(AppError::BadRequest("No image field in request".into()))

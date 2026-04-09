@@ -124,7 +124,7 @@ pub async fn upload_image(
 ) -> Result<Json<serde_json::Value>, AppError> {
     permissions_service::require_permission(&state, &admin, "products.edit").await?;
 
-    while let Some(field) = multipart
+    if let Some(field) = multipart
         .next_field()
         .await
         .map_err(|error| map_multipart_error("Multipart error", error))?
@@ -159,7 +159,7 @@ pub async fn upload_video(
 ) -> Result<Json<serde_json::Value>, AppError> {
     permissions_service::require_permission(&state, &admin, "products.edit").await?;
 
-    while let Some(field) = multipart
+    if let Some(field) = multipart
         .next_field()
         .await
         .map_err(|error| map_multipart_error("Multipart error", error))?

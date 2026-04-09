@@ -356,6 +356,7 @@ pub async fn find_public_page(
             bp.content_delta,
             bp.cover_image_url,
             bp.youtube_urls,
+            bp.featured_product_slugs,
             bp.external_link_previews,
             bp.seo_title,
             bp.seo_description,
@@ -444,6 +445,7 @@ pub async fn find_public_by_slug(
             bp.content_delta,
             bp.cover_image_url,
             bp.youtube_urls,
+            bp.featured_product_slugs,
             bp.external_link_previews,
             bp.seo_title,
             bp.seo_description,
@@ -519,6 +521,7 @@ pub async fn find_admin_page(
             bp.content_delta,
             bp.cover_image_url,
             bp.youtube_urls,
+            bp.featured_product_slugs,
             bp.external_link_previews,
             bp.seo_title,
             bp.seo_description,
@@ -576,6 +579,7 @@ pub async fn find_admin_by_id(pool: &PgPool, id: Uuid) -> Result<Option<BlogPost
             bp.content_delta,
             bp.cover_image_url,
             bp.youtube_urls,
+            bp.featured_product_slugs,
             bp.external_link_previews,
             bp.seo_title,
             bp.seo_description,
@@ -606,6 +610,7 @@ pub async fn create_blog_post(
     tag_ids: &[Uuid],
     primary_tag_id: Option<Uuid>,
     youtube_urls: &[String],
+    featured_product_slugs: &[String],
     external_link_previews: &serde_json::Value,
     seo_title: Option<&str>,
     seo_description: Option<&str>,
@@ -631,6 +636,7 @@ pub async fn create_blog_post(
                 content_delta,
                 cover_image_url,
                 youtube_urls,
+                featured_product_slugs,
                 external_link_previews,
                 seo_title,
                 seo_description,
@@ -638,7 +644,7 @@ pub async fn create_blog_post(
                 primary_tag_id,
                 published_at
             )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING id
         "#,
     )
@@ -649,6 +655,7 @@ pub async fn create_blog_post(
     .bind(content_delta)
     .bind(cover_image_url)
     .bind(youtube_urls.to_vec())
+    .bind(featured_product_slugs.to_vec())
     .bind(external_link_previews)
     .bind(seo_title)
     .bind(seo_description)
@@ -678,6 +685,7 @@ pub async fn update_blog_post(
     tag_ids: &[Uuid],
     primary_tag_id: Option<Uuid>,
     youtube_urls: &[String],
+    featured_product_slugs: &[String],
     external_link_previews: &serde_json::Value,
     seo_title: Option<&str>,
     seo_description: Option<&str>,
@@ -696,12 +704,13 @@ pub async fn update_blog_post(
             content_delta = $6,
             cover_image_url = $7,
             youtube_urls = $8,
-            external_link_previews = $9,
-            seo_title = $10,
-            seo_description = $11,
-            status = $12,
-            primary_tag_id = $13,
-            published_at = $14,
+            featured_product_slugs = $9,
+            external_link_previews = $10,
+            seo_title = $11,
+            seo_description = $12,
+            status = $13,
+            primary_tag_id = $14,
+            published_at = $15,
             updated_at = NOW()
         WHERE id = $1
         "#,
@@ -714,6 +723,7 @@ pub async fn update_blog_post(
     .bind(content_delta)
     .bind(cover_image_url)
     .bind(youtube_urls.to_vec())
+    .bind(featured_product_slugs.to_vec())
     .bind(external_link_previews)
     .bind(seo_title)
     .bind(seo_description)

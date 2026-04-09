@@ -168,7 +168,7 @@ export default function AdminBlogReviews() {
   const [replyTargets, setReplyTargets] = useState<Record<string, { replyId: string; userName: string } | null>>({});
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
 
-  const load = async (nextPage = page) => {
+  const load = async (nextPage: number) => {
     setLoading(true);
     try {
       const response = await adminGet<BlogReviewsResponse>(
@@ -181,7 +181,7 @@ export default function AdminBlogReviews() {
   };
 
   useEffect(() => {
-    void load();
+    void load(page);
   }, [page]);
 
   const loadThread = async (postId: string) => {

@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useShopSettingsCtx } from "@/contexts/ShopSettingsContext";
+import type { CartItem } from "@/contexts/CartContext";
 import { formatPrice } from "@/data/products";
 import { API_BASE_URL } from "@/lib/api-base";
 import { calculateShippingFee } from "@/lib/shipping";
@@ -14,6 +15,8 @@ import { Tag, Check } from "lucide-react";
 const API_URL = API_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const CF_SITE_KEY = "0x4AAAAAACl-DXPV4UZR7cmo";
+const BUY_NOW_CHECKOUT_KEY = "buy_now_checkout_item";
+const REQUIRE_TURNSTILE = import.meta.env.MODE !== "test";
 
 declare global {
   interface Window {
@@ -43,11 +46,51 @@ interface OrderItemInput {
 }
 
 const Checkout = () => {
-  const { items, totalAmount, clearCart } = useCart();
+  const { items, clearCart } = useCart();
   const { user } = useAuth();
   const { settings } = useShopSettingsCtx();
   const navigate = useNavigate();
-  const shippingFee = calculateShippingFee(totalAmount, settings);
+  const location = useLocation();
+
+  const isBuyNowMode = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("mode") === "buy-now";
+  }, [location.search]);
+
+  const buyNowItem = useMemo(() => {
+    if (!isBuyNowMode) return null;
+
+    const raw = sessionStorage.getItem(BUY_NOW_CHECKOUT_KEY);
+    if (!raw) return null;
+
+    try {
+      const parsed = JSON.parse(raw) as CartItem;
+      if (!parsed?.product?.id || !parsed?.quantity) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }, [isBuyNowMode]);
+
+  useEffect(() => {
+    if (!isBuyNowMode) return;
+    if (buyNowItem) return;
+
+    toast.error("Không tìm thấy sản phẩm Mua ngay. Vui lòng chọn lại sản phẩm.");
+    navigate("/products", { replace: true });
+  }, [buyNowItem, isBuyNowMode, navigate]);
+
+  const checkoutItems = useMemo(
+    () => (isBuyNowMode ? (buyNowItem ? [buyNowItem] : []) : items),
+    [isBuyNowMode, buyNowItem, items],
+  );
+
+  const checkoutSubtotal = useMemo(
+    () => checkoutItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
+    [checkoutItems],
+  );
+
+  const shippingFee = calculateShippingFee(checkoutSubtotal, settings);
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cfToken, setCfToken] = useState<string | null>(null);
@@ -61,7 +104,7 @@ const Checkout = () => {
   const [couponError, setCouponError]     = useState<string | null>(null);
 
   const discountAmt = couponApplied?.discount_amt ?? 0;
-  const finalTotal  = totalAmount + shippingFee - discountAmt;
+  const finalTotal  = checkoutSubtotal + shippingFee - discountAmt;
 
   const [form, setForm] = useState({
     customerName: user?.name ?? "",
@@ -118,7 +161,7 @@ const Checkout = () => {
       const res = await fetch(`${API_URL}/api/coupons/validate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: couponCode.trim(), order_total: totalAmount }),
+        body: JSON.stringify({ code: couponCode.trim(), order_total: checkoutSubtotal }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Mã không hợp lệ");
@@ -135,7 +178,7 @@ const Checkout = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!cfToken) {
+    if (REQUIRE_TURNSTILE && !cfToken) {
       toast.error("Vui lòng xác thực Cloudflare trước khi đặt hàng.");
       return;
     }
@@ -148,11 +191,11 @@ const Checkout = () => {
 
     setIsSubmitting(true);
 
-    const orderItems: OrderItemInput[] = items.map((item) => ({
+    const orderItems: OrderItemInput[] = checkoutItems.map((item) => ({
       product_id: item.product.id,
       product_name: item.product.name,
       product_image: item.product.image,
-      variant: item.variant,
+      variant: item.variantLabel ?? item.variant,
       quantity: item.quantity,
       unit_price: item.product.price,
     }));
@@ -187,7 +230,11 @@ const Checkout = () => {
       }
 
       const order = await res.json();
-      clearCart();
+      if (isBuyNowMode) {
+        sessionStorage.removeItem(BUY_NOW_CHECKOUT_KEY);
+      } else {
+        clearCart();
+      }
       setCfToken(null);
       if (widgetIdRef.current && window.turnstile) {
         window.turnstile.reset(widgetIdRef.current);
@@ -282,8 +329,11 @@ const Checkout = () => {
           <div className="bg-card rounded-xl border border-border p-6 h-fit sticky top-24 md:top-28">
             <h3 className="font-display text-base font-bold text-foreground mb-4">Đơn hàng</h3>
             <div className="space-y-3 mb-4">
-              {items.map((item) => (
-                <div key={item.product.id} className="flex items-center gap-3">
+              {checkoutItems.map((item) => (
+                <div
+                  key={`${item.product.id}-${item.variantLabel ?? item.variant ?? "default"}`}
+                  className="flex items-center gap-3"
+                >
                   <img src={item.product.image} alt="" className="w-12 h-12 rounded-lg object-cover" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-foreground truncate">{item.product.name}</p>
@@ -332,7 +382,7 @@ const Checkout = () => {
                 </div>
               )}
 
-              <div className="flex justify-between"><span className="text-muted-foreground">Tạm tính</span><span>{formatPrice(totalAmount)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Tạm tính</span><span>{formatPrice(checkoutSubtotal)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Vận chuyển</span><span>{shippingFee === 0 ? "Miễn phí" : formatPrice(shippingFee)}</span></div>
               {discountAmt > 0 && (
                 <div className="flex justify-between text-emerald-600">
@@ -346,14 +396,14 @@ const Checkout = () => {
             </div>
             <button
               type="submit"
-              disabled={isSubmitting || items.length === 0 || !cfToken}
+              disabled={isSubmitting || checkoutItems.length === 0 || (REQUIRE_TURNSTILE && !cfToken)}
               className="mt-4 w-full py-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? "Đang xử lý..." : "Đặt hàng"}
             </button>
             <div className="mt-3">
               <div ref={turnstileRef} />
-              {!cfToken && (
+              {REQUIRE_TURNSTILE && !cfToken && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   * Vui lòng xác thực Cloudflare trước khi đặt hàng.
                 </p>

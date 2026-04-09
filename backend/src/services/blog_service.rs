@@ -14,12 +14,14 @@ use crate::{
         product::PaginatedResponse,
     },
     repositories::blog_repo,
+    repositories::product_repo,
     services::link_preview_service,
     state::AppState,
 };
 
 const MAX_TAGS_PER_POST: usize = 5;
 const MAX_YOUTUBE_URLS: usize = 3;
+const MAX_FEATURED_PRODUCTS_PER_POST: usize = 5;
 const RELATED_POSTS_LIMIT: i64 = 4;
 
 fn is_valid_youtube_url(url: &str) -> bool {
@@ -58,6 +60,90 @@ fn normalize_youtube_urls(raw: &[String]) -> Result<Vec<String>, AppError> {
     }
 
     Ok(urls)
+}
+
+fn is_valid_product_slug(value: &str) -> bool {
+    !value.is_empty()
+        && value
+            .chars()
+            .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-')
+}
+
+fn extract_product_slug(input: &str) -> String {
+    let raw = input.trim();
+    if raw.is_empty() {
+        return String::new();
+    }
+
+    let candidates = [
+        "/product/",
+        "/products/",
+        "product/",
+        "products/",
+    ];
+
+    for marker in candidates {
+        if let Some(index) = raw.to_lowercase().find(marker) {
+            let start = index + marker.len();
+            let tail = &raw[start..];
+            let slug = tail
+                .split(['?', '#', '/', '&'])
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_lowercase();
+            if !slug.is_empty() {
+                return slug;
+            }
+        }
+    }
+
+    raw.split(['?', '#', '/', '&'])
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_lowercase()
+}
+
+async fn normalize_featured_product_slugs(
+    state: &AppState,
+    raw: &[String],
+) -> Result<Vec<String>, AppError> {
+    let mut seen = HashSet::new();
+    let mut slugs = Vec::new();
+
+    for value in raw {
+        let normalized = extract_product_slug(value);
+        if normalized.is_empty() {
+            continue;
+        }
+
+        if !is_valid_product_slug(&normalized) {
+            return Err(AppError::BadRequest(format!(
+                "Slug sản phẩm không hợp lệ: {normalized}"
+            )));
+        }
+
+        if seen.insert(normalized.clone()) {
+            slugs.push(normalized);
+        }
+    }
+
+    if slugs.len() > MAX_FEATURED_PRODUCTS_PER_POST {
+        return Err(AppError::BadRequest(format!(
+            "Chỉ được gắn tối đa {MAX_FEATURED_PRODUCTS_PER_POST} sản phẩm cho mỗi bài viết."
+        )));
+    }
+
+    for slug in &slugs {
+        if product_repo::find_by_slug(&state.db, slug).await?.is_none() {
+            return Err(AppError::BadRequest(format!(
+                "Sản phẩm với slug '{slug}' không tồn tại."
+            )));
+        }
+    }
+
+    Ok(slugs)
 }
 
 fn normalize_status(status: &str) -> Result<&str, AppError> {
@@ -150,7 +236,7 @@ fn resolve_primary_tag_id(
     if tag_ids.is_empty() {
         if primary_tag_id.is_some() {
             return Err(AppError::BadRequest(
-                "KhÃ´ng thá»ƒ chá»n tag chÃ­nh khi bÃ i viáº¿t chÆ°a cÃ³ tag.".into(),
+                "Khong the chon tag chinh khi bai viet chua co tag.".into(),
             ));
         }
         return Ok(None);
@@ -159,7 +245,7 @@ fn resolve_primary_tag_id(
     match primary_tag_id {
         Some(tag_id) if tag_ids.contains(&tag_id) => Ok(Some(tag_id)),
         Some(_) => Err(AppError::BadRequest(
-            "Tag chÃ­nh pháº£i náº±m trong danh sÃ¡ch tag Ä‘Ã£ chá»n.".into(),
+            "Tag chinh phai nam trong danh sach tag da chon.".into(),
         )),
         None => Ok(tag_ids.first().copied()),
     }
@@ -194,6 +280,7 @@ fn map_admin_post(
         tags,
         primary_tag,
         youtube_urls: post.youtube_urls,
+        featured_product_slugs: post.featured_product_slugs,
         external_link_previews: parse_external_link_previews(&post.external_link_previews)?,
         seo_title: post.seo_title,
         seo_description: post.seo_description,
@@ -221,6 +308,7 @@ fn map_public_post(
         tags,
         primary_tag,
         youtube_urls: post.youtube_urls,
+        featured_product_slugs: post.featured_product_slugs,
         external_link_previews: parse_external_link_previews(&post.external_link_previews)?,
         seo_title: post.seo_title,
         seo_description: post.seo_description,
@@ -234,12 +322,12 @@ fn map_public_post(
 fn map_post_error(error: AppError) -> AppError {
     match error {
         AppError::Database(sqlx::Error::Database(db_error)) if db_error.is_unique_violation() => {
-            AppError::BadRequest("Slug bÃ i viáº¿t Ä‘Ã£ tá»“n táº¡i.".into())
+            AppError::BadRequest("Slug bai viet da ton tai.".into())
         }
         AppError::Database(sqlx::Error::Database(db_error))
             if db_error.is_foreign_key_violation() =>
         {
-            AppError::BadRequest("Tag chÃ­nh khÃ´ng há»£p lá»‡.".into())
+            AppError::BadRequest("Tag chinh khong hop le.".into())
         }
         other => other,
     }
@@ -248,7 +336,7 @@ fn map_post_error(error: AppError) -> AppError {
 fn map_tag_error(error: AppError) -> AppError {
     match error {
         AppError::Database(sqlx::Error::Database(db_error)) if db_error.is_unique_violation() => {
-            AppError::BadRequest("TÃªn tag hoáº·c slug Ä‘Ã£ tá»“n táº¡i.".into())
+            AppError::BadRequest("Ten tag hoac slug da ton tai.".into())
         }
         other => other,
     }
@@ -472,18 +560,18 @@ pub async fn create_post(
     input: &CreateBlogPostInput,
 ) -> Result<serde_json::Value, AppError> {
     if input.title.trim().is_empty() {
-        return Err(AppError::BadRequest("TiÃªu Ä‘á» lÃ  báº¯t buá»™c.".into()));
+        return Err(AppError::BadRequest("Tieu de la bat buoc.".into()));
     }
 
     let status = normalize_status(&input.status)?;
     let tag_ids = resolve_selected_tags(state, &input.tag_ids, input.tags.as_deref()).await?;
     if tag_ids.is_empty() {
-        return Err(AppError::BadRequest(
-            "Pháº£i chá»n Ã­t nháº¥t 1 tag.".into(),
-        ));
+        return Err(AppError::BadRequest("Phai chon it nhat 1 tag.".into()));
     }
     let primary_tag_id = resolve_primary_tag_id(&tag_ids, input.primary_tag_id)?;
     let youtube_urls = normalize_youtube_urls(&input.youtube_urls)?;
+    let featured_product_slugs =
+        normalize_featured_product_slugs(state, &input.featured_product_slugs).await?;
     let external_link_previews = build_external_link_previews(
         state,
         input.content_html.as_deref(),
@@ -509,6 +597,7 @@ pub async fn create_post(
         &tag_ids,
         primary_tag_id,
         &youtube_urls,
+        &featured_product_slugs,
         &external_link_previews_json,
         input.seo_title.as_deref(),
         input.seo_description.as_deref(),
@@ -530,10 +619,10 @@ pub async fn update_post(
     input: &UpdateBlogPostInput,
 ) -> Result<serde_json::Value, AppError> {
     if input.title.trim().is_empty() {
-        return Err(AppError::BadRequest("TiÃªu Ä‘á» lÃ  báº¯t buá»™c.".into()));
+        return Err(AppError::BadRequest("Tieu de la bat buoc.".into()));
     }
     if input.slug.trim().is_empty() {
-        return Err(AppError::BadRequest("Slug lÃ  báº¯t buá»™c.".into()));
+        return Err(AppError::BadRequest("Slug la bat buoc.".into()));
     }
 
     let status = normalize_status(&input.status)?;
@@ -548,18 +637,16 @@ pub async fn update_post(
             .ok_or_else(|| AppError::NotFound(format!("Blog post {id} not found")))?;
         tag_ids = blog_repo::list_post_tag_ids(&state.db, id).await?;
         if tag_ids.is_empty() {
-            return Err(AppError::BadRequest(
-                "Pháº£i chá»n Ã­t nháº¥t 1 tag.".into(),
-            ));
+            return Err(AppError::BadRequest("Phai chon it nhat 1 tag.".into()));
         }
         primary_tag_id = resolve_primary_tag_id(&tag_ids, existing_post.primary_tag_id)?;
     } else if tag_ids.is_empty() {
-        return Err(AppError::BadRequest(
-            "Pháº£i chá»n Ã­t nháº¥t 1 tag.".into(),
-        ));
+        return Err(AppError::BadRequest("Phai chon it nhat 1 tag.".into()));
     }
 
     let youtube_urls = normalize_youtube_urls(&input.youtube_urls)?;
+    let featured_product_slugs =
+        normalize_featured_product_slugs(state, &input.featured_product_slugs).await?;
     let existing_previews = match blog_repo::find_admin_by_id(&state.db, id).await? {
         Some(existing_post) => parse_external_link_previews(&existing_post.external_link_previews)?,
         None => vec![],
@@ -590,6 +677,7 @@ pub async fn update_post(
         &tag_ids,
         primary_tag_id,
         &youtube_urls,
+        &featured_product_slugs,
         &external_link_previews_json,
         input.seo_title.as_deref(),
         input.seo_description.as_deref(),

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft,
@@ -103,7 +103,6 @@ export default function Products() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const selectedCategory = searchParams.get("category") ?? "";
-  const selectedBrands = parseCsvStrings(searchParams.get("brand"));
   const selectedVolumes = parseCsvNumbers(searchParams.get("volume"));
   const selectedGenders = parseCsvStrings(searchParams.get("fragrance_gender")) as FragranceGender[];
   const sort = searchParams.get("sort") ?? "newest";
@@ -112,7 +111,6 @@ export default function Products() {
 
   const { products, totalPages, total, isLoading } = useProducts({
     category: selectedCategory || undefined,
-    brands: selectedBrands,
     volumes: selectedVolumes,
     fragranceGender: selectedGenders,
     search: search || undefined,
@@ -121,11 +119,25 @@ export default function Products() {
     limit: LIMIT,
   });
 
-  const { brands, volumes, genders } = useProductFilters({
+  const { categories: categoryOptions = [], volumes, genders } = useProductFilters({
     category: selectedCategory || undefined,
     search: search || undefined,
   });
   const { categories } = useCategories();
+
+  const categoryCountBySlug = useMemo(
+    () => new Map(categoryOptions.map((option) => [option.value, option.count])),
+    [categoryOptions],
+  );
+
+  const allCategoryOptions = useMemo(
+    () => categories.map((category) => ({
+      value: category.slug,
+      label: category.name,
+      count: categoryCountBySlug.get(category.slug) ?? 0,
+    })),
+    [categories, categoryCountBySlug],
+  );
 
   const updateParams = (mutate: (params: URLSearchParams) => void) => {
     setSearchParams((current) => {
@@ -154,11 +166,13 @@ export default function Products() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const toggleBrand = (value: string) => {
+  const toggleCategory = (value: string) => {
     updateParams((params) => {
-      const nextValues = toggleStringValue(selectedBrands, value);
-      if (nextValues.length === 0) params.delete("brand");
-      else params.set("brand", nextValues.join(","));
+      if (selectedCategory === value) {
+        params.delete("category");
+      } else {
+        params.set("category", value);
+      }
     });
   };
 
@@ -192,13 +206,22 @@ export default function Products() {
 
   const hasActiveFilters =
     Boolean(selectedCategory)
-    || selectedBrands.length > 0
     || selectedVolumes.length > 0
     || selectedGenders.length > 0;
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, []);
+
+  useEffect(() => {
+    if (!searchParams.has("brand")) return;
+
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("brand");
+      return next;
+    });
+  }, [searchParams, setSearchParams]);
 
   const renderFilterSections = (containerClassName = "") => (
     <div className={`space-y-6 ${containerClassName}`.trim()}>
@@ -212,18 +235,18 @@ export default function Products() {
       )}
 
       <FilterSection
-        title="Thương hiệu"
-        emptyLabel="Chưa có thương hiệu để lọc"
-        isEmpty={brands.length === 0}
+        title="Danh mục"
+        emptyLabel="Chưa có danh mục"
+        isEmpty={allCategoryOptions.length === 0}
       >
         <>
-          {brands.map((option) => (
+          {allCategoryOptions.map((option) => (
             <FilterCheckbox
               key={option.value}
-              checked={selectedBrands.includes(option.value)}
-              label={option.value}
+              checked={selectedCategory === option.value}
+              label={option.label}
               count={option.count}
-              onChange={() => toggleBrand(option.value)}
+              onChange={() => toggleCategory(option.value)}
             />
           ))}
         </>

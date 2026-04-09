@@ -125,7 +125,23 @@ pub async fn find_all(
             p.image_url, p.images, p.badge, p.description, p.top_note, p.mid_note, p.base_note, p.care,
             p.rating::float8 AS rating,
             p.review_count, p.in_stock, p.stock,
-            p.brand, p.concentration, p.fragrance_gender, p.homepage_section, p.fragrance_line,
+            NULLIF(
+                TRIM(
+                    REGEXP_REPLACE(
+                        REGEXP_REPLACE(
+                            COALESCE(NULLIF(TRIM(p.brand), ''), NULLIF(TRIM(c.name), ''), INITCAP(REPLACE(c.slug, '-', ' '))),
+                            '^(danh\\s*muc|danhmuc|category)\\s*[:\\-]?\\s*',
+                            '',
+                            'i'
+                        ),
+                        '^(thuong\\s*hieu|thương\\s*hiệu|brand)\\s*[:\\-]?\\s*',
+                        '',
+                        'i'
+                    )
+                ),
+                ''
+            ) AS brand,
+            p.concentration, p.fragrance_gender, p.homepage_section, p.fragrance_line,
             p.created_at
         FROM products p
         JOIN categories c ON c.id = p.category_id
@@ -149,7 +165,30 @@ pub async fn find_all(
             AND ($3::TEXT[] IS NULL OR LOWER(TRIM(COALESCE(p.badge, ''))) = ANY($3::TEXT[]))
             AND ($4::TEXT[] IS NULL OR LOWER(TRIM(p.fragrance_gender)) = ANY($4::TEXT[]))
             AND ($5::TEXT[] IS NULL OR LOWER(TRIM(COALESCE(p.homepage_section, ''))) = ANY($5::TEXT[]))
-            AND ($6::TEXT[] IS NULL OR LOWER(TRIM(COALESCE(p.brand, ''))) = ANY($6::TEXT[]))
+            AND (
+                $6::TEXT[] IS NULL
+                OR LOWER(
+                    COALESCE(
+                        NULLIF(
+                            TRIM(
+                                REGEXP_REPLACE(
+                                    REGEXP_REPLACE(
+                                        COALESCE(NULLIF(TRIM(p.brand), ''), NULLIF(TRIM(c.name), ''), INITCAP(REPLACE(c.slug, '-', ' '))),
+                                        '^(danh\\s*muc|danhmuc|category)\\s*[:\\-]?\\s*',
+                                        '',
+                                        'i'
+                                    ),
+                                    '^(thuong\\s*hieu|thương\\s*hiệu|brand)\\s*[:\\-]?\\s*',
+                                    '',
+                                    'i'
+                                )
+                            ),
+                            ''
+                        ),
+                        ''
+                    )
+                ) = ANY($6::TEXT[])
+            )
             AND (
                 $7::INT[] IS NULL
                 OR EXISTS (
@@ -187,7 +226,30 @@ pub async fn find_all(
             AND ($3::TEXT[] IS NULL OR LOWER(TRIM(COALESCE(p.badge, ''))) = ANY($3::TEXT[]))
             AND ($4::TEXT[] IS NULL OR LOWER(TRIM(p.fragrance_gender)) = ANY($4::TEXT[]))
             AND ($5::TEXT[] IS NULL OR LOWER(TRIM(COALESCE(p.homepage_section, ''))) = ANY($5::TEXT[]))
-            AND ($6::TEXT[] IS NULL OR LOWER(TRIM(COALESCE(p.brand, ''))) = ANY($6::TEXT[]))
+            AND (
+                $6::TEXT[] IS NULL
+                OR LOWER(
+                    COALESCE(
+                        NULLIF(
+                            TRIM(
+                                REGEXP_REPLACE(
+                                    REGEXP_REPLACE(
+                                        COALESCE(NULLIF(TRIM(p.brand), ''), NULLIF(TRIM(c.name), ''), INITCAP(REPLACE(c.slug, '-', ' '))),
+                                        '^(danh\\s*muc|danhmuc|category)\\s*[:\\-]?\\s*',
+                                        '',
+                                        'i'
+                                    ),
+                                    '^(thuong\\s*hieu|thương\\s*hiệu|brand)\\s*[:\\-]?\\s*',
+                                    '',
+                                    'i'
+                                )
+                            ),
+                            ''
+                        ),
+                        ''
+                    )
+                ) = ANY($6::TEXT[])
+            )
             AND (
                 $7::INT[] IS NULL
                 OR EXISTS (
@@ -254,19 +316,55 @@ pub async fn find_filters(
     pool: &PgPool,
     query: &ProductQuery,
 ) -> Result<ProductFiltersResponse, AppError> {
-    let brands = sqlx::query_as::<_, ProductFilterOption>(
+    let categories = sqlx::query_as::<_, ProductFilterOption>(
         r#"
         SELECT
-            TRIM(p.brand) AS value,
+            c.slug AS value,
+            COUNT(p.id)::BIGINT AS count
+        FROM categories c
+        LEFT JOIN products p ON p.category_id = c.id
+            AND ($1::TEXT IS NULL OR p.name ILIKE '%' || $1 || '%')
+        GROUP BY c.name, c.slug
+        ORDER BY c.name ASC
+        "#,
+    )
+    .bind(query.search.as_deref())
+    .fetch_all(pool)
+    .await?;
+
+    let brands = sqlx::query_as::<_, ProductFilterOption>(
+        r#"
+        WITH scoped AS (
+            SELECT
+                NULLIF(
+                    TRIM(
+                        REGEXP_REPLACE(
+                            REGEXP_REPLACE(
+                                COALESCE(NULLIF(TRIM(p.brand), ''), NULLIF(TRIM(c.name), ''), INITCAP(REPLACE(c.slug, '-', ' '))),
+                                '^(danh\\s*muc|danhmuc|category)\\s*[:\\-]?\\s*',
+                                '',
+                                'i'
+                            ),
+                            '^(thuong\\s*hieu|thương\\s*hiệu|brand)\\s*[:\\-]?\\s*',
+                            '',
+                            'i'
+                        )
+                    ),
+                    ''
+                ) AS effective_brand
+            FROM products p
+            JOIN categories c ON c.id = p.category_id
+            WHERE
+                ($1::TEXT IS NULL OR c.slug = $1)
+                AND ($2::TEXT IS NULL OR p.name ILIKE '%' || $2 || '%')
+        )
+        SELECT
+            MIN(effective_brand) AS value,
             COUNT(*)::BIGINT AS count
-        FROM products p
-        JOIN categories c ON c.id = p.category_id
-        WHERE
-            NULLIF(TRIM(COALESCE(p.brand, '')), '') IS NOT NULL
-            AND ($1::TEXT IS NULL OR c.slug = $1)
-            AND ($2::TEXT IS NULL OR p.name ILIKE '%' || $2 || '%')
-        GROUP BY TRIM(p.brand)
-        ORDER BY COUNT(*) DESC, TRIM(p.brand) ASC
+        FROM scoped
+        WHERE effective_brand IS NOT NULL
+        GROUP BY LOWER(effective_brand)
+        ORDER BY COUNT(*) DESC, MIN(effective_brand) ASC
         "#,
     )
     .bind(query.category.as_deref())
@@ -321,6 +419,7 @@ pub async fn find_filters(
     .await?;
 
     Ok(ProductFiltersResponse {
+        categories,
         brands,
         volumes,
         genders,
@@ -346,9 +445,25 @@ pub async fn find_search_suggestions(
             p.slug,
             p.name,
             p.image_url,
-            p.brand,
+            NULLIF(
+                TRIM(
+                    REGEXP_REPLACE(
+                        REGEXP_REPLACE(
+                            COALESCE(NULLIF(TRIM(p.brand), ''), NULLIF(TRIM(c.name), ''), INITCAP(REPLACE(c.slug, '-', ' '))),
+                            '^(danh\\s*muc|danhmuc|category)\\s*[:\\-]?\\s*',
+                            '',
+                            'i'
+                        ),
+                        '^(thuong\\s*hieu|thương\\s*hiệu|brand)\\s*[:\\-]?\\s*',
+                        '',
+                        'i'
+                    )
+                ),
+                ''
+            ) AS brand,
             COALESCE(display_variant.display_price, p.price) AS price
         FROM products p
+        JOIN categories c ON c.id = p.category_id
         LEFT JOIN LATERAL (
             SELECT pv.price AS display_price
             FROM product_variants pv
@@ -364,7 +479,25 @@ pub async fn find_search_suggestions(
         ) AS display_variant ON TRUE
         WHERE
             p.name ILIKE '%' || $1 || '%'
-            OR COALESCE(p.brand, '') ILIKE '%' || $1 || '%'
+            OR COALESCE(
+                NULLIF(
+                    TRIM(
+                        REGEXP_REPLACE(
+                            REGEXP_REPLACE(
+                                COALESCE(NULLIF(TRIM(p.brand), ''), NULLIF(TRIM(c.name), ''), INITCAP(REPLACE(c.slug, '-', ' '))),
+                                '^(danh\\s*muc|danhmuc|category)\\s*[:\\-]?\\s*',
+                                '',
+                                'i'
+                            ),
+                            '^(thuong\\s*hieu|thương\\s*hiệu|brand)\\s*[:\\-]?\\s*',
+                            '',
+                            'i'
+                        )
+                    ),
+                    ''
+                ),
+                ''
+            ) ILIKE '%' || $1 || '%'
         ORDER BY
             CASE
                 WHEN LOWER(TRIM(p.name)) = LOWER(TRIM($1)) THEN 0
@@ -387,14 +520,31 @@ pub async fn find_search_suggestions(
 pub async fn find_by_slug(pool: &PgPool, slug: &str) -> Result<Option<Product>, AppError> {
     let product = sqlx::query_as::<_, Product>(
         r#"
-        SELECT id, category_id, name, slug, price, original_price,
-               image_url, images, badge, description, top_note, mid_note, base_note, care,
-               rating::float8 AS rating,
-               review_count, in_stock, stock,
-               brand, concentration, fragrance_gender, homepage_section, fragrance_line,
-               created_at
-        FROM products
-        WHERE slug = $1
+        SELECT p.id, p.category_id, p.name, p.slug, p.price, p.original_price,
+               p.image_url, p.images, p.badge, p.description, p.top_note, p.mid_note, p.base_note, p.care,
+               p.rating::float8 AS rating,
+               p.review_count, p.in_stock, p.stock,
+               NULLIF(
+                   TRIM(
+                       REGEXP_REPLACE(
+                           REGEXP_REPLACE(
+                               COALESCE(NULLIF(TRIM(p.brand), ''), NULLIF(TRIM(c.name), ''), INITCAP(REPLACE(c.slug, '-', ' '))),
+                               '^(danh\\s*muc|danhmuc|category)\\s*[:\\-]?\\s*',
+                               '',
+                               'i'
+                           ),
+                           '^(thuong\\s*hieu|thương\\s*hiệu|brand)\\s*[:\\-]?\\s*',
+                           '',
+                           'i'
+                       )
+                   ),
+                   ''
+               ) AS brand,
+               p.concentration, p.fragrance_gender, p.homepage_section, p.fragrance_line,
+               p.created_at
+        FROM products p
+        JOIN categories c ON c.id = p.category_id
+        WHERE p.slug = $1
         "#,
     )
     .bind(slug)

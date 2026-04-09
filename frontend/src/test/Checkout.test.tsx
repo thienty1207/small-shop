@@ -30,6 +30,9 @@ vi.stubGlobal("fetch", mockFetch);
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 
+type AuthContextValue = ReturnType<typeof useAuth>;
+type CartContextValue = ReturnType<typeof useCart>;
+
 const mockUser = {
   id: "user-1",
   name: "Nguyen Thi Lan",
@@ -57,22 +60,22 @@ function renderCheckout() {
 
 function setupAuthenticatedUser() {
   vi.mocked(useAuth).mockReturnValue({
-    user: mockUser as any,
+    user: mockUser,
     isAuthenticated: true,
     isLoading: false,
     login: vi.fn(),
     logout: vi.fn(),
     setUser: vi.fn(),
-  } as any);
+  } as AuthContextValue);
 
   vi.mocked(useCart).mockReturnValue({
-    items: [{ product: mockProduct as any, quantity: 1 }],
+    items: [{ product: mockProduct, quantity: 1 }],
     addItem: vi.fn(),
     removeItem: vi.fn(),
     updateQuantity: vi.fn(),
     clearCart: mockClearCart,
     totalAmount: 185000,
-  });
+  } as CartContextValue);
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -192,10 +195,10 @@ describe("Checkout page", () => {
 
   it("disables submit button when cart is empty", () => {
     vi.mocked(useAuth).mockReturnValue({
-      user: mockUser as any,
+      user: mockUser,
       isAuthenticated: true,
       isLoading: false,
-    } as any);
+    } as AuthContextValue);
 
     vi.mocked(useCart).mockReturnValue({
       items: [],
@@ -204,7 +207,7 @@ describe("Checkout page", () => {
       updateQuantity: vi.fn(),
       clearCart: vi.fn(),
       totalAmount: 0,
-    });
+    } as CartContextValue);
 
     renderCheckout();
 

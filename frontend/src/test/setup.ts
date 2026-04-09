@@ -1,5 +1,39 @@
 import "@testing-library/jest-dom";
 
+// Tell React 18 test utils that this is an act-enabled environment.
+Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", {
+  value: true,
+  writable: true,
+});
+
+const originalConsoleWarn = console.warn;
+const originalConsoleError = console.error;
+
+const SILENCED_WARNING_PATTERNS = [
+  "React Router Future Flag Warning",
+  "The current testing environment is not configured to support act",
+  "quill Cannot register",
+  "browsers data (caniuse-lite) is",
+];
+
+function shouldSilenceConsole(args: unknown[]): boolean {
+  const text = args
+    .map((item) => (typeof item === "string" ? item : ""))
+    .join(" ");
+
+  return SILENCED_WARNING_PATTERNS.some((pattern) => text.includes(pattern));
+}
+
+console.warn = (...args: unknown[]) => {
+  if (shouldSilenceConsole(args)) return;
+  originalConsoleWarn(...args);
+};
+
+console.error = (...args: unknown[]) => {
+  if (shouldSilenceConsole(args)) return;
+  originalConsoleError(...args);
+};
+
 Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: (query: string) => ({

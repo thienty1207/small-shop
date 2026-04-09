@@ -148,13 +148,13 @@ export default function AdminDashboard() {
     : [];
 
   // ── Revenue chart bars (normalize to max 144px height) ─────────────────────
-  const monthlyRevenue = data?.monthly_revenue ?? [];
   const availableYears = useMemo(
     () => Array.from({ length: DASHBOARD_END_YEAR - SHOP_OPEN_YEAR + 1 }, (_, i) => SHOP_OPEN_YEAR + i),
     [],
   );
 
   const revenueByYearMonth = useMemo(() => {
+    const monthlyRevenue = data?.monthly_revenue ?? [];
     const map = new Map<string, number | null>();
 
     monthlyRevenue.forEach((item) => {
@@ -173,7 +173,7 @@ export default function AdminDashboard() {
     });
 
     return map;
-  }, [monthlyRevenue, data?.revenue_chart]);
+  }, [data?.monthly_revenue, data?.revenue_chart]);
 
   const selectedYearPoints = useMemo(() => {
     const startMonth = selectedYear === SHOP_OPEN_YEAR ? SHOP_OPEN_MONTH : 1;

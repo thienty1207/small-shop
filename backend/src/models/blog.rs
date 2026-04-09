@@ -22,6 +22,7 @@ pub struct BlogPostRecord {
     pub content_delta: Option<String>,
     pub cover_image_url: Option<String>,
     pub youtube_urls: Vec<String>,
+    pub featured_product_slugs: Vec<String>,
     pub external_link_previews: serde_json::Value,
     pub seo_title: Option<String>,
     pub seo_description: Option<String>,
@@ -98,6 +99,7 @@ pub struct BlogPostPublic {
     pub tags: Vec<BlogTagSummary>,
     pub primary_tag: Option<BlogTagSummary>,
     pub youtube_urls: Vec<String>,
+    pub featured_product_slugs: Vec<String>,
     pub external_link_previews: Vec<ExternalLinkPreview>,
     pub seo_title: Option<String>,
     pub seo_description: Option<String>,
@@ -119,6 +121,7 @@ pub struct AdminBlogPost {
     pub tags: Vec<BlogTagSummary>,
     pub primary_tag: Option<BlogTagSummary>,
     pub youtube_urls: Vec<String>,
+    pub featured_product_slugs: Vec<String>,
     pub external_link_previews: Vec<ExternalLinkPreview>,
     pub seo_title: Option<String>,
     pub seo_description: Option<String>,
@@ -178,6 +181,8 @@ pub struct CreateBlogPostInput {
     pub primary_tag_id: Option<Uuid>,
     #[serde(default)]
     pub youtube_urls: Vec<String>,
+    #[serde(default)]
+    pub featured_product_slugs: Vec<String>,
     pub seo_title: Option<String>,
     pub seo_description: Option<String>,
     pub status: String,
@@ -198,6 +203,8 @@ pub struct UpdateBlogPostInput {
     pub primary_tag_id: Option<Uuid>,
     #[serde(default)]
     pub youtube_urls: Vec<String>,
+    #[serde(default)]
+    pub featured_product_slugs: Vec<String>,
     pub seo_title: Option<String>,
     pub seo_description: Option<String>,
     pub status: String,

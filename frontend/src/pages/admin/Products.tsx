@@ -422,6 +422,9 @@ export default function AdminProducts() {
           is_default:     i === 0,
         }));
 
+      const selectedCategory = categories.find((cat) => cat.id === form.category_id);
+      const resolvedBrand = form.brand.trim() || selectedCategory?.name?.trim() || null;
+
       const body = {
         category_id:    form.category_id,
         name:           form.name,
@@ -439,7 +442,7 @@ export default function AdminProducts() {
         care:           form.care || null,
         in_stock:       parsedVariants.length ? parsedVariants.some((v) => v.stock > 0) : form.in_stock,
         stock:          parsedVariants.length ? parsedVariants.reduce((s, v) => s + v.stock, 0) : Number(form.stock),
-        brand:          form.brand || null,
+        brand:          resolvedBrand,
         concentration:  form.concentration || null,
         fragrance_gender: form.fragrance_gender,
         fragrance_line: form.fragrance_line,
@@ -726,7 +729,15 @@ export default function AdminProducts() {
                   <select
                     className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500"
                     value={form.category_id}
-                    onChange={(e) => setForm((f) => ({ ...f, category_id: e.target.value }))}
+                    onChange={(e) => {
+                      const categoryId = e.target.value;
+                      const categoryName = categories.find((cat) => cat.id === categoryId)?.name ?? "";
+                      setForm((f) => ({
+                        ...f,
+                        category_id: categoryId,
+                        brand: f.brand.trim() ? f.brand : categoryName,
+                      }));
+                    }}
                   >
                     <option value="">-- Chọn danh mục --</option>
                     {categories.map((c) => (
@@ -979,6 +990,9 @@ export default function AdminProducts() {
                     onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))}
                     placeholder="VD: Jean Paul Gaultier"
                   />
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    Nếu để trống, hệ thống sẽ tự điền theo tên danh mục khi lưu.
+                  </p>
                 </div>
                 <div>
                   <label className="text-xs text-gray-400 block mb-1.5">Đối tượng hương *</label>

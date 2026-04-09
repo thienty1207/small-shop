@@ -118,6 +118,15 @@ interface BlogHeartsResponse {
   total_pages: number;
 }
 
+interface FeaturedProductCard {
+  id: string;
+  slug: string;
+  name: string;
+  image_url: string;
+  price: number;
+  original_price: number | null;
+}
+
 function mapReviewCommentsToCommentRows(reviews: BlogReviewPublic[]): BlogCommentPublic[] {
   return reviews
     .filter((item) => Boolean(item.comment && item.comment.trim()))
@@ -239,6 +248,13 @@ export default function BlogDetail() {
   const [loadingReplyIds, setLoadingReplyIds] = useState<string[]>([]);
   const [submittingReplyIds, setSubmittingReplyIds] = useState<string[]>([]);
   const [likingCommentIds, setLikingCommentIds] = useState<string[]>([]);
+  const [featuredProducts, setFeaturedProducts] = useState<FeaturedProductCard[]>([]);
+  const [loadingFeaturedProducts, setLoadingFeaturedProducts] = useState(false);
+  const postId = post?.id;
+  const featuredProductSlugs = useMemo(
+    () => post?.featured_product_slugs ?? [],
+    [post?.featured_product_slugs],
+  );
 
   const loadComments = async (postId: string) => {
     const response = await fetch(`${API_URL}/api/blog/${postId}/comments?limit=50&page=1`);
@@ -287,12 +303,12 @@ export default function BlogDetail() {
   }, [slug]);
 
   useEffect(() => {
-    if (!post) return;
+    if (!postId) return;
 
     const controller = new AbortController();
     setReviewsLoading(true);
 
-    fetch(`${API_URL}/api/blog/${post.id}/reviews?limit=20`, { signal: controller.signal })
+    fetch(`${API_URL}/api/blog/${postId}/reviews?limit=20`, { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) {
           throw new Error("Không thể tải tương tác bài viết");
@@ -307,7 +323,7 @@ export default function BlogDetail() {
         const fallbackComments = mapReviewCommentsToCommentRows(payload.items ?? []);
 
         try {
-          await loadComments(post.id);
+          await loadComments(postId);
         } catch {
           // Backward compatibility: if /comments endpoint is not available yet,
           // still render comments from the classic /reviews payload.
@@ -339,10 +355,10 @@ export default function BlogDetail() {
       });
 
     return () => controller.abort();
-  }, [post?.id]);
+  }, [postId]);
 
   useEffect(() => {
-    if (!post || !isAuthenticated) {
+    if (!postId || !isAuthenticated) {
       setMyHearted(false);
       return;
     }
@@ -351,7 +367,7 @@ export default function BlogDetail() {
     const token = localStorage.getItem("auth_token");
     if (!token) return;
 
-    fetch(`${API_URL}/api/blog/${post.id}/reviews/me`, {
+    fetch(`${API_URL}/api/blog/${postId}/reviews/me`, {
       signal: controller.signal,
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -369,10 +385,10 @@ export default function BlogDetail() {
       });
 
     return () => controller.abort();
-  }, [post?.id, isAuthenticated]);
+  }, [postId, isAuthenticated]);
 
   useEffect(() => {
-    if (!post || !isAuthenticated) {
+    if (!postId || !isAuthenticated) {
       setLikedCommentIds([]);
       return;
     }
@@ -381,7 +397,7 @@ export default function BlogDetail() {
     const token = localStorage.getItem("auth_token");
     if (!token) return;
 
-    fetch(`${API_URL}/api/blog/${post.id}/comments/likes/me`, {
+    fetch(`${API_URL}/api/blog/${postId}/comments/likes/me`, {
       signal: controller.signal,
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -390,7 +406,52 @@ export default function BlogDetail() {
       .catch(() => setLikedCommentIds([]));
 
     return () => controller.abort();
-  }, [post?.id, isAuthenticated]);
+  }, [postId, isAuthenticated]);
+
+  useEffect(() => {
+    if (!postId) {
+      setFeaturedProducts([]);
+      return;
+    }
+
+    const slugs = featuredProductSlugs.slice(0, 5);
+    if (slugs.length === 0) {
+      setFeaturedProducts([]);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingFeaturedProducts(true);
+
+    Promise.all(
+      slugs.map(async (slug) => {
+        const response = await fetch(`${API_URL}/api/products/${slug}`);
+        if (!response.ok) {
+          return null;
+        }
+        const payload = (await response.json()) as FeaturedProductCard;
+        return payload;
+      }),
+    )
+      .then((items) => {
+        if (cancelled) return;
+        setFeaturedProducts(
+          items.filter((item): item is FeaturedProductCard => Boolean(item)),
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setFeaturedProducts([]);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoadingFeaturedProducts(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [postId, featuredProductSlugs]);
 
   const upsertMyReview = async (nextHearted: boolean, nextComment: string) => {
     if (!post) return;
@@ -843,11 +904,11 @@ export default function BlogDetail() {
                           onClick={() => handleToggleReplies(comment.id)}
                           className="text-muted-foreground underline underline-offset-4 hover:text-foreground"
                         >
-                          {Boolean(showReplies[comment.id]) ? "Ẩn phản hồi" : `Phản hồi (${comment.replies_count})`}
+                          {showReplies[comment.id] ? "Ẩn phản hồi" : `Phản hồi (${comment.replies_count})`}
                         </button>
                       </div>
 
-                      {Boolean(showReplies[comment.id]) && (
+                      {showReplies[comment.id] && (
                         <div className="mt-3 space-y-3 rounded-lg border border-border/60 bg-foreground/[0.02] p-3">
                           {loadingReplyIds.includes(comment.id) ? (
                             <p className="text-xs text-muted-foreground">Đang tải phản hồi...</p>
@@ -1056,6 +1117,56 @@ export default function BlogDetail() {
               </div>
             </div>
           )}
+
+          <div className="mt-12 border-t border-border pt-8">
+            <div className="mb-5">
+              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Gợi ý mua sắm</p>
+              <h2 className="text-2xl font-semibold text-foreground">Sản phẩm trong bài viết</h2>
+            </div>
+
+            {loadingFeaturedProducts ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="h-56 animate-pulse rounded-2xl border border-border bg-foreground/[0.04]" />
+                ))}
+              </div>
+            ) : featuredProducts.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {featuredProducts.map((product) => (
+                  <Link
+                    key={product.id}
+                    to={`/product/${product.slug}`}
+                    className="group overflow-hidden rounded-2xl border border-border bg-white transition-shadow hover:shadow-md"
+                  >
+                    <div className="h-56 bg-gray-100">
+                      <img
+                        src={resolveImageUrl(product.image_url)}
+                        alt={product.name}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                      />
+                    </div>
+                    <div className="space-y-3 p-5">
+                      <h3 className="line-clamp-3 text-base font-semibold text-foreground">{product.name}</h3>
+                      <div className="flex items-end gap-2">
+                        <span className="text-sm font-semibold text-rose-600">
+                          {product.price.toLocaleString("vi-VN")}đ
+                        </span>
+                        {product.original_price && product.original_price > product.price && (
+                          <span className="text-xs text-muted-foreground line-through">
+                            {product.original_price.toLocaleString("vi-VN")}đ
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border bg-foreground/[0.02] p-4 text-sm text-muted-foreground">
+                Bài viết này chưa gắn sản phẩm nổi bật.
+              </div>
+            )}
+          </div>
 
           {post.recommended_posts.length > 0 && (
             <div className="mt-14 border-t border-border pt-8">
