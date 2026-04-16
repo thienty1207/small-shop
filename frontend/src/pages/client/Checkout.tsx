@@ -250,7 +250,7 @@ const Checkout = () => {
   return (
     <div className="min-h-screen bg-surface-pink flex flex-col">
       <Header />
-      <div className="flex-1 container mx-auto px-4 md:px-8 pt-24 md:pt-28 pb-8">
+      <div className="flex-1 container mx-auto px-4 md:px-8 pt-36 md:pt-40 pb-8">
         <h1 className="font-display text-2xl font-bold text-foreground mb-6">Thanh Toán</h1>
         <form onSubmit={handleSubmit} className="grid md:grid-cols-3 gap-8">
           <div className="md:col-span-2 space-y-6">
@@ -326,7 +326,7 @@ const Checkout = () => {
           </div>
 
           {/* Summary */}
-          <div className="bg-card rounded-xl border border-border p-6 h-fit sticky top-24 md:top-28">
+          <div className="bg-card rounded-xl border border-border p-6 h-fit sticky top-36 md:top-40">
             <h3 className="font-display text-base font-bold text-foreground mb-4">Đơn hàng</h3>
             <div className="space-y-3 mb-4">
               {checkoutItems.map((item) => (

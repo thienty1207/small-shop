@@ -364,8 +364,13 @@ const Header = ({ transparent = false, darkOnSolid = true }: HeaderProps) => {
     return url.startsWith("/") ? `${API_URL}${url}` : url;
   };
 
-  const isSolid = !transparent || scrolled || mobileMenuOpen || searchOpen;
-  const solidDark = isSolid && darkOnSolid;
+  const isHomepage = location.pathname === "/";
+  // Only homepage with explicit transparent mode can use the transparent behavior.
+  const allowHomepageTransparentMode = isHomepage && transparent;
+  const forceBlackNavbar = !allowHomepageTransparentMode;
+
+  const isSolid = forceBlackNavbar || scrolled || mobileMenuOpen || searchOpen;
+  const solidDark = forceBlackNavbar || (isSolid && darkOnSolid);
 
   const hasSuggestionKeyword = searchTerm.trim().length >= 2;
   const showNoSuggestion = hasSuggestionKeyword && !searchLoading && searchSuggestions.length === 0;
@@ -391,17 +396,19 @@ const Header = ({ transparent = false, darkOnSolid = true }: HeaderProps) => {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isSolid
+      className={`fixed top-0 left-0 right-0 z-50 pb-2 md:pb-3 transition-all duration-300 ${
+        forceBlackNavbar
+          ? "!bg-black backdrop-blur-md border-b border-white/10 shadow-[0_14px_36px_rgba(0,0,0,0.7)]"
+          : isSolid
           ? solidDark
-            ? "bg-black/90 backdrop-blur-md"
-            : "bg-background/92 backdrop-blur-md"
-          : "bg-transparent border-b-0 shadow-none"
+            ? "bg-black/95 backdrop-blur-md border-b border-white/10 shadow-[0_14px_36px_rgba(0,0,0,0.7)]"
+            : "bg-background/96 backdrop-blur-md border-b border-black/10 shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
+          : "bg-black/90 backdrop-blur-md border-b border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.55)]"
       }`}
     >
-      <div className="container mx-auto px-4 md:px-8 flex items-center justify-between h-20 md:h-24 gap-3 md:gap-4 md:grid md:grid-cols-[1fr_auto_1fr]">
+      <div className="container relative mx-auto px-4 md:px-8 flex items-center justify-between h-24 md:h-28 gap-3 md:gap-4 md:grid md:grid-cols-[1fr_auto_1fr]">
         {/* Left user (desktop) */}
-        <div className="hidden md:flex items-center justify-start">
+        <div className="hidden md:flex md:col-start-1 items-center justify-start">
           {isAuthenticated && user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -477,7 +484,7 @@ const Header = ({ transparent = false, darkOnSolid = true }: HeaderProps) => {
         {/* Brand name */}
         <Link
           to="/"
-          className={`shrink-0 h-16 md:h-24 flex items-center md:justify-self-center font-display font-bold tracking-wide whitespace-nowrap ${
+          className={`shrink-0 h-full flex items-center justify-center px-2 md:col-start-2 md:justify-self-center font-display font-bold tracking-wide whitespace-nowrap ${
             solidDark ? "text-white" : isSolid ? "text-foreground" : "text-white"
           }`}
           aria-label="Tên cửa hàng"
@@ -486,7 +493,7 @@ const Header = ({ transparent = false, darkOnSolid = true }: HeaderProps) => {
             <img
               src={storeLogoUrl}
               alt={storeName}
-              className="mt-4 h-16 w-auto scale-[1.75] object-contain md:mt-5 md:h-20 md:scale-[2.0]"
+              className="h-14 w-auto max-w-[220px] object-contain md:h-20 md:max-w-[320px]"
               loading="eager"
               decoding="async"
               onError={() => setLogoFailed(true)}
@@ -498,7 +505,7 @@ const Header = ({ transparent = false, darkOnSolid = true }: HeaderProps) => {
         </Link>
 
         {/* Right icons */}
-        <div className="flex items-center justify-end gap-1 shrink-0 md:justify-self-end">
+        <div className="flex items-center justify-end gap-1 shrink-0 md:col-start-3 md:justify-self-end">
           {/* Search */}
           <button
             onClick={handleSearchClick}

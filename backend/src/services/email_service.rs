@@ -802,7 +802,7 @@ fn auto_reply_html(name: &str) -> String {
               </p>
               <p style="margin:0 0 28px;font-size:15px;line-height:1.7;color:#555;">
                 In the meantime, feel free to browse our handcrafted collection at
-                <a href="http://localhost:8081" style="color:#e8688a;text-decoration:none;">Handmade Haven</a>.
+                <a href="http://localhost:8080" style="color:#e8688a;text-decoration:none;">Handmade Haven</a>.
               </p>
               <!-- Confirmation box -->
               <table width="100%" cellpadding="0" cellspacing="0">

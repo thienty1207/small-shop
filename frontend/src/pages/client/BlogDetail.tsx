@@ -723,7 +723,7 @@ export default function BlogDetail() {
     return (
       <div className="flex min-h-screen flex-col bg-white">
         <Header />
-        <div className="container mx-auto flex-1 px-4 py-20 pt-24 text-center text-muted-foreground">
+        <div className="container mx-auto flex-1 px-4 py-20 pt-36 md:pt-40 text-center text-muted-foreground">
           Đang tải bài viết...
         </div>
         <Footer />
@@ -735,7 +735,7 @@ export default function BlogDetail() {
     return (
       <div className="flex min-h-screen flex-col bg-white">
         <Header />
-        <div className="container mx-auto flex-1 px-4 py-20 pt-24 text-center">
+        <div className="container mx-auto flex-1 px-4 py-20 pt-36 md:pt-40 text-center">
           <p className="text-muted-foreground">Không tìm thấy bài viết.</p>
           <Link to="/blog" className="mt-4 inline-flex items-center gap-2 text-sm underline">
             <ChevronLeft className="h-4 w-4" />
@@ -751,7 +751,7 @@ export default function BlogDetail() {
     <div className="flex min-h-screen flex-col bg-white">
       <Header />
 
-      <main className="flex-1 pb-16 pt-24">
+      <main className="flex-1 pb-16 pt-36 md:pt-40">
         <section className="container mx-auto max-w-4xl px-4">
           <Link
             to="/blog"

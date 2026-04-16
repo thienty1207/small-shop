@@ -196,7 +196,7 @@ const ProductDetail = () => {
     return (
       <div className="min-h-screen bg-white flex flex-col">
         <Header />
-        <div className="flex-1 container mx-auto px-4 py-20 flex items-center justify-center pt-24">
+        <div className="flex-1 container mx-auto px-4 py-20 flex items-center justify-center pt-36 md:pt-40">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
             <p className="text-sm text-muted-foreground">Đang tải sản phẩm...</p>
@@ -211,7 +211,7 @@ const ProductDetail = () => {
     return (
       <div className="min-h-screen bg-white flex flex-col">
         <Header />
-        <div className="flex-1 container mx-auto px-4 py-20 text-center pt-24">
+        <div className="flex-1 container mx-auto px-4 py-20 text-center pt-36 md:pt-40">
           <p className="text-muted-foreground">Không tìm thấy sản phẩm.</p>
           <Link to="/products" className="mt-4 inline-block text-sm underline">Xem tất cả sản phẩm</Link>
         </div>
@@ -342,7 +342,7 @@ const ProductDetail = () => {
       <Header />
 
       {/* Breadcrumb */}
-      <div className="container mx-auto px-4 md:px-8 pt-24 md:pt-28 pb-2">
+      <div className="container mx-auto px-4 md:px-8 pt-36 md:pt-40 pb-2">
         <nav className="flex items-center gap-2 text-xs text-muted-foreground">
           <Link to="/" className="hover:text-foreground transition-colors">Trang chủ</Link>
           <ChevronRight size={12} />

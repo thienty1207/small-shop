@@ -28,7 +28,7 @@ export default function WishlistPage() {
     <div className="min-h-screen bg-surface-pink flex flex-col">
       <Header />
 
-      <div className="container mx-auto px-4 md:px-8 pt-24 md:pt-28 pb-4">
+      <div className="container mx-auto px-4 md:px-8 pt-36 md:pt-40 pb-4">
         <nav className="flex items-center gap-2 text-sm text-muted-foreground">
           <Link to="/" className="hover:text-foreground transition-colors">Trang chủ</Link>
           <ChevronRight size={14} />

@@ -121,7 +121,7 @@ export default function BlogList() {
     <div className="flex min-h-screen flex-col bg-white">
       <Header />
 
-      <main className="flex-1 pb-16 pt-24">
+      <main className="flex-1 pb-16 pt-36 md:pt-40">
         <section className="container mx-auto px-4">
           <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
             <div>

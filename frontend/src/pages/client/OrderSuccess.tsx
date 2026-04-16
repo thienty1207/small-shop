@@ -18,7 +18,7 @@ const OrderSuccess = () => {
   return (
     <div className="min-h-screen bg-surface-pink flex flex-col">
       <Header />
-      <div className="flex-1 container mx-auto px-4 md:px-8 pt-24 md:pt-28 pb-10">
+      <div className="flex-1 container mx-auto px-4 md:px-8 pt-36 md:pt-40 pb-10">
         <div
           className={`max-w-md mx-auto text-center transition-all duration-700 ${
             show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
